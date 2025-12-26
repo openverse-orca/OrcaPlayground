@@ -18,11 +18,21 @@ def create_scene() -> OrcaGymScene:
     Run the Replicator scene.
     """
     grpc_addr = "localhost:50051"
+    
+    # 先清空场景，避免 actor 名称冲突
+    _logger.info("清空现有场景...")
+    temp_scene = OrcaGymScene(grpc_addr)
+    temp_scene.publish_scene()  # 发布空场景以清空现有内容
+    time.sleep(1)
+    temp_scene.close()
+    time.sleep(1)
+    _logger.info("场景已清空")
+    
     scene = OrcaGymScene(grpc_addr)
 
     actor = Actor(
         name=f"original_red_cup",
-        asset_path="assets/prefabs/cup_of_coffee_usda",
+        asset_path="assets/816f95ce16021282/default_project/v20251201/prefabs/cup_of_coffee_usda",
         position=np.array([np.random.uniform(0.0, 0.5), 
                            np.random.uniform(0.0, 0.5), 
                            np.random.uniform(1.0, 2.0)]),
@@ -36,7 +46,7 @@ def create_scene() -> OrcaGymScene:
     for i in range(10):
         actor = Actor(
             name=f"cup_with_random_color_and_scale_{i}",
-            asset_path="assets/prefabs/cup_of_coffee_usda",
+            asset_path="assets/816f95ce16021282/default_project/v20251201/prefabs/cup_of_coffee_usda",
             position=np.array([np.random.uniform(-1.2, 1.2), 
                             np.random.uniform(-1.2, 1.2), 
                             np.random.uniform(1.0, 2.0)]),
@@ -50,7 +60,7 @@ def create_scene() -> OrcaGymScene:
 
     actor = Actor(
         name="cart_basket",
-        asset_path="assets/prefabs/cart_basket_usda",
+        asset_path="assets/816f95ce16021282/default_project/v20251201/prefabs/cart_basket_usda",
         position=np.array([0, 0, 0.0]),
         rotation=rotations.euler2quat(np.array([0.0, 0.0, 0.0])),
         scale=1.0,
@@ -59,21 +69,14 @@ def create_scene() -> OrcaGymScene:
 
     actor = Actor(
         name="office_desk",
-        asset_path="assets/prefabs/office_desk_7_mb_usda",
+        asset_path="assets/816f95ce16021282/default_project/v20251201/prefabs/office_desk_7_mb_usda",
         position=np.array([0, 0, 0.0]),
         rotation=rotations.euler2quat(np.array([0.0, 0.0, 0])),
         scale=1.0,
     )
     scene.add_actor(actor)
 
-    actor = Actor(
-        name="default_camera",
-        asset_path="assets/prefabs/cameraviewport",
-        position=np.array([-1, -1, 1.2]),
-        rotation=rotations.euler2quat(np.array([0, 0, -np.pi / 4])),
-        scale=1.0,
-    )
-    scene.add_actor(actor)
+
 
     scene.publish_scene()
 

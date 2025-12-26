@@ -12,6 +12,7 @@ import torch
 import torch.nn as nn
 import csv
 import yaml
+import json
 from examples.legged_gym.scripts.scene_util import clear_scene, publish_terrain, generate_height_map_file, publish_scene
 from orca_gym.devices.keyboard import KeyboardInput, KeyboardInputSourceType
 from envs.legged_gym.legged_sim_env import LeggedSimEnv
@@ -48,7 +49,9 @@ MAX_EPISODE_STEPS = int(EPISODE_TIME_SHORT / REALTIME_STEP)  # 10 seconds
 
 class KeyboardControl:
     def __init__(self, orcagym_addr: str, env: LeggedSimEnv, command_model: dict, model_type: str):
-        self.keyboard_controller = KeyboardInput(KeyboardInputSourceType.ORCASTUDIO, orcagym_addr)
+        # 参考 Character 类的实现，不传递 orcagym_addr 参数
+        # KeyboardInput 会使用默认的 localhost:50051
+        self.keyboard_controller = KeyboardInput(KeyboardInputSourceType.ORCASTUDIO)
         self._last_key_status = {"W": 0, "A": 0, "S": 0, "D": 0, "Space": 0, "Up": 0, "Down": 0, "LShift": 0, "RShift": 0, "R": 0, "F": 0, "M": 0}   
         self.env = env
         self.player_agent_lin_vel_x = {terrain_type: np.array(command_model[terrain_type]["forward_speed"]) for terrain_type in command_model.keys()}
@@ -61,6 +64,16 @@ class KeyboardControl:
     def update(self):
         self.keyboard_controller.update()
         key_status = self.keyboard_controller.get_state()
+        
+        # 调试：打印按下的键（仅在状态变化时打印）
+        pressed_keys = [k for k, v in key_status.items() if v == 1]
+        last_pressed_keys = [k for k, v in self._last_key_status.items() if v == 1]
+        if pressed_keys != last_pressed_keys:
+            if pressed_keys:
+                _logger.info(f"Keys pressed: {pressed_keys}")
+            elif last_pressed_keys:
+                _logger.info(f"Keys released: {last_pressed_keys}")
+        
         lin_vel = np.zeros(3)
         ang_vel = 0.0
         reborn = False
@@ -88,12 +101,30 @@ class KeyboardControl:
         if key_status["LShift"] == 1:
             lin_vel[:2] *= self.player_agent_turbo_scale[self.terrain_type]
         if key_status["Space"] == 0 and self._last_key_status["Space"] == 1:
-            if self.terrain_type == "flat_terrain":
-                self.terrain_type = "rough_terrain"
-                _logger.info("Switch to rough terrain")
+            # 检查可用的地形类型
+            available_terrain_types = list(self.player_agent_lin_vel_x.keys())
+            if len(available_terrain_types) > 1:
+                # 如果有多种地形类型，切换
+                if self.terrain_type == "flat_terrain":
+                    if "rough_terrain" in available_terrain_types:
+                        self.terrain_type = "rough_terrain"
+                        _logger.info("Switch to rough terrain")
+                    else:
+                        # 如果没有 rough_terrain，切换到下一个可用的地形类型
+                        next_index = (available_terrain_types.index(self.terrain_type) + 1) % len(available_terrain_types)
+                        self.terrain_type = available_terrain_types[next_index]
+                        _logger.info(f"Switch to {self.terrain_type}")
+                else:
+                    # 切换到 flat_terrain（如果存在），否则切换到第一个
+                    if "flat_terrain" in available_terrain_types:
+                        self.terrain_type = "flat_terrain"
+                        _logger.info("Switch to flat terrain")
+                    else:
+                        self.terrain_type = available_terrain_types[0]
+                        _logger.info(f"Switch to {self.terrain_type}")
             else:
-                self.terrain_type = "flat_terrain"
-                _logger.info("Switch to flat terrain")
+                # 只有一种地形类型，不切换
+                _logger.info(f"Only one terrain type available ({available_terrain_types[0]}), cannot switch")
         if key_status["M"] == 0 and self._last_key_status["M"] == 1:
             supported_model_types = ["sb3", "onnx", "grpc", "rllib"]
             if self.model_type in supported_model_types:
@@ -151,8 +182,12 @@ def register_env(orcagym_addr : str,
 def load_sb3_model(model_file: dict):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     models = {}
-    for key, value in model_file.items(): 
+    for key, value in model_file.items():
+        if not os.path.exists(value):
+            raise FileNotFoundError(f"SB3 model file not found: {value}\n"
+                                   f"Please check the path in your config file.")
         models[key] = PPO.load(value, device=device)
+        _logger.info(f"Loaded SB3 model for {key}: {value}")
     return models
 
 def load_onnx_model(model_file: dict):
@@ -224,7 +259,12 @@ def load_rllib_model(model_file: dict):
 def main(
     config: dict,
     remote: str,
+    config_path: str = None,
     ):
+    env = None
+    model_type = None
+    models = {}
+    
     try:
         if remote is not None:
             orcagym_addresses = [remote]
@@ -232,26 +272,127 @@ def main(
             orcagym_addresses = config['orcagym_addresses']
 
         agent_name = config['agent_name']
-        model_file = config['model_file']
-        model_type = config['model_type']
-        ctrl_device = config['ctrl_device']
-        terrain_asset_paths = config['terrain_asset_paths']
+        
+        # 支持从训练配置自动推断模型路径
+        if 'model_file' not in config:
+            # 这是训练生成的配置，需要自动构建 model_file
+            if config_path is None:
+                raise ValueError("Config file path is required when using training config format")
+            
+            config_dir = os.path.dirname(os.path.abspath(config_path))
+            framework = config.get('framework', 'sb3')
+            task = config.get('task', 'flat_terrain')
+            
+            # 查找模型文件
+            model_zip = os.path.join(config_dir, f"{agent_name}_{task}.zip")
+            if not os.path.exists(model_zip):
+                raise FileNotFoundError(
+                    f"Model file not found: {model_zip}\n"
+                    f"Please ensure the model file exists in the config directory."
+                )
+            
+            # 构建 model_file 和 model_type
+            model_type = framework
+            model_file = {
+                framework: {
+                    task: model_zip
+                }
+            }
+            _logger.info(f"Auto-detected model file from training config: {model_file}")
+        else:
+            model_file = config['model_file']
+            model_type = config['model_type']
+        
+        ctrl_device = config.get('ctrl_device', 'keyboard')
+        terrain_asset_paths = config.get('terrain_asset_paths', [])
+        if isinstance(terrain_asset_paths, dict):
+            # 如果是训练配置格式，使用第一个地形
+            task = config.get('task', 'flat_terrain')
+            terrain_asset_paths = terrain_asset_paths.get(task, [])
+            if isinstance(terrain_asset_paths, list) and len(terrain_asset_paths) > 0:
+                terrain_asset_paths = [terrain_asset_paths[0]]  # 使用第一个地形
+            else:
+                terrain_asset_paths = []
+        elif not terrain_asset_paths:
+            # 尝试从 training.terrain_asset_paths 获取
+            training_config = config.get('training', {})
+            if 'terrain_asset_paths' in training_config:
+                task = config.get('task', 'flat_terrain')
+                terrain_dict = training_config['terrain_asset_paths']
+                if isinstance(terrain_dict, dict) and task in terrain_dict:
+                    terrain_list = terrain_dict[task]
+                    if isinstance(terrain_list, list) and len(terrain_list) > 0:
+                        terrain_asset_paths = [terrain_list[0]]  # 使用第一个地形
+        
         agent_asset_path = config['agent_asset_path']
 
         height_map_dir = "./height_map"
-        command_model = config['command_model']
+        
+        # 获取可用的地形类型（从 model_file 中提取）
+        available_terrain_types = []
+        if model_type in model_file:
+            available_terrain_types = list(model_file[model_type].keys())
+        
+        # 构建 command_model，只包含可用的地形类型
+        default_command_model = {
+            'flat_terrain': {
+                'forward_speed': [-0.5, 0.5],
+                'left_speed': [-0.3, 0.3],
+                'turn_speed': 0.7853975,
+                'turbo_scale': 3.0
+            },
+            'rough_terrain': {
+                'forward_speed': [-0.5, 0.5],
+                'left_speed': [-0.3, 0.3],
+                'turn_speed': 0.7853975,
+                'turbo_scale': 2.0
+            }
+        }
+        
+        if 'command_model' in config:
+            command_model = config['command_model']
+            # 过滤掉不可用的地形类型
+            command_model = {k: v for k, v in command_model.items() if k in available_terrain_types}
+        else:
+            # 如果没有配置，使用默认值，但只包含可用的地形类型
+            command_model = {k: v for k, v in default_command_model.items() if k in available_terrain_types}
+            # 如果过滤后为空，至少保留第一个可用的地形类型
+            if not command_model and available_terrain_types:
+                terrain_type = available_terrain_types[0]
+                command_model = {terrain_type: default_command_model.get(terrain_type, default_command_model['flat_terrain'])}
 
         assert model_type in ["sb3", "onnx", "torch", "grpc", "rllib"], f"Invalid model type: {model_type}"
 
-        models = {}
         if "sb3" in model_file:
-            models["sb3"] = load_sb3_model(model_file["sb3"])
+            try:
+                models["sb3"] = load_sb3_model(model_file["sb3"])
+            except FileNotFoundError as e:
+                _logger.warning(f"SB3 model not available: {e}")
         if "onnx" in model_file:
-            models["onnx"] = load_onnx_model(model_file["onnx"])
+            try:
+                models["onnx"] = load_onnx_model(model_file["onnx"])
+            except FileNotFoundError as e:
+                _logger.warning(f"ONNX model not available: {e}")
         if "grpc" in model_file:
-            models["grpc"] = load_grpc_model(model_file["grpc"])
+            try:
+                models["grpc"] = load_grpc_model(model_file["grpc"])
+            except Exception as e:
+                _logger.warning(f"gRPC model not available: {e}")
         if "rllib" in model_file:
-            models["rllib"] = load_rllib_model(model_file["rllib"])
+            try:
+                models["rllib"] = load_rllib_model(model_file["rllib"])
+            except Exception as e:
+                _logger.warning(f"RLLib model not available: {e}")
+        
+        # 检查当前 model_type 是否有对应的模型
+        if model_type not in models:
+            available_types = list(models.keys())
+            if available_types:
+                _logger.error(f"Model type '{model_type}' is not available. Available types: {available_types}")
+                _logger.error(f"Please check your config file or train/convert the {model_type} model.")
+                raise ValueError(f"Model type '{model_type}' not available. Available: {available_types}")
+            else:
+                raise ValueError("No models loaded. Please check your config file and ensure model files exist.")
 
         # 清空场景
         clear_scene(
@@ -294,7 +435,7 @@ def main(
         env = gym.make(env_id)
         _logger.info("Starting simulation...")
 
-        friction_scale = config['friction_scale']
+        friction_scale = config.get('friction_scale', 1.0)
         if friction_scale is not None:
             env.unwrapped.setup_base_friction(friction_scale)
 
@@ -312,14 +453,18 @@ def main(
             keyboard_control=keyboard_control,
             command_model=command_model,
         )
+    except Exception as e:
+        _logger.error(f"Error occurred: {e}")
+        raise
     finally:
         _logger.info("退出仿真环境")
         # 清理gRPC客户端连接
-        if model_type == "grpc" and models and "grpc" in models:
+        if model_type is not None and model_type == "grpc" and models and "grpc" in models:
             for client in models["grpc"].values():
                 if hasattr(client, 'close'):
                     client.close()
-        env.close()
+        if env is not None:
+            env.close()
 
 def segment_obs(obs: dict[str, np.ndarray], agent_name_list: list[str]) -> dict[str, dict[str, np.ndarray]]:
     if len(agent_name_list) == 1:
@@ -446,6 +591,16 @@ def run_simulation(env: gym.Env,
             else:
                 brake_time = 0.0
 
+            # 如果当前地形类型没有对应的模型，使用第一个可用的地形类型
+            available_terrain_types = list(models[model_type].keys())
+            if terrain_type not in available_terrain_types:
+                if available_terrain_types:
+                    fallback_terrain = available_terrain_types[0]
+                    _logger.warning(f"Terrain type '{terrain_type}' not available in models. Using '{fallback_terrain}' instead.")
+                    terrain_type = fallback_terrain
+                else:
+                    raise ValueError(f"No terrain types available in models for model_type '{model_type}'")
+            
             model = models[model_type][terrain_type]
 
             command_dict = {"lin_vel": lin_vel, "ang_vel": ang_vel}
@@ -539,19 +694,24 @@ def run_simulation(env: gym.Env,
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run multiple instances of the script with different gRPC addresses.')
-    parser.add_argument('--config', type=str, help='The path of the config file')
+    parser.add_argument('--config', type=str, help='The path of the config file (YAML or JSON)')
     parser.add_argument('--remote', type=str, help='The remote address of the orca studio')
     args = parser.parse_args()
 
     if args.config is None:
         raise ValueError("Config file is required")
     
-    with open(args.config, 'r') as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+    config_path = os.path.abspath(args.config)
+    with open(config_path, 'r') as f:
+        if config_path.endswith('.json'):
+            config = json.load(f)
+        else:
+            config = yaml.load(f, Loader=yaml.FullLoader)
 
     main(
         config=config,
         remote=args.remote,
+        config_path=config_path,
     )
 
 

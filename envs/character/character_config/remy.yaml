@@ -9,7 +9,7 @@ speed:
   Acceleration: 0.1       # from standing to moving
 
 control_type:             # press key to switch control type, default is waypoint
-  active_type: "waypoint"
+  active_type: "keyboard"
   switch_key:
     waypoint: "1"
     keyboard: "2"

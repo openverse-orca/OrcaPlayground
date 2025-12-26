@@ -160,10 +160,12 @@ class KeyboardInputSourceOrcaStudio:
     def update_keyboard_state(self, keyboard_state : dict[str, int]):
         key_pressed_events = self.get_key_pressed()
 
-        # print(f"Key pressed events: {key_pressed_events}")
+        # 先将所有映射的键重置为0
+        for key in self.keyboard_map.values():
+            if key in keyboard_state:
+                keyboard_state[key] = 0
 
-        [keyboard_state.update({key: 0}) for key in self.keyboard_map.values()]
-
+        # 然后设置按下的键为1
         for event in key_pressed_events:
             if event in self.keyboard_map:
                 key_name = self.keyboard_map[event]

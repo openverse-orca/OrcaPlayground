@@ -25,5 +25,5 @@ description = "启动动画仿真"
 name = "legged_train"
 display_name = "run_legged_rl_train"
 command = "python"
-args = [ "-m", "examples.legged_gym.run_legged_rl", "--config", "examples/legged_gym/configs/sb3_ppo_config.yaml", "--train"]
+args = [ "-m", "examples.legged_gym.run_legged_rl", "--config", "examples/legged_gym/configs/sb3_ppo_config.yaml", "--train","--visualize"]
 description = "启动legged_gym训练"

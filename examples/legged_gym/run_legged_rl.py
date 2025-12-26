@@ -40,17 +40,26 @@ def process_scene(
     agent_asset_path: str,
     agent_num: int,
     terrain_asset_paths: list[str],
+    skip_terrain: bool = False,
 ):
     # 清空场景
     clear_scene(
         orcagym_addresses=orcagym_addresses,
     )
 
-    # 发布地形
-    publish_terrain(
-        orcagym_addresses=orcagym_addresses,
-        terrain_asset_paths=terrain_asset_paths,
-    )
+    # 发布地形（训练时需要，测试/play时可以跳过）
+    if not skip_terrain:
+        publish_terrain(
+            orcagym_addresses=orcagym_addresses,
+            terrain_asset_paths=terrain_asset_paths,
+        )
+        # 等待 MuJoCo 初始化完成（发布地形后需要额外等待）
+        print("Waiting for MuJoCo to initialize after terrain publishing...")
+        time.sleep(5)  # 增加等待时间到 5 秒，确保 MuJoCo 完全初始化
+    else:
+        print("Skipping terrain publishing (testing/play mode)")
+        # 即使不发布地形，也需要等待 MuJoCo 初始化
+        time.sleep(2)  # 较短的等待时间
 
     # 空场景生成高度图
     height_map_file = generate_height_map_file(
@@ -64,6 +73,7 @@ def process_scene(
         agent_asset_path=agent_asset_path,
         agent_num=agent_num,
         terrain_asset_paths=terrain_asset_paths,
+        skip_terrain=skip_terrain,
     )
 
     return height_map_file
@@ -139,12 +149,15 @@ def run_sb3_ppo_rl(
         task=task
     )
 
+    # 训练时需要地形，测试/play时可以跳过地形发布
+    skip_terrain = (run_mode in ["testing", "play"])
     height_map_file = process_scene(
         orcagym_addresses=orcagym_addresses,
         agent_name=agent_name,
         agent_asset_path=agent_asset_path,
         agent_num=agent_num,
         terrain_asset_paths=terrain_asset_paths,
+        skip_terrain=skip_terrain,
     )
 
     import examples.legged_gym.scripts.sb3_ppo_vecenv_rl as sb3_rl
@@ -314,12 +327,15 @@ def run_rllib_appo_rl(
         task=task
     )
 
+    # 训练时需要地形，测试/play时可以跳过地形发布
+    skip_terrain = (run_mode in ["testing", "play"])
     height_map_file = process_scene(
         orcagym_addresses=orcagym_addresses,
         agent_name=agent_name,
         agent_asset_path=agent_asset_path,
         agent_num=32,   # 一个Mujoco Instance支持 32 个agent是最合理的，这是默认配置
         terrain_asset_paths=terrain_asset_paths,
+        skip_terrain=skip_terrain,
     )
 
     import examples.legged_gym.scripts.rllib_appo_rl as rllib_appo_rl
