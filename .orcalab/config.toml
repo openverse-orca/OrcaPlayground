@@ -1,0 +1,29 @@
+
+# OrcaGym启动配置
+[external_programs]
+
+# 默认启动程序，可选值见下方programs列表
+default = "run_sim_loop"
+
+# 可选启动程序列表
+[[external_programs.programs]]
+name = "run_sim_loop"
+display_name = "Empty Loop Simulation"
+command = "python"
+args = [ "-m", "orca_gym.scripts.run_sim_loop",]
+description = "启动物理仿真循环"
+
+
+[[external_programs.programs]]
+name = "character"
+display_name = "run_character"
+command = "python"
+args = [ "-m", "examples.character.run_character",]
+description = "启动动画仿真"
+
+[[external_programs.programs]]
+name = "legged_train"
+display_name = "run_legged_rl_train"
+command = "python"
+args = [ "-m", "examples.legged_gym.run_legged_rl", "--config", "examples/legged_gym/configs/sb3_ppo_config.yaml", "--train"]
+description = "启动legged_gym训练"

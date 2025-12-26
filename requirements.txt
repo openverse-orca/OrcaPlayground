@@ -1,0 +1,38 @@
+# OrcaPlayground 依赖
+# 基础依赖（必需）
+orca-gym>=25.12.4  # OrcaGym 核心包（包含 gymnasium, numpy, mujoco, grpcio 等）
+
+# 强化学习框架（可选，用于 legged_gym RL 训练）
+stable-baselines3>=2.3.2  # SB3 PPO 训练
+sb3-contrib>=2.3.0  # SB3 扩展（TQC 等）
+
+# 分布式 RL 训练（可选，用于 legged_gym RLLib 训练）
+# 注意：ray[rllib] 与 orca-gym 的 gymnasium==1.2.1 存在依赖冲突
+# 如需使用 ray[rllib]，请手动安装兼容版本，或使用以下命令：
+# pip install "ray[rllib]>=2.0.0" --no-deps
+# 然后手动解决 gymnasium 版本冲突
+# ray[rllib]>=2.0.0  # Ray RLLib 分布式训练（已注释，存在依赖冲突）
+
+# 模型推理（可选，用于 ONNX 模型）
+torch>=2.0.0  # PyTorch（用于模型加载和推理）
+onnxruntime>=1.16.0  # ONNX 模型推理（CPU 版本）
+# onnxruntime-gpu>=1.16.0  # ONNX 模型推理（GPU 版本，可选）
+
+# 配置文件（可选，用于 YAML 配置）
+pyyaml>=6.0  # YAML 配置文件解析
+
+# 可视化（可选，用于绘图）
+matplotlib>=3.7.0  # 绘图工具（用于 plot_rewards.py）
+
+# HTTP 请求（用于 legged_gym 环境）
+requests>=2.31.0  # HTTP 客户端库（用于发送训练数据等）
+
+# 注意：
+# 1. orca-gym 已包含：numpy, gymnasium, mujoco, grpcio, grpcio-tools, scipy
+# 2. 如果只运行基础示例（character, realman, replicator, wheeled_chassis），只需要 orca-gym
+# 3. 如果运行 legged_gym RL 训练，推荐使用 stable-baselines3（无依赖冲突）
+#    如需使用 ray[rllib]，请参考 README.md 中的依赖冲突说明
+# 4. 如果运行 xbot 或使用 ONNX 模型，需要 torch 和 onnxruntime
+
+pygame
+tensorboard
