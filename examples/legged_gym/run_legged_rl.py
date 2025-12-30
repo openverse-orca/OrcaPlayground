@@ -2,7 +2,6 @@ import os
 import sys
 import argparse
 import time
-import numpy as np
 from datetime import datetime
 import yaml
 import json

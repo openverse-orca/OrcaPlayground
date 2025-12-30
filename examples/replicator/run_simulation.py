@@ -1,13 +1,9 @@
-from orca_gym.scene.orca_gym_scene import OrcaGymScene, Actor, LightInfo, CameraSensorInfo, MaterialInfo
+from orca_gym.scene.orca_gym_scene import OrcaGymScene, Actor
 from orca_gym.scene.orca_gym_scene_runtime import OrcaGymSceneRuntime
-import numpy as np
-import orca_gym.utils.rotations as rotations
 import time
-import random
 import gymnasium as gym
 import sys
 from datetime import datetime
-import os
 from typing import Optional
 
 from orca_gym.log.orca_log import get_orca_logger

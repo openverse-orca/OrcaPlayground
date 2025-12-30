@@ -12,25 +12,58 @@
 
 ## 🚀 使用方法
 
-### 方法1: 自动运行（固定速度）
+### 方式 1：使用 OrcaLab 启动（推荐）
 
-```bash
-conda activate orca
-python examples/xbot/run_xbot_orca.py
+在 OrcaLab 中配置了 XBot 仿真启动项，可以直接使用：
+
+配置位置：`.orcalab/config.toml`
+
+```toml
+[[external_programs.programs]]
+name = "xbot_orca"
+display_name = "run_xbot_orca"
+command = "python"
+args = [ "-m", "examples.xbot.run_xbot_orca",]
+description = "启动XBot仿真"
 ```
 
-**速度调整**: 编辑`run_xbot_orca.py`第92-94行：
+在 OrcaLab 中选择 `run_xbot_orca` 即可启动 XBot 仿真。
+
+**注意**：使用 OrcaLab 启动时，默认使用 GPU（CUDA）进行推理。如需使用 CPU，请使用命令行方式并添加 `--device cpu` 参数。
+
+### 方式 2：命令行启动
+
+#### 方法 1: 自动运行（固定速度）
+
+```bash
+# 使用 GPU（默认）
+python examples/xbot/run_xbot_orca.py
+
+# 或使用模块方式
+python -m examples.xbot.run_xbot_orca
+
+# 使用 CPU
+python examples/xbot/run_xbot_orca.py --device cpu
+```
+
+**速度调整**: 编辑`run_xbot_orca.py`第154-156行：
 ```python
 CMD_VX = 0.4   # 前向速度 (m/s)
 CMD_VY = 0.0   # 侧向速度 (m/s)
 CMD_DYAW = 0.0 # 转向速度 (rad/s)
 ```
 
-### 方法2: 键盘控制（WASD）⭐
+#### 方法 2: 键盘控制（WASD）⭐
 
 ```bash
-conda activate orca
+# 使用 GPU（默认）
 python examples/xbot/run_xbot_keyboard.py
+
+# 或使用模块方式
+python -m examples.xbot.run_xbot_keyboard
+
+# 使用 CPU
+python examples/xbot/run_xbot_keyboard.py --device cpu
 ```
 
 **按键说明**:
@@ -102,10 +135,13 @@ frame_stack = 15   # 观察堆叠
 
 ## ⚠️ 注意事项
 
-1. **必须使用orca conda环境**
-2. **OrcaStudio必须先启动**
-3. **XBot-L必须已加载到场景中**
-4. **初始高度约0.88m**（OrcaStudio默认spawn高度）
+1. **OrcaStudio 必须先启动**：默认地址为 `localhost:50051`
+2. **场景中需要添加机器人**：确保场景中存在名为 `XBot-L` 的机器人预制体
+3. **初始高度约 0.88m**：OrcaStudio 默认 spawn 高度
+4. **设备选择**：
+   - 默认使用 GPU（CUDA）进行推理，性能更好
+   - 如果没有 GPU 或遇到 CUDA 问题，使用 `--device cpu` 参数
+5. **策略文件**：预训练策略文件位于 `examples/xbot/config/policy_example.pt`，已集成在项目内
 
 ## 🎯 下一步
 

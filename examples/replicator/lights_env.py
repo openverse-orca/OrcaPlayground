@@ -1,7 +1,5 @@
 import numpy as np
-from gymnasium.core import ObsType
-from orca_gym.utils import rotations
-from typing import Optional, Any, SupportsFloat
+from typing import Optional
 from orca_gym.environment.orca_gym_local_env import OrcaGymLocalEnv
 from orca_gym.scene.orca_gym_scene_runtime import OrcaGymSceneRuntime
 import orca_gym.utils.rotations as rotations

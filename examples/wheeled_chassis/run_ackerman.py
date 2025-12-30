@@ -1,13 +1,8 @@
-from orca_gym.scene.orca_gym_scene import OrcaGymScene, Actor, LightInfo, CameraSensorInfo, MaterialInfo
 from orca_gym.scene.orca_gym_scene_runtime import OrcaGymSceneRuntime
-import numpy as np
-import orca_gym.utils.rotations as rotations
 import time
-import random
 import gymnasium as gym
 import sys
 from datetime import datetime
-import os
 from typing import Optional
 
 from orca_gym.log.orca_log import get_orca_logger
@@ -88,6 +83,6 @@ def run_simulation(orcagym_addr : str,
 
 if __name__ == "__main__":
     orcagym_addr = "localhost:50051"
-    agent_name = "hummer_h2_usda"
+    agent_name = "hummer_h2_usda_1"
     env_name = "Ackerman"
     run_simulation(orcagym_addr, agent_name, env_name)

@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Optional, Any, SupportsFloat
+from typing import Optional
 from orca_gym.environment.orca_gym_local_env import OrcaGymLocalEnv
 
 

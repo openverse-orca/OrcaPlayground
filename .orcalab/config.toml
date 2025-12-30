@@ -27,3 +27,17 @@ display_name = "run_legged_rl_train"
 command = "python"
 args = [ "-m", "examples.legged_gym.run_legged_rl", "--config", "examples/legged_gym/configs/sb3_ppo_config.yaml", "--train","--visualize"]
 description = "启动legged_gym训练"
+
+[[external_programs.programs]]
+name = "wheeled_chassis"
+display_name = "run_wheeled_chassis"
+command = "python"
+args = [ "-m", "examples.wheeled_chassis.run_wheeled_chassis",]
+description = "启动轮式底盘仿真"
+
+[[external_programs.programs]]
+name = "xbot_orca"
+display_name = "run_xbot_orca"
+command = "python"
+args = [ "-m", "examples.xbot.run_xbot_orca",]
+description = "启动XBot仿真"

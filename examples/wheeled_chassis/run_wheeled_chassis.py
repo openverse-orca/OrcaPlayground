@@ -1,13 +1,9 @@
 import argparse
 from orca_gym.scene.orca_gym_scene_runtime import OrcaGymSceneRuntime
-import numpy as np
-import orca_gym.utils.rotations as rotations
 import time
-import random
 import gymnasium as gym
 import sys
 from datetime import datetime
-import os
 from typing import Optional
 
 from orca_gym.log.orca_log import get_orca_logger
@@ -89,7 +85,7 @@ def run_simulation(orcagym_addr : str,
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Run wheeled chassis simulation")
     parser.add_argument("--orcagym_addr", type=str, default="localhost:50051")
-    parser.add_argument("--agent_name", type=str, default="openloong_gripper_2f85_mobile_base_usda")
+    parser.add_argument("--agent_name", type=str, default="openloong_gripper_2f85_mobile_base_usda_1")
     parser.add_argument("--env_name", type=str, default="WheeledChassis")
     args = parser.parse_args()
     orcagym_addr = args.orcagym_addr
