@@ -1,0 +1,5 @@
+*.xml
+*.npy
+*.TXT
+
+texture_processer_tmp/
