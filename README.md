@@ -6,16 +6,48 @@ OrcaGym 示例代码仓库，已集成 OrcaLab 支持。
 
 ### 方式 1：使用 OrcaLab 启动（推荐）⭐
 
-本项目已配置 OrcaLab 集成，可以直接在 OrcaLab 中启动示例：
-1. 在orcalab对应的conda环境中安装依赖
-2. 在 OrcaLab 中选择外部程序
-3. 选择对应的示例程序即可启动
+本项目已配置 OrcaLab 集成，可以直接在 OrcaLab 中启动示例。
 
-**已配置的示例**：
-- `run_character` - 角色仿真
-- `run_legged_rl_train` - 足式机器人 RL 训练
-- `run_wheeled_chassis` - 轮式底盘仿真
-- `run_xbot_orca` - XBot 机器人仿真
+#### 步骤 1：安装 OrcaLab
+
+```bash
+pip install orca-lab
+```
+
+#### 步骤 2：激活 OrcaLab 的 conda 环境并安装依赖
+
+```bash
+# 激活 OrcaLab 的 conda 环境（根据你的环境名称调整）
+conda activate orcalab  # 或你的 OrcaLab 环境名称
+
+# 进入项目目录
+cd /path/to/OrcaPlayground
+
+# 安装项目依赖
+pip install -r requirements.txt
+```
+
+#### 步骤 3：在当前目录启动 OrcaLab
+
+```bash
+# 在项目根目录启动 OrcaLab（会自动加载 .orcalab/config.toml）
+orcalab .
+
+# 或者直接启动（默认使用当前目录作为工作目录）
+orcalab
+```
+
+OrcaLab 会自动加载工作目录下的 `.orcalab/config.toml` 配置文件。
+
+#### 步骤 4：在 OrcaLab 中启动示例
+
+1. 在 OrcaLab 界面中选择 **外部程序**（External Programs）
+2. 从列表中选择对应的示例程序：
+   - `run_character` - 角色仿真
+   - `run_legged_rl_train` - 足式机器人 RL 训练
+   - `run_wheeled_chassis` - 轮式底盘仿真
+   - `run_xbot_orca` - XBot 机器人仿真
+   - `run_sim_loop` - 空循环仿真
 
 配置文件位置：`.orcalab/config.toml`
 
@@ -84,7 +116,11 @@ pip install -r requirements.txt
 
 ## 🔧 OrcaLab 配置
 
-OrcaLab 配置文件位于 `.orcalab/config.toml`，包含以下外部程序：
+### 配置文件位置
+
+OrcaLab 配置文件位于 `.orcalab/config.toml`，OrcaLab 启动时会自动加载工作目录下的此配置文件。
+
+### 已配置的外部程序
 
 - `run_sim_loop` - 空循环仿真
 - `character` - 角色仿真
@@ -92,7 +128,28 @@ OrcaLab 配置文件位于 `.orcalab/config.toml`，包含以下外部程序：
 - `wheeled_chassis` - 轮式底盘仿真
 - `xbot_orca` - XBot 仿真
 
-如需添加新程序，请编辑 `.orcalab/config.toml` 文件。
+### 添加新程序
+
+如需添加新的外部程序，编辑 `.orcalab/config.toml` 文件，添加新的 `[[external_programs.programs]]` 条目：
+
+```toml
+[[external_programs.programs]]
+name = "your_program_name"
+display_name = "显示名称"
+command = "python"
+args = ["-m", "examples.your_module.run_script"]
+description = "程序描述"
+```
+
+### 初始化配置（可选）
+
+如果当前目录没有 `.orcalab/config.toml`，可以使用 OrcaLab 生成基本配置：
+
+```bash
+orcalab --init-config
+```
+
+然后手动添加本项目的外部程序配置。
 
 ## 📖 更多信息
 
