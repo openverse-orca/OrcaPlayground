@@ -3,7 +3,7 @@ import numpy as np
 import orca_gym.utils.rotations as rotations
 import time
 import random
-import run_simulation as sim
+from . import run_simulation as sim
 
 from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()
@@ -28,7 +28,7 @@ def create_scene() -> OrcaGymScene:
 
     actor = Actor(
         name=f"original_red_cup",
-        asset_path="assets/816f95ce16021282/default_project/v20251201/prefabs/cup_of_coffee_usda",
+        asset_path="assets/e071469a36d3c8aa/default_project/v20260101/prefabs/cup_of_coffee_usda",
         position=np.array([np.random.uniform(0.0, 0.5), 
                            np.random.uniform(0.0, 0.5), 
                            np.random.uniform(1.0, 2.0)]),
@@ -42,7 +42,7 @@ def create_scene() -> OrcaGymScene:
     for i in range(10):
         actor = Actor(
             name=f"cup_with_random_color_and_scale_{i}",
-            asset_path="assets/816f95ce16021282/default_project/v20251201/prefabs/cup_of_coffee_usda",
+            asset_path="assets/e071469a36d3c8aa/default_project/v20260101/prefabs/cup_of_coffee_usda",
             position=np.array([np.random.uniform(-1.2, 1.2), 
                             np.random.uniform(-1.2, 1.2), 
                             np.random.uniform(1.0, 2.0)]),
@@ -56,7 +56,7 @@ def create_scene() -> OrcaGymScene:
 
     actor = Actor(
         name="cart_basket",
-        asset_path="assets/816f95ce16021282/default_project/v20251201/prefabs/cart_basket_usda",
+        asset_path="assets/e071469a36d3c8aa/default_project/v20260101/prefabs/cart_basket_usda",
         position=np.array([0, 0, 0.0]),
         rotation=rotations.euler2quat(np.array([0.0, 0.0, 0.0])),
         scale=1.0,
@@ -65,7 +65,7 @@ def create_scene() -> OrcaGymScene:
 
     actor = Actor(
         name="office_desk",
-        asset_path="assets/816f95ce16021282/default_project/v20251201/prefabs/office_desk_7_mb_usda",
+        asset_path="assets/e071469a36d3c8aa/default_project/v20260101/prefabs/office_desk_7_mb_usda",
         position=np.array([0, 0, 0.0]),
         rotation=rotations.euler2quat(np.array([0.0, 0.0, 0])),
         scale=1.0,

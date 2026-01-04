@@ -1,7 +1,15 @@
 # XBot在OrcaGym中运行
 参考自http://github.com/roboterax/humanoid-gym.git
-## ✅ 当前状态
 
+## ⚠️ 重要：资产准备
+
+> **📦 相关资产**：https://simassets.orca3d.cn/ **OrcaPlaygroundAssets资产包**
+> 
+> **🔧 是否需要手动拖动到布局中**：**是**
+> 
+> **📝 对应模型**：`Xbot_usda`
+
+## ✅ 当前状态
 **`run_xbot_orca.py`已经可以在OrcaGym中稳定运行！**
 
 机器人现在可以：

@@ -4,7 +4,7 @@ import numpy as np
 import orca_gym.utils.rotations as rotations
 import time
 import random
-import run_simulation as sim
+from . import run_simulation as sim
 
 from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()

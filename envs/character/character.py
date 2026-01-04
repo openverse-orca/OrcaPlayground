@@ -229,11 +229,15 @@ class Character():
     def _process_control_type_switch(self):
         self._keyboard.update()
         keyboard_state = self._keyboard.get_state()
-        if self._control_type['active_type'] != 'waypoint' and keyboard_state[self._control_type['switch_key']['waypoint']] == 1:
+        # 安全地访问键盘状态，如果键不存在则默认为0
+        waypoint_key = self._control_type['switch_key']['waypoint']
+        keyboard_key = self._control_type['switch_key']['keyboard']
+        
+        if self._control_type['active_type'] != 'waypoint' and keyboard_state.get(waypoint_key, 0) == 1:
             self._control_type['active_type'] = 'waypoint'
             self._reset_move_and_turn()
             _logger.info("Switch to waypoint control")
-        elif self._control_type['active_type'] != 'keyboard' and keyboard_state[self._control_type['switch_key']['keyboard']] == 1:
+        elif self._control_type['active_type'] != 'keyboard' and keyboard_state.get(keyboard_key, 0) == 1:
             self._control_type['active_type'] = 'keyboard'
             self._reset_move_and_turn()
             _logger.info("Switch to keyboard control")
@@ -245,16 +249,17 @@ class Character():
 
         # print("Speed: ", self._speed)
 
-        if keyboard_state[self._keyboard_control['move_forward']] == 1:
+        # 安全地访问键盘状态，如果键不存在则默认为0
+        if keyboard_state.get(self._keyboard_control['move_forward'], 0) == 1:
             self._move_forward()
-        elif keyboard_state[self._keyboard_control['move_backward']] == 1:
+        elif keyboard_state.get(self._keyboard_control['move_backward'], 0) == 1:
             self._move_backward()
         else:
             self._stop_moving()
 
-        if keyboard_state[self._keyboard_control['turn_left']] == 1:
+        if keyboard_state.get(self._keyboard_control['turn_left'], 0) == 1:
             self._turn_left()
-        elif keyboard_state[self._keyboard_control['turn_right']] == 1:
+        elif keyboard_state.get(self._keyboard_control['turn_right'], 0) == 1:
             self._turn_right()
         else:
             self._stop_turning()

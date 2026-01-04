@@ -41,3 +41,10 @@ display_name = "run_xbot_orca"
 command = "python"
 args = [ "-m", "examples.xbot.run_xbot_orca",]
 description = "启动XBot仿真"
+
+[[external_programs.programs]]
+name = "run_actors"
+display_name = "run_actors"
+command = "python"
+args = [ "-m", "examples.replicator.run_actors",]
+description = "启动actor导入"

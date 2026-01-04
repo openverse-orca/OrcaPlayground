@@ -185,12 +185,13 @@ class KeyboardInput:
         else:
             raise ValueError(f"Unknown input source: {input_source}")
 
-        # Initialize keyboard state
+        # Initialize keyboard state (包含所有可能用到的键，包括数字键)
         self.keyboard_state = {
             "W": 0, "A": 0, "S": 0, "D": 0,
             "Space": 0, "LShift": 0, "RShift": 0, "Ctrl": 0, "Alt": 0,
             "Esc": 0, "Enter": 0, "Up": 0, "Down": 0,
-            "Left": 0, "Right": 0, "Q": 0, "E": 0, "R": 0, "F": 0, "Z": 0, "X": 0, "Y": 0
+            "Left": 0, "Right": 0, "Q": 0, "E": 0, "R": 0, "F": 0, "Z": 0, "X": 0, "Y": 0,
+            "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0
         }
 
 
