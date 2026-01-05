@@ -27,6 +27,7 @@ pyyaml>=6.0  # YAML 配置文件解析
 
 # 可视化
 matplotlib>=3.7.0  # 绘图工具（用于 plot_rewards.py）
+tensorboard>=2.14.0  # TensorBoard 可视化（用于 SB3 训练日志）
 
 # HTTP 请求
 requests>=2.31.0  # HTTP 客户端库（用于发送训练数据等）
