@@ -92,6 +92,15 @@ OrcaPlayground/
 - **XBot 机器人** - `examples/xbot/README.md`
 - **场景复制** - `examples/replicator/README.md`
 
+> **⚠️ 重要提示：资产准备**
+> 
+> 每个示例都需要相应的 3D 资产才能正常运行。**请务必查看各示例目录下的 README.md 文件**，了解：
+> - 📦 所需资产的下载地址
+> - 🔧 是否需要手动在 OrcaStudio 中拖动资产到场景
+> - 📝 对应的模型名称
+> 
+> 资产下载地址：https://simassets.orca3d.cn/
+
 ## 📋 依赖说明
 
 ### 基础依赖（必需）

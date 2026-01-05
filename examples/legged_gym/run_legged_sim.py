@@ -4,10 +4,19 @@ import argparse
 import time
 import numpy as np
 from datetime import datetime
+
+# 获取脚本文件所在目录，然后计算项目根目录
+# 从 examples/legged_gym/run_legged_sim.py 到项目根目录需要向上两级
+current_file_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(current_file_dir))
+
+# 将项目根目录添加到 PYTHONPATH（必须在导入其他模块之前）
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 import gymnasium as gym
 from stable_baselines3 import PPO
 import torch
-import csv
 import yaml
 import json
 from examples.legged_gym.scripts.scene_util import clear_scene, publish_terrain, generate_height_map_file, publish_scene
@@ -19,15 +28,6 @@ from examples.legged_gym.scripts.grpc_client import GrpcInferenceClient, create_
 
 from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()
-
-
-
-current_file_path = os.path.abspath('')
-project_root = os.path.dirname(os.path.dirname(current_file_path))
-
-# 将项目根目录添加到 PYTHONPATH
-if project_root not in sys.path:
-    sys.path.append(project_root)
 
 
 EPISODE_TIME_VERY_SHORT = LeggedEnvConfig["EPISODE_TIME_VERY_SHORT"]

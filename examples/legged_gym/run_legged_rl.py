@@ -6,12 +6,14 @@ from datetime import datetime
 import yaml
 import json
 
-current_file_path = os.path.abspath('')
-project_root = os.path.dirname(os.path.dirname(current_file_path))
+# 获取脚本文件所在目录，然后计算项目根目录
+# 从 examples/legged_gym/run_legged_rl.py 到项目根目录需要向上两级
+current_file_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(current_file_dir))
 
 # 将项目根目录添加到 PYTHONPATH
 if project_root not in sys.path:
-    sys.path.append(project_root)
+    sys.path.insert(0, project_root)
 
 
 from envs.legged_gym.legged_config import LeggedEnvConfig, LeggedRobotConfig
