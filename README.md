@@ -139,16 +139,95 @@ OrcaLab 配置文件位于 `.orcalab/config.toml`，OrcaLab 启动时会自动�
 
 ### 添加新程序
 
-如需添加新的外部程序，编辑 `.orcalab/config.toml` 文件，添加新的 `[[external_programs.programs]]` 条目：
+如需添加新的外部程序，编辑 `.orcalab/config.toml` 文件，在 `[[external_programs.programs]]` 部分添加新条目。
+
+#### 配置格式
 
 ```toml
 [[external_programs.programs]]
-name = "your_program_name"
-display_name = "显示名称"
-command = "python"
-args = ["-m", "examples.your_module.run_script"]
-description = "程序描述"
+name = "your_program_name"           # ⚠️ 必填：程序唯一标识符
+display_name = "显示名称"             # ⚠️ 必填：在 OrcaLab UI 中显示的名称
+command = "python"                    # ⚠️ 必填：执行命令（通常是 "python"）
+args = ["-m", "examples.your_module.run_script"]  # ⚠️ 必填：命令行参数列表
+description = "程序描述"              # 可选：程序描述信息
 ```
+
+#### 参数说明
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `name` | 字符串 | ✅ 是 | **程序唯一标识符**，用于 OrcaLab 内部查找和启动程序。必须与所有已配置程序的 `name` 和 `display_name` 都不重复。建议使用小写字母、数字和下划线，如 `my_program`。 |
+| `display_name` | 字符串 | ✅ 是 | **显示名称**，在 OrcaLab 启动对话框的 UI 中显示给用户。必须与所有已配置程序的 `name` 和 `display_name` 都不重复。可以使用中文、空格等字符，如 `我的程序`。 |
+| `command` | 字符串 | ✅ 是 | **执行命令**，通常是 `"python"`，也可以是其他可执行命令（如 `"python3"`、`"conda"` 等）。 |
+| `args` | 字符串数组 | ✅ 是 | **命令行参数列表**，每个参数作为数组的一个元素。例如：<br>- 模块方式：`["-m", "examples.module.run_script"]`<br>- 脚本方式：`["examples/script.py", "--arg1", "value1"]`<br>- 带参数：`["-m", "examples.module.run", "--config", "config.yaml", "--train"]` |
+| `description` | 字符串 | ❌ 否 | **程序描述**，用于在 OrcaLab UI 的工具提示中显示，帮助用户了解程序功能。 |
+
+#### ⚠️ 重要注意事项
+
+1. **`name` 和 `display_name` 禁止重复**
+   - ❌ **禁止**：两个程序的 `name` 相同
+   - ❌ **禁止**：两个程序的 `display_name` 相同
+   - ❌ **禁止**：一个程序的 `name` 与另一个程序的 `display_name` 相同
+   - ✅ **允许**：同一个程序内部，`name` 和 `display_name` 可以不同（通常建议不同，以便区分）
+
+2. **`name` 的唯一性要求**
+   - `name` 是程序在系统中的唯一标识符，OrcaLab 通过 `name` 来查找和启动程序
+   - 如果 `name` 重复，`get_external_program_config()` 只会返回第一个匹配的程序，导致后续程序无法正确启动
+   - 建议使用有意义的、描述性的名称，如 `legged_train`、`character_sim` 等
+
+3. **`display_name` 的唯一性要求**
+   - `display_name` 在 OrcaLab UI 中显示，如果重复会导致用户无法区分不同的程序
+   - 建议使用清晰、描述性的显示名称，如 `Legged Robot Training`、`Character Simulation` 等
+
+4. **工作目录**
+   - 程序启动时的工作目录是 OrcaLab 的工作目录（通常是 `.orcalab/config.toml` 所在的目录）
+   - 在 `args` 中使用相对路径时，请确保相对于工作目录的路径正确
+
+5. **模块导入路径**
+   - 使用 `-m` 参数以模块方式运行时，确保模块路径正确
+   - 例如：`["-m", "examples.legged_gym.run_legged_rl"]` 表示运行 `examples/legged_gym/run_legged_rl.py`
+
+#### 配置示例
+
+```toml
+# 示例 1：简单模块启动
+[[external_programs.programs]]
+name = "my_simple_program"
+display_name = "简单程序"
+command = "python"
+args = ["-m", "examples.my_module.run_script"]
+description = "这是一个简单的示例程序"
+
+# 示例 2：带命令行参数的程序
+[[external_programs.programs]]
+name = "legged_train"
+display_name = "Legged Robot Training"
+command = "python"
+args = [
+    "-m", 
+    "examples.legged_gym.run_legged_rl",
+    "--config", "examples/legged_gym/configs/sb3_ppo_config.yaml",
+    "--train",
+    "--visualize"
+]
+description = "启动足式机器人强化学习训练"
+
+# 示例 3：使用脚本路径（非模块方式）
+[[external_programs.programs]]
+name = "custom_script"
+display_name = "自定义脚本"
+command = "python"
+args = ["examples/custom/script.py", "--option", "value"]
+description = "直接运行脚本文件"
+```
+
+#### 验证配置
+
+添加新程序后，建议：
+
+1. **检查重复**：确认新程序的 `name` 和 `display_name` 与所有已配置程序都不重复
+2. **测试启动**：在 OrcaLab 中尝试启动新程序，确认命令和参数正确
+3. **查看日志**：如果启动失败，查看 OrcaLab 的日志输出，检查命令、参数或模块路径是否正确
 
 ### 初始化配置（可选）
 
