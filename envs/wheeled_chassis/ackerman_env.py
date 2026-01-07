@@ -163,7 +163,7 @@ class AckermanEnv(OrcaGymLocalEnv):
         """
         Process the input from the keyboard and joystick.
         """
-        MOVE_SPEED = 1
+        MOVE_SPEED = 0.8
         TURN_SPEED = 1
 
         self._keyboard.update()

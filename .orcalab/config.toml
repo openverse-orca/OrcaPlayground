@@ -48,3 +48,10 @@ display_name = "run_actors"
 command = "python"
 args = [ "-m", "examples.replicator.run_actors",]
 description = "启动actor导入"
+
+[[external_programs.programs]]
+name = "anker_chassis"
+display_name = "run_ackerman"
+command = "python"
+args = [ "-m", "examples.wheeled_chassis.run_ackerman",]
+description = "启动阿克曼仿真"
