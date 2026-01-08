@@ -142,6 +142,94 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
             low=-18.0, high=18.0, shape=(full_obs_dim,), dtype=np.float32
         )
 
+        # 识别 XBot 的关节（只匹配包含 'xbot_usda_1' 前缀的关节，避免匹配到其他模型）
+        all_joint_names = list(self.model.get_joint_dict().keys())
+        all_actuator_names = list(self.model.get_actuator_dict().keys())
+        
+        xbot_joint_base_names = [
+            "left_leg_roll_joint", "left_leg_yaw_joint", "left_leg_pitch_joint",
+            "left_knee_joint", "left_ankle_pitch_joint", "left_ankle_roll_joint",
+            "right_leg_roll_joint", "right_leg_yaw_joint", "right_leg_pitch_joint",
+            "right_knee_joint", "right_ankle_pitch_joint", "right_ankle_roll_joint"
+        ]
+        
+        self.xbot_joint_names = []
+        self.xbot_joint_indices = []
+        self.xbot_qpos_indices = []
+        self.xbot_qvel_indices = []
+        self.xbot_actuator_indices = []
+        
+        for joint_base_name in xbot_joint_base_names:
+            matching_joint = None
+            for joint_name in all_joint_names:
+                if joint_name.startswith("xbot_usda_1") and joint_name.endswith("_" + joint_base_name):
+                    matching_joint = joint_name
+                    break
+            
+            if matching_joint:
+                try:
+                    joint_id = self.model.joint_name2id(matching_joint)
+                    qpos_addr = self.gym.jnt_qposadr(matching_joint)
+                    qvel_addr = self.gym.jnt_dofadr(matching_joint)
+                    
+                    actuator_name = matching_joint
+                    if actuator_name in all_actuator_names:
+                        actuator_id = self.model.actuator_name2id(actuator_name)
+                        self.xbot_joint_names.append(matching_joint)
+                        self.xbot_joint_indices.append(joint_id)
+                        self.xbot_qpos_indices.append(qpos_addr)
+                        self.xbot_qvel_indices.append(qvel_addr)
+                        self.xbot_actuator_indices.append(actuator_id)
+                    else:
+                        matching_actuator = None
+                        for actuator_name_candidate in all_actuator_names:
+                            if actuator_name_candidate.startswith("xbot_usda_1") and actuator_name_candidate.endswith("_" + joint_base_name):
+                                matching_actuator = actuator_name_candidate
+                                break
+                        if matching_actuator:
+                            actuator_id = self.model.actuator_name2id(matching_actuator)
+                            self.xbot_joint_names.append(matching_joint)
+                            self.xbot_joint_indices.append(joint_id)
+                            self.xbot_qpos_indices.append(qpos_addr)
+                            self.xbot_qvel_indices.append(qvel_addr)
+                            self.xbot_actuator_indices.append(actuator_id)
+                except Exception as e:
+                    _logger.error(f"[XBot] 匹配关节 '{joint_base_name}' 时出错: {e}")
+            else:
+                matching_actuator = None
+                for actuator_name in all_actuator_names:
+                    if actuator_name.startswith("xbot_usda_1") and actuator_name.endswith("_" + joint_base_name):
+                        matching_actuator = actuator_name
+                        break
+                
+                if matching_actuator:
+                    try:
+                        joint_name = matching_actuator
+                        joint_id = self.model.joint_name2id(joint_name)
+                        actuator_id = self.model.actuator_name2id(matching_actuator)
+                        qpos_addr = self.gym.jnt_qposadr(joint_name)
+                        qvel_addr = self.gym.jnt_dofadr(joint_name)
+                        self.xbot_joint_names.append(joint_name)
+                        self.xbot_joint_indices.append(joint_id)
+                        self.xbot_qpos_indices.append(qpos_addr)
+                        self.xbot_qvel_indices.append(qvel_addr)
+                        self.xbot_actuator_indices.append(actuator_id)
+                    except Exception as e:
+                        _logger.error(f"[XBot] 通过执行器匹配关节 '{joint_base_name}' 时出错: {e}")
+        
+        if len(self.xbot_qpos_indices) < 12:
+            _logger.warning(f"[XBot] 只识别到 {len(self.xbot_qpos_indices)} 个关节，使用最后12个作为兜底")
+            self.xbot_qpos_indices = list(range(max(0, self.nq - 12), self.nq))
+            self.xbot_qvel_indices = list(range(max(0, self.nv - 12), self.nv))
+            self.xbot_actuator_indices = list(range(max(0, self.nu - 12), self.nu))
+            if len(all_joint_names) >= 12:
+                self.xbot_joint_names = all_joint_names[-12:]
+            else:
+                self.xbot_joint_names = [f"joint_{i}" for i in range(12)]
+        else:
+            if self.verbose:
+                _logger.info(f"[XBot] 成功识别到 {len(self.xbot_qpos_indices)} 个关节")
+
         _logger.info(f"[XBotSimpleEnv] Initialized with frame_stack={frame_stack}")
         _logger.info(f"[XBotSimpleEnv] Action space: {self.action_space.shape}")
         _logger.info(f"[XBotSimpleEnv] Observation space: {self.observation_space.shape}")
@@ -196,9 +284,14 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
         """
         构建单帧观察 (47维) - 完全按照 standalone 的逻辑
         """
-        # 获取关节状态 (最后12个)
-        q = self.data.qpos[-12:].astype(np.float64)
-        dq = self.data.qvel[-12:].astype(np.float64)
+        if hasattr(self, 'xbot_qpos_indices') and len(self.xbot_qpos_indices) == 12:
+            q = self.data.qpos[self.xbot_qpos_indices].astype(np.float64)
+            dq = self.data.qvel[self.xbot_qvel_indices].astype(np.float64)
+        else:
+            if self.step_count == 1:
+                _logger.warning(f"[XBot] 使用兜底方案读取关节状态")
+            q = self.data.qpos[-12:].astype(np.float64)
+            dq = self.data.qvel[-12:].astype(np.float64)
 
         # 获取IMU传感器数据 - 尝试多种传感器名称格式
         sensor_read_success = False
@@ -219,8 +312,6 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
                 quat = np.array([quat_wxyz[1], quat_wxyz[2], quat_wxyz[3], quat_wxyz[0]], dtype=np.float64)
                 omega = np.array(sensor_dict[gyro_name], dtype=np.float64)
                 sensor_read_success = True
-                if self.step_count == 1:
-                    _logger.info(f"[Success] Using sensors: '{ori_name}', '{gyro_name}'")
                 break
             except:
                 continue
@@ -244,13 +335,11 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
                         omega = np.clip(omega, -20.0, 20.0)
                 
                 sensor_read_success = True
-                if self.step_count == 1:
-                    _logger.info(f"[Fallback] Using body quaternion from '{self.base_body_name}' (omega estimated from Δeuler)")
             except:
                 pass
         
         if not sensor_read_success and self.step_count == 1:
-            _logger.error(f"[Error] Cannot read IMU sensors! Observation will have zero omega/euler.")
+            _logger.warning(f"[XBot] 无法读取IMU传感器，使用默认值")
 
         # 转换欧拉角
         eu_ang = self.quaternion_to_euler(quat)
@@ -267,15 +356,6 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
         obs[29:41] = self.last_action  # 历史动作 (12)
         obs[41:44] = omega  # 角速度 (3)
         obs[44:47] = eu_ang  # 欧拉角 (3)
-        
-        # 在前几步打印观察向量的关键部分，验证数据
-        if self.step_count <= 3:
-            print(f"[ObsDebug] Step={self.step_count} | "
-                  f"cmd=[{obs[2]:.2f},{obs[3]:.2f},{obs[4]:.2f}] | "
-                  f"q_range=[{np.min(q):.3f},{np.max(q):.3f}] | "
-                  f"dq_range=[{np.min(dq):.3f},{np.max(dq):.3f}] | "
-                  f"omega={omega} | "
-                  f"euler={np.degrees(eu_ang)}")
 
         return np.clip(obs, -18.0, 18.0)
 
@@ -297,51 +377,33 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
         """
         重置环境
         """
-        _logger.info("[XBotSimpleEnv] Resetting environment...")
-
-        # 清空控制和历史
         self.ctrl = np.zeros(self.nu, dtype=np.float32)
         self.last_action = np.zeros(12, dtype=np.float32)
         self.filtered_action = np.zeros(12, dtype=np.float32)
-        self.step_count = 0  # 重置步数计数器
+        self.step_count = 0
         
         self.hist_obs.clear()
         for _ in range(self.frame_stack):
             self.hist_obs.append(np.zeros(self.single_obs_dim, dtype=np.float32))
         
-        # 重置位置和姿态跟踪
         self.last_base_pos = None
         self.last_base_euler = None
         self.last_base_quat = None
 
-        # ⭐ 修改：设置为"爬行模式"，降低初始高度（模拟standaloneMujoco）
         try:
-            # 获取当前qpos
             current_qpos = self.data.qpos.copy()
-            
-            # 设置base高度为接近地面（standaloneMujoco显示约0.0m）
-            # qpos[2]是base的z坐标
-            CRAWL_HEIGHT = 0.05  # 5cm高度，接近地面
+            CRAWL_HEIGHT = 0.05
             current_qpos[2] = CRAWL_HEIGHT
-            
-            _logger.info(f"[爬行模式] 设置初始高度: {CRAWL_HEIGHT}m (原始约0.88m)")
-            
-            # 通过OrcaGym API设置qpos
             import asyncio
             if hasattr(self, 'loop') and self.loop:
                 self.loop.run_until_complete(self.gym.set_qpos(current_qpos))
                 self.gym.mj_forward()
                 self.gym.update_data()
-                _logger.info(f"[爬行模式] qpos已更新，新base高度: {current_qpos[2]:.3f}m")
-            else:
-                _logger.info(f"[警告] 无法设置qpos（loop不可用）")
         except Exception as e:
-            _logger.info(f"[警告] 设置爬行模式失败: {e}")
+            if self.verbose:
+                _logger.debug(f"[XBot] 设置初始高度失败: {e}")
 
-        # 获取初始观察
         obs = self.get_full_obs_vector()
-
-        _logger.info(f"[XBotSimpleEnv] Reset complete. Obs shape: {obs.shape}")
         return obs, {}
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, bool, Dict]:
@@ -355,18 +417,11 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
         # 裁剪动作到有效范围
         action = np.clip(action, -18.0, 18.0).astype(np.float32)
         
-        # === 改进1: Warmup阶段，渐进增加动作幅度 ===
         if self.use_warmup and self.step_count <= self.warmup_steps:
-            # 平滑的warmup曲线: 从0.1开始，逐渐增加到1.0
             warmup_progress = self.step_count / self.warmup_steps
-            warmup_scale = 0.1 + 0.9 * warmup_progress  # 0.1 -> 1.0
+            warmup_scale = 0.1 + 0.9 * warmup_progress
             action = action * warmup_scale
-            
-            if self.step_count % 100 == 0:
-                print(f"[Warmup] Step {self.step_count}/{self.warmup_steps}, "
-                      f"scale={warmup_scale:.2f}, action_norm={np.linalg.norm(action):.2f}")
         
-        # === 改进2: 动作平滑，减缓脚步摆动频率 ===
         if self.use_action_filter:
             # 指数移动平均: new = α*current + (1-α)*history
             self.filtered_action = (self.action_filter_alpha * action + 
@@ -377,87 +432,67 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
         
         self.last_action = action_to_use.copy()
 
-        # 计算目标位置 (action * action_scale)
         target_q = action_to_use * self.action_scale
         target_dq = np.zeros(12, dtype=np.float64)
 
-        # === 关键修改：实现decimation，匹配humanoid-gym ===
-        # 每次策略更新，内部循环多次物理步，每次都重新计算PD
-        last_tau = None  # ⭐ 保存最后的扭矩用于诊断
         for _ in range(self.decimation):
-            # 获取当前关节状态（每次物理步都更新）
-            q = self.data.qpos[-12:].astype(np.float64)
-            dq = self.data.qvel[-12:].astype(np.float64)
+            if hasattr(self, 'xbot_qpos_indices') and len(self.xbot_qpos_indices) == 12:
+                q = self.data.qpos[self.xbot_qpos_indices].astype(np.float64)
+                dq = self.data.qvel[self.xbot_qvel_indices].astype(np.float64)
+            else:
+                if self.step_count == 1:
+                    _logger.warning(f"[XBot] 使用兜底方案读取关节状态")
+                q = self.data.qpos[-12:].astype(np.float64)
+                dq = self.data.qvel[-12:].astype(np.float64)
 
-            # PD控制计算力矩
             tau = (target_q - q) * self.kps + (target_dq - dq) * self.kds
             tau = np.clip(tau, -self.tau_limit, self.tau_limit)
-            
-            last_tau = tau.copy()  # ⭐ 保存最后的扭矩
 
-            # 设置控制
-            self.ctrl[-12:] = tau.astype(np.float32)
+            if hasattr(self, 'xbot_actuator_indices') and len(self.xbot_actuator_indices) == 12:
+                self.ctrl.fill(0.0)
+                for i, actuator_idx in enumerate(self.xbot_actuator_indices):
+                    if actuator_idx < len(self.ctrl):
+                        self.ctrl[actuator_idx] = tau[i]
+            else:
+                if self.step_count == 1:
+                    _logger.warning(f"[XBot] 使用兜底方案设置执行器控制")
+                self.ctrl[-12:] = tau.astype(np.float32)
 
-            # 单步物理仿真 (1ms if time_step=0.001)
             self.do_simulation(self.ctrl, 1)
         
-        # ⭐ 保存调试信息
-        self.last_tau = last_tau
+        self.last_tau = tau.copy()
 
         # 获取新的观察
         obs = self.get_full_obs_vector()
 
-        # === 真实状态检测（基于body位置查询）===
         real_base_z = 0.0
         real_euler = np.array([0.0, 0.0, 0.0])
         real_omega = np.array([0.0, 0.0, 0.0])
         position_valid = False
+        xpos = None
+        xquat = None
+        
+        # 保存上一次位置用于计算位移
+        prev_base_pos = self.last_base_pos.copy() if self.last_base_pos is not None else None
         
         try:
-            # 查询真实的基座位置和姿态
             xpos, xmat, xquat = self.get_body_xpos_xmat_xquat([self.base_body_name])
             real_base_z = float(xpos[2])
-            
-            # 在第1步打印原始四元数用于调试
-            if self.step_count == 1:
-                _logger.debug(f"\n[Debug] Raw quaternion from get_body_xpos_xmat_xquat: {xquat}")
-                _logger.debug(f"[Debug] Interpreting as: w={xquat[0]:.3f}, x={xquat[1]:.3f}, y={xquat[2]:.3f}, z={xquat[3]:.3f}")
-            
             real_euler = self.quaternion_to_euler(xquat)
             position_valid = True
-            
-            # ⭐ 保存base位置用于诊断
-            self.last_base_pos = xpos.copy()
-            
-            # 尝试获取角速度
             try:
                 sensor_dict = self.query_sensor_data(["angular-velocity"])
                 real_omega = np.array(sensor_dict.get("angular-velocity", [0.0, 0.0, 0.0]))
             except:
                 pass
         except Exception as e:
-            # 如果查询失败，第一次打印错误和可用body列表
             if self.step_count == 1:
-                _logger.error(f"\n⚠️ Warning: Cannot query base body '{self.base_body_name}'")
-                _logger.error(f"   Error: {e}")
-                try:
-                    all_bodies = self.model.get_body_names()
-                    _logger.info(f"   Available bodies: {all_bodies[:15]}")
-                    # 尝试找到包含base的body
-                    base_bodies = [b for b in all_bodies if 'base' in b.lower()]
-                    if base_bodies:
-                        _logger.info(f"   Bodies with 'base': {base_bodies}")
-                except Exception as e2:
-                    _logger.error(f"   Cannot list bodies: {e2}")
-                print()
-            
-            # 使用qpos兜底
+                _logger.warning(f"[XBot] 无法查询base body '{self.base_body_name}': {e}")
             try:
                 real_base_z = float(self.data.qpos[2])
             except:
                 real_base_z = 0.0
         
-        # === 摔倒检测 (现在启用) ===
         is_fallen = False
         fall_reason = []
         roll_deg = 0.0
@@ -467,13 +502,10 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
             roll_deg = np.degrees(abs(real_euler[0]))
             pitch_deg = np.degrees(abs(real_euler[1]))
             
-            # 高度检测
-            # ⭐ 爬行模式：降低高度阈值（原0.7m → 0.02m）
             if real_base_z < 0.02:
                 is_fallen = True
-                fall_reason.append(f"高度过低({real_base_z:.2f}m<0.02m，爬行模式)")
+                fall_reason.append(f"高度过低({real_base_z:.2f}m<0.02m)")
             
-            # 姿态检测
             if roll_deg > 30:
                 is_fallen = True
                 fall_reason.append(f"Roll过大({roll_deg:.1f}°>30°)")
@@ -484,33 +516,27 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
         terminated = is_fallen
         truncated = False
         
-        # === 奖励函数 (简单但有效) ===
         reward = 0.0
-        
         if position_valid:
-            # 1. 保持高度奖励 (目标0.9m)
             height_error = abs(real_base_z - 0.9)
-            height_reward = np.exp(-height_error * 10.0)  # 越接近0.9m奖励越高
+            height_reward = np.exp(-height_error * 10.0)
             reward += height_reward * 2.0
             
-            # 2. 保持直立奖励
             orientation_error = (roll_deg + pitch_deg) / 180.0
             orientation_reward = np.exp(-orientation_error * 20.0)
             reward += orientation_reward * 3.0
             
-            # 3. 存活奖励
             if not terminated:
                 reward += 0.5
             
-            # 4. 摔倒惩罚
             if terminated:
                 reward -= 5.0
         
-        # 保存当前位置和姿态用于下次对比和omega估算
         if position_valid:
             self.last_base_pos = xpos.copy()
             self.last_base_euler = real_euler.copy()
             self.last_base_quat = xquat.copy()
+        
         info = {
             'base_z': real_base_z,
             'euler': real_euler,
@@ -521,56 +547,43 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
             'pitch_deg': pitch_deg
         }
         
-        # 摔倒打印
-        if is_fallen and fall_reason:
-            _logger.info(f"\n[FALL] Step={self.step_count} | {' + '.join(fall_reason)}\n")
+        if is_fallen and fall_reason and self.verbose:
+            _logger.info(f"[XBot] 摔倒 Step={self.step_count} | {' + '.join(fall_reason)}")
         
-        # 详细诊断：前10步每步打印，之后每200步打印
+        # 打印步态信息：前10步每步打印，之后每200步打印
         should_print_diagnostic = (self.step_count <= 10) or (self.step_count % 200 == 0)
         
-        if should_print_diagnostic:
-            if position_valid:
-                try:
-                    # 计算位移（如果有上次位置）
-                    displacement = ""
-                    if self.last_base_pos is not None:
-                        delta_pos = xpos - self.last_base_pos
-                        delta_interval = 1 if self.step_count <= 10 else 200
-                        displacement = f"Δ{delta_interval}步=({delta_pos[0]:.3f},{delta_pos[1]:.3f},{delta_pos[2]:.3f})"
-                    
-                    roll_deg = np.degrees(real_euler[0])
-                    pitch_deg = np.degrees(real_euler[1])
-                    yaw_deg = np.degrees(real_euler[2])
-                    
-                    # 状态标记
-                    status = "✓"
-                    if abs(roll_deg) > 30 or abs(pitch_deg) > 30:
-                        status = "⚠️"
-                    if abs(roll_deg) > 40 or abs(pitch_deg) > 40:
-                        status = "❌"
-                    # ⭐ 爬行模式：调整诊断阈值
-                    if real_base_z < 0.02:
-                        status = "❌"
-                    
-                    print(f"[{status}] Step={self.step_count:5d} | "
-                          f"Pos=({xpos[0]:6.3f},{xpos[1]:6.3f},{xpos[2]:6.3f})m | "
-                          f"Roll={roll_deg:6.1f}° | Pitch={pitch_deg:6.1f}° | Yaw={yaw_deg:6.1f}° | "
-                          f"Reward={reward:6.2f} | "
-                          f"Action={np.linalg.norm(action):5.2f} | "
-                          f"Filtered={np.linalg.norm(action_to_use):5.2f} | "
-                          f"Tau_max={np.max(np.abs(tau)):6.1f} | "
-                          f"{displacement}")
-                except Exception as e:
-                    _logger.error(f"[Diagnostics] Step={self.step_count} position_valid=True but print failed: {e}")
-            else:
-                # 查询失败，尝试列出所有body看看名称
-                if self.step_count == 200:
-                    try:
-                        all_bodies = self.model.get_body_names()
-                        _logger.error(f"[Diagnostics] Cannot find '{self.base_body_name}'. Available bodies (first 10): {all_bodies[:10]}")
-                    except:
-                        pass
-                _logger.error(f"[Diagnostics] Step={self.step_count} | position_valid=False, cannot query base position")
+        if should_print_diagnostic and position_valid and xpos is not None:
+            try:
+                displacement = ""
+                if prev_base_pos is not None:
+                    delta_pos = xpos - prev_base_pos
+                    delta_interval = 1 if self.step_count <= 10 else 200
+                    displacement = f"Δ{delta_interval}步=({delta_pos[0]:.3f},{delta_pos[1]:.3f},{delta_pos[2]:.3f})"
+                
+                roll_deg = np.degrees(real_euler[0])
+                pitch_deg = np.degrees(real_euler[1])
+                yaw_deg = np.degrees(real_euler[2])
+                
+                status = "✓"
+                if abs(roll_deg) > 30 or abs(pitch_deg) > 30:
+                    status = "⚠️"
+                if abs(roll_deg) > 40 or abs(pitch_deg) > 40:
+                    status = "❌"
+                if real_base_z < 0.02:
+                    status = "❌"
+                
+                print(f"[{status}] Step={self.step_count:5d} | "
+                      f"Pos=({xpos[0]:6.3f},{xpos[1]:6.3f},{xpos[2]:6.3f})m | "
+                      f"Roll={roll_deg:6.1f}° | Pitch={pitch_deg:6.1f}° | Yaw={yaw_deg:6.1f}° | "
+                      f"Reward={reward:6.2f} | "
+                      f"Action={np.linalg.norm(action):5.2f} | "
+                      f"Filtered={np.linalg.norm(action_to_use):5.2f} | "
+                      f"Tau_max={np.max(np.abs(tau)):6.1f} | "
+                      f"{displacement}")
+            except Exception as e:
+                if self.verbose:
+                    _logger.debug(f"[XBot] 打印步态信息失败: {e}")
 
         return obs, reward, terminated, truncated, info
 
