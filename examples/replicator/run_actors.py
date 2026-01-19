@@ -3,7 +3,11 @@ import numpy as np
 import orca_gym.utils.rotations as rotations
 import time
 import random
-from . import run_simulation as sim
+import sys
+import os
+# 添加项目根目录到路径，以支持直接运行脚本
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from examples.replicator import run_simulation as sim
 
 from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()
