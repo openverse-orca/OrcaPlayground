@@ -1,6 +1,6 @@
 # Replicator 使用指南
 
-场景复制示例，演示如何使用 OrcaGym 的场景管理功能创建和配置 Actor、Camera 和 Light。
+场景复制示例，演示如何使用 OrcaGym 的场景管理功能创建和配置 Actor 和 Light。
 
 ## ⚠️ 重要：资产准备
 
@@ -38,9 +38,6 @@ python -m examples.replicator.run_actors
 # 或直接运行
 python examples/replicator/run_actors.py
 
-# Camera 复制示例
-python -m examples.replicator.run_cameras
-
 # Light 复制示例
 python -m examples.replicator.run_lights
 ```
@@ -68,40 +65,23 @@ python -m examples.replicator.run_lights
 - 场景中会出现 1 个原始杯子、10 个随机杯子、1 个购物车和 1 个办公桌
 - 随机杯子具有不同的颜色和尺寸
 
-### 2. run_cameras.py - Camera 复制示例
-
-演示如何创建和配置相机：
-
-**功能**：
-- 创建一个默认相机（default_camera）
-- 设置相机为活动视口
-- 可以扩展添加多个相机（代码中已注释示例）
-
-**使用的资产**：
-- `cameraviewport_mujoco` - MuJoCo 相机视口
-
-**运行效果**：
-- 场景中会出现一个相机，并自动设置为活动视口
-
-### 3. run_lights.py - Light 复制示例
+### 2. run_lights.py - Light 复制示例
 
 演示如何创建和配置灯光：
 
 **功能**：
 - 创建一个原始红色杯子
 - 创建一个办公桌
-- 创建一个默认相机
 - 创建 10 个随机颜色、尺寸和强度的聚光灯（spotlight）
 - 为随机灯光设置随机颜色和强度
 
 **使用的资产**：
 - `cup_of_coffee_usda` - 咖啡杯
 - `office_desk_7_mb_usda` - 办公桌
-- `cameraviewport` - 相机视口
 - `spotlight` - 聚光灯
 
 **运行效果**：
-- 场景中会出现杯子、桌子、相机和 10 个随机灯光
+- 场景中会出现杯子、桌子和 10 个随机灯光
 - 灯光具有不同的颜色、位置和强度
 
 ## 🔧 代码结构
@@ -109,11 +89,9 @@ python -m examples.replicator.run_lights
 ```
 examples/replicator/
 ├── run_actors.py          # Actor 复制示例
-├── run_cameras.py         # Camera 复制示例
 ├── run_lights.py          # Light 复制示例
 ├── run_simulation.py      # 通用仿真运行函数
 ├── actors_env.py          # Actors 环境定义
-├── cameras_env.py         # Cameras 环境定义
 ├── lights_env.py          # Lights 环境定义
 └── README.md              # 本文件
 ```
@@ -134,8 +112,8 @@ def run_simulation(
 **参数说明**：
 - `orcagym_addr`：OrcaStudio 地址（默认：`localhost:50051`）
 - `agent_name`：代理名称（通常为 `"NoRobot"`）
-- `env_name`：环境名称（`"Actors"`、`"Cameras"` 或 `"Lights"`）
-- `scene_runtime`：场景运行时对象（可选，用于相机和灯光示例）
+- `env_name`：环境名称（`"Actors"` 或 `"Lights"`）
+- `scene_runtime`：场景运行时对象（可选，用于相灯光示例）
 
 ## 💡 使用提示
 
@@ -179,12 +157,6 @@ light_info = LightInfo(
     intensity=100.0,                    # 强度值
 )
 scene.set_light_info("light_name", light_info)
-```
-
-### 设置相机为活动视口
-
-```python
-scene.make_camera_viewport_active("camera_name", "CameraViewport")
 ```
 
 ## 📝 注意事项

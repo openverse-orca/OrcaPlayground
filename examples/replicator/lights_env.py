@@ -39,16 +39,16 @@ class LightsEnv(OrcaGymLocalEnv):
         self.nv = self.model.nv
 
         self._light_config = [
-            {"name" : "light_with_random_color_scale_intensity_0", "body_name" : "light_with_random_color_scale_intensity_0_SpotLight"},
-            {"name" : "light_with_random_color_scale_intensity_1", "body_name" : "light_with_random_color_scale_intensity_1_SpotLight"},
-            {"name" : "light_with_random_color_scale_intensity_2", "body_name" : "light_with_random_color_scale_intensity_2_SpotLight"},
-            {"name" : "light_with_random_color_scale_intensity_3", "body_name" : "light_with_random_color_scale_intensity_3_SpotLight"},
-            {"name" : "light_with_random_color_scale_intensity_4", "body_name" : "light_with_random_color_scale_intensity_4_SpotLight"},
-            {"name" : "light_with_random_color_scale_intensity_5", "body_name" : "light_with_random_color_scale_intensity_5_SpotLight"},
-            {"name" : "light_with_random_color_scale_intensity_6", "body_name" : "light_with_random_color_scale_intensity_6_SpotLight"},
-            {"name" : "light_with_random_color_scale_intensity_7", "body_name" : "light_with_random_color_scale_intensity_7_SpotLight"},
-            {"name" : "light_with_random_color_scale_intensity_8", "body_name" : "light_with_random_color_scale_intensity_8_SpotLight"},
-            {"name" : "light_with_random_color_scale_intensity_9", "body_name" : "light_with_random_color_scale_intensity_9_SpotLight"},
+            {"name" : "light_with_random_color_scale_intensity_0"},
+            {"name" : "light_with_random_color_scale_intensity_1"},
+            {"name" : "light_with_random_color_scale_intensity_2"},
+            {"name" : "light_with_random_color_scale_intensity_3"},
+            {"name" : "light_with_random_color_scale_intensity_4"},
+            {"name" : "light_with_random_color_scale_intensity_5"},
+            {"name" : "light_with_random_color_scale_intensity_6"},
+            {"name" : "light_with_random_color_scale_intensity_7"},
+            {"name" : "light_with_random_color_scale_intensity_8"},
+            {"name" : "light_with_random_color_scale_intensity_9"},
             
         ]
         self._light_rotation_delta = np.zeros((len(self._light_config), 3), dtype=np.float32)
@@ -143,12 +143,6 @@ class LightsEnv(OrcaGymLocalEnv):
                     np.random.uniform(-np.pi * 0.01, np.pi * 0.01)])
             rotation_delta = rotations.euler2quat(self._light_rotation_delta[i])
 
-            body_name = light["body_name"]
-            current_xpos, _, current_rotation = self.get_body_xpos_xmat_xquat([body_name])
 
-            new_rotation = rotations.quat_mul(current_rotation, rotation_delta)
-            self.set_mocap_pos_and_quat(
-                {body_name : {"pos": current_xpos, "quat": new_rotation}}
-            )
 
         self._light_rotation_update_phrase = (self._light_rotation_update_phrase + 1) % 1000

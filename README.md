@@ -86,11 +86,11 @@ OrcaPlayground/
 
 所有示例的详细使用说明请查看各目录下的 `README.md`：
 
-- **角色仿真** - `examples/character/README.md`
-- **足式机器人 RL 训练** - `examples/legged_gym/README.md`
-- **轮式底盘** - `examples/wheeled_chassis/README.md`
-- **XBot 机器人** - `examples/xbot/README.md`
-- **场景复制** - `examples/replicator/README.md`
+- **角色仿真** - [`examples/character/README.md`](examples/character/README.md)
+- **足式机器人 RL 训练** - [`examples/legged_gym/README.md`](examples/legged_gym/README.md)
+- **轮式底盘** - [`examples/wheeled_chassis/README.md`](examples/wheeled_chassis/README.md)
+- **XBot 机器人** - [`examples/xbot/README.md`](examples/xbot/README.md)
+- **场景复制** - [`examples/replicator/README.md`](examples/replicator/README.md)
 
 > **⚠️ 重要提示：资产准备**
 > 
