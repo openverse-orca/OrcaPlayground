@@ -2,10 +2,21 @@
 Multi-Point Force coupling mode implementation
 """
 
+import logging
 from typing import Optional, Dict, Any
 from .base import ICouplingMode
 from ..modules.force_application import ForceApplicationModule
 from ..modules.position_publish import PositionPublishModule
+
+# 配置模块 logger
+logger = logging.getLogger(__name__)
+if not logger.handlers:
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.DEBUG)
+    handler.setFormatter(logging.Formatter('[MultiPointForceMode] %(levelname)s: %(message)s'))
+    logger.addHandler(handler)
 
 
 class MultiPointForceMode(ICouplingMode):
@@ -18,25 +29,44 @@ class MultiPointForceMode(ICouplingMode):
     """
     
     def __init__(self):
+        import sys
+        print("[PRINT-DEBUG] MultiPointForceMode.__init__() - START", file=sys.stderr, flush=True)
         self.force_application_module: Optional[ForceApplicationModule] = None
         self.position_publish_module: Optional[PositionPublishModule] = None
         self.env = None
         self.orcalink_client = None
         self.loop = None
         self.config = {}
+        print("[PRINT-DEBUG] MultiPointForceMode.__init__() - END", file=sys.stderr, flush=True)
     
-    def initialize(self, config: Dict[str, Any], env, orcalink_client) -> bool:
+    def initialize(self, config: Dict[str, Any], env, orcalink_client, loop) -> bool:
         """Initialize the mode"""
+        import sys
+        
+        print("[PRINT-DEBUG] MultiPointForceMode.initialize() - START", file=sys.stderr, flush=True)
+        logger.info("[DEBUG] MultiPointForceMode.initialize() - Start")
         self.env = env
         self.orcalink_client = orcalink_client
-        self.loop = orcalink_client.loop if hasattr(orcalink_client, 'loop') else None
+        self.loop = loop  # 直接使用传入的 loop，不再从 orcalink_client 获取
         self.config = config
+        logger.info(f"[DEBUG] MultiPointForceMode.initialize() - Loop: {self.loop is not None}")
         
         # Initialize modules
+        logger.info("[DEBUG] MultiPointForceMode.initialize() - Creating ForceApplicationModule...")
+        print("[PRINT-DEBUG] MultiPointForceMode.initialize() - Creating ForceApplicationModule", file=sys.stderr, flush=True)
         self.force_application_module = ForceApplicationModule(env, orcalink_client, self.loop)
+        print("[PRINT-DEBUG] MultiPointForceMode.initialize() - ForceApplicationModule created", file=sys.stderr, flush=True)
+        logger.info("[DEBUG] MultiPointForceMode.initialize() - ForceApplicationModule created")
+        
+        logger.info("[DEBUG] MultiPointForceMode.initialize() - Creating PositionPublishModule...")
+        print("[PRINT-DEBUG] MultiPointForceMode.initialize() - Creating PositionPublishModule", file=sys.stderr, flush=True)
         self.position_publish_module = PositionPublishModule(
             env, orcalink_client, self.loop, config.get('rigid_bodies', []))
+        print("[PRINT-DEBUG] MultiPointForceMode.initialize() - PositionPublishModule created", file=sys.stderr, flush=True)
+        logger.info("[DEBUG] MultiPointForceMode.initialize() - PositionPublishModule created")
         
+        logger.info("[DEBUG] MultiPointForceMode.initialize() - Returning True")
+        print("[PRINT-DEBUG] MultiPointForceMode.initialize() - Returning True", file=sys.stderr, flush=True)
         return True
     
     def register_channels(self):
@@ -46,19 +76,28 @@ class MultiPointForceMode(ICouplingMode):
     
     def step(self) -> bool:
         """Execute one step"""
+        logger.debug("[DEBUG] MultiPointForceMode.step() - Start")
+        
         # 1. Subscribe to multi-point forces and apply to SITE points
         if self.force_application_module:
+            logger.debug("[DEBUG] MultiPointForceMode.step() - Calling subscribe_and_apply_site_forces()...")
             self.force_application_module.subscribe_and_apply_site_forces()
+            logger.debug("[DEBUG] MultiPointForceMode.step() - subscribe_and_apply_site_forces() completed")
         
         # 2. Check flow control
         if self.orcalink_client and hasattr(self.orcalink_client, 'should_pause_this_cycle'):
+            logger.debug("[DEBUG] MultiPointForceMode.step() - Checking flow control...")
             if self.orcalink_client.should_pause_this_cycle():
+                logger.debug("[DEBUG] MultiPointForceMode.step() - Flow control says pause, returning False")
                 return False  # Pause MuJoCo step
         
         # 3. Publish SITE positions
         if self.position_publish_module:
+            logger.debug("[DEBUG] MultiPointForceMode.step() - Publishing SITE positions...")
             self.position_publish_module.publish_site_positions()
+            logger.debug("[DEBUG] MultiPointForceMode.step() - publish_site_positions() completed")
         
+        logger.debug("[DEBUG] MultiPointForceMode.step() - Returning True")
         return True
     
     def shutdown(self):

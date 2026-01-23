@@ -145,6 +145,7 @@ def run_simulation_with_config(config: Dict) -> None:
         orcagym_cfg = config['orcagym']
         env_id = f"{orcagym_cfg['env_name']}-OrcaGym-{orcagym_cfg['address'].replace(':', '-')}-000"
         
+        print("[PRINT-DEBUG] utils.py - About to register gymnasium env", file=sys.stderr, flush=True)
         gym.register(
             id=env_id,
             entry_point="envs.fluid.sim_env:SimEnv",
@@ -156,9 +157,15 @@ def run_simulation_with_config(config: Dict) -> None:
             },
             max_episode_steps=sys.maxsize
         )
+        print("[PRINT-DEBUG] utils.py - Gymnasium env registered", file=sys.stderr, flush=True)
         
+        print("[PRINT-DEBUG] utils.py - About to call gym.make()", file=sys.stderr, flush=True)
         env = gym.make(env_id)
+        print("[PRINT-DEBUG] utils.py - gym.make() completed", file=sys.stderr, flush=True)
+        
+        print("[PRINT-DEBUG] utils.py - About to call env.reset()", file=sys.stderr, flush=True)
         obs = env.reset()
+        print("[PRINT-DEBUG] utils.py - env.reset() completed", file=sys.stderr, flush=True)
         logger.info("✅ MuJoCo 环境创建成功\n")
         
         # ============ 步骤 2: 生成 scene.json ============
@@ -278,38 +285,79 @@ def run_simulation_with_config(config: Dict) -> None:
                 time.sleep(2)
                 logger.info("✅ OrcaSPH 已启动\n")
         
+        logger.info("[DEBUG] About to enter main loop...")
+        sys.stdout.flush()
+        sys.stderr.flush()
+
         # ============ 步骤 5: 连接并开始仿真 ============
         if config['orcasph']['enabled']:
             logger.info("🔗 步骤 5: 初始化 OrcaLinkBridge...")
             # 直接传入配置字典，不再需要 sph_mujoco_config_template.json
+            logger.info("[DEBUG] Creating OrcaLinkBridge instance...")
+            print("[PRINT-DEBUG] utils.py - Creating OrcaLinkBridge instance...", file=sys.stderr, flush=True)
             sph_wrapper = OrcaLinkBridge(env.unwrapped, config=config)
+            logger.info("[DEBUG] OrcaLinkBridge instance created")
+            print("[PRINT-DEBUG] utils.py - OrcaLinkBridge instance created...", file=sys.stderr, flush=True)
             
             logger.info("🔗 连接到 OrcaLink...")
-            if not sph_wrapper.connect():
+            logger.info("[DEBUG] Calling sph_wrapper.connect()...")
+            import sys
+            sys.stdout.flush()
+            sys.stderr.flush()
+            print("[PRINT-DEBUG] utils.py - Calling sph_wrapper.connect()...", file=sys.stderr, flush=True)
+            connect_result = sph_wrapper.connect()
+            print(f"[PRINT-DEBUG] utils.py - sph_wrapper.connect() returned: {connect_result}", file=sys.stderr, flush=True)
+            logger.info(f"[DEBUG] sph_wrapper.connect() RETURNED: {connect_result}")
+            sys.stdout.flush()
+            sys.stderr.flush()
+            
+            if not connect_result:
                 logger.warning("⚠️  无法连接到 OrcaLink，SPH 集成已禁用")
                 config['orcasph']['enabled'] = False
             else:
                 logger.info("✅ OrcaLink 连接成功\n")
+                logger.info("[DEBUG] After OrcaLink connection success message")
+        else:
+            logger.warning("⚠️  OrcaLink 未启用，SPH 集成已禁用")
         
+        import sys
+        logger.info("[DEBUG] About to enter main loop...")
+        sys.stdout.flush()
+        sys.stderr.flush()
         logger.info("=" * 80)
         logger.info("🎬 仿真主循环开始")
         logger.info("=" * 80)
+        sys.stdout.flush()
+        sys.stderr.flush()
+        print("[PRINT-DEBUG] utils.py - About to enter main loop...", file=sys.stderr, flush=True)
+        print("[PRINT-DEBUG] utils.py - Main loop started...", file=sys.stderr, flush=True)
         
         # ============ 主循环 ============
         step_count = 0
         REALTIME_STEP = 0.02
         
+        logger.info("[DEBUG] Entering while True loop...")
         while True:
             start_time = datetime.now()
+            
+            if step_count == 0:
+                logger.info("[DEBUG] First iteration - before SPH sync")
             
             # SPH 同步
             should_step = True
             if config['orcasph']['enabled'] and sph_wrapper is not None:
                 try:
+                    if step_count == 0:
+                        logger.info("[DEBUG] Calling sph_wrapper.step()...")
                     should_step = sph_wrapper.step()
+                    if step_count == 0:
+                        logger.info(f"[DEBUG] sph_wrapper.step() returned: {should_step}")
                 except Exception as e:
                     logger.error(f"SPH 同步失败: {e}")
                     config['orcasph']['enabled'] = False
+            
+            if step_count == 0:
+                logger.info(f"[DEBUG] Before MuJoCo step, should_step={should_step}")
             
             # MuJoCo step
             if should_step:
@@ -319,14 +367,19 @@ def run_simulation_with_config(config: Dict) -> None:
             else:
                 env.render()
             
+            if step_count == 0:
+                logger.info("[DEBUG] After render")
+            
             # 实时同步
             elapsed = (datetime.now() - start_time).total_seconds()
             if elapsed < REALTIME_STEP:
                 time.sleep(REALTIME_STEP - elapsed)
             
             step_count += 1
+            if step_count == 1:
+                logger.info("[DEBUG] Completed first iteration successfully")
             if step_count % 100 == 0:
-                logger.debug(f"仿真步数: {step_count}")
+                logger.info(f"仿真步数: {step_count}")
     
     except KeyboardInterrupt:
         logger.info("\n⏹️  用户中断仿真")

@@ -23,11 +23,11 @@ class ForcePositionMode(ICouplingMode):
         self.orcalink_client = None
         self.loop = None
     
-    def initialize(self, config: Dict[str, Any], env, orcalink_client) -> bool:
+    def initialize(self, config: Dict[str, Any], env, orcalink_client, loop) -> bool:
         """Initialize the mode"""
         self.env = env
         self.orcalink_client = orcalink_client
-        self.loop = orcalink_client.loop if hasattr(orcalink_client, 'loop') else None
+        self.loop = loop  # 直接使用传入的 loop，不再从 orcalink_client 获取
         
         # Initialize modules
         self.force_application_module = ForceApplicationModule(env, orcalink_client, self.loop)

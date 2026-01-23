@@ -28,8 +28,11 @@ class ConfigGenerator:
         Args:
             env: OrcaGymLocalEnv 实例
         """
+        import sys
+        print("[PRINT-DEBUG] ConfigGenerator.__init__() - START", file=sys.stderr, flush=True)
         self.env = env
         self.model = env.model
+        print("[PRINT-DEBUG] ConfigGenerator.__init__() - END", file=sys.stderr, flush=True)
     
     def identify_sph_bodies(self) -> List[str]:
         """

@@ -23,11 +23,11 @@ class SpringConstraintMode(ICouplingMode):
         self.loop = None
         self.config = {}
     
-    def initialize(self, config: Dict[str, Any], env, orcalink_client) -> bool:
+    def initialize(self, config: Dict[str, Any], env, orcalink_client, loop) -> bool:
         """Initialize the mode"""
         self.env = env
         self.orcalink_client = orcalink_client
-        self.loop = orcalink_client.loop if hasattr(orcalink_client, 'loop') else None
+        self.loop = loop  # 直接使用传入的 loop，不再从 orcalink_client 获取
         self.config = config
         
         # Initialize position publish module

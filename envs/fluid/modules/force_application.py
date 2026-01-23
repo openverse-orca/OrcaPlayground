@@ -7,6 +7,14 @@ import logging
 from typing import List, Optional
 
 logger = logging.getLogger(__name__)
+# 配置 logger
+if not logger.handlers:
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.DEBUG)
+    handler.setFormatter(logging.Formatter('[ForceApplicationModule] %(levelname)s: %(message)s'))
+    logger.addHandler(handler)
 
 
 class ForceApplicationModule:
@@ -19,9 +27,14 @@ class ForceApplicationModule:
             orcalink_client: OrcaLinkClient instance
             loop: Event loop for async operations
         """
+        import sys
+        print("[PRINT-DEBUG] ForceApplicationModule.__init__() - START", file=sys.stderr, flush=True)
+        logger.debug("[DEBUG] ForceApplicationModule.__init__() - Start")
         self.env = env
         self.client = orcalink_client
         self.loop = loop
+        print("[PRINT-DEBUG] ForceApplicationModule.__init__() - END", file=sys.stderr, flush=True)
+        logger.debug("[DEBUG] ForceApplicationModule.__init__() - Completed")
     
     def subscribe_and_apply_forces(self):
         """Subscribe to rigid body-level forces and apply (ForcePositionMode)"""
@@ -45,14 +58,18 @@ class ForceApplicationModule:
     def subscribe_and_apply_site_forces(self):
         """Subscribe to multi-point forces and apply to SITE (MultiPointForceMode)"""
         if not self.client or not self.loop:
+            logger.debug("[DEBUG] subscribe_and_apply_site_forces - client or loop not available")
             return
         
         try:
+            logger.debug("[DEBUG] subscribe_and_apply_site_forces - About to call subscribe_forces()...")
             forces = self.loop.run_until_complete(
                 self.client.subscribe_forces()
             )
+            logger.debug(f"[DEBUG] subscribe_and_apply_site_forces - subscribe_forces() returned {len(forces) if forces else 0} forces")
             
             if not forces:
+                logger.debug("[DEBUG] subscribe_and_apply_site_forces - No forces received")
                 return
             
             for force_data in forces:
@@ -74,6 +91,8 @@ class ForceApplicationModule:
                     self.env.mj_apply_force_at_site(site_name, force_mujoco, torque_mujoco)
                 else:
                     logger.warning(f"Environment does not support mj_apply_force_at_site")
+            
+            logger.debug(f"[DEBUG] subscribe_and_apply_site_forces - Applied {len(forces)} forces successfully")
         except Exception as e:
             logger.error(f"Error applying site forces: {e}", exc_info=True)
     

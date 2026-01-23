@@ -7,6 +7,14 @@ import logging
 from typing import List, Dict, Optional, Any
 
 logger = logging.getLogger(__name__)
+# 配置 logger
+if not logger.handlers:
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.DEBUG)
+    handler.setFormatter(logging.Formatter('[PositionPublishModule] %(levelname)s: %(message)s'))
+    logger.addHandler(handler)
 
 
 class PositionPublishModule:
@@ -20,10 +28,15 @@ class PositionPublishModule:
             loop: Event loop for async operations
             rigid_bodies_config: List of rigid body configurations
         """
+        import sys
+        print(f"[PRINT-DEBUG] PositionPublishModule.__init__() - START", file=sys.stderr, flush=True)
+        logger.debug("[DEBUG] PositionPublishModule.__init__() - Start")
         self.env = env
         self.client = orcalink_client
         self.loop = loop
         self.rigid_bodies = rigid_bodies_config
+        print(f"[PRINT-DEBUG] PositionPublishModule.__init__() - END (rigid_bodies count: {len(rigid_bodies_config)})", file=sys.stderr, flush=True)
+        logger.debug(f"[DEBUG] PositionPublishModule.__init__() - Initialized with {len(rigid_bodies_config)} rigid bodies")
     
     def publish_positions(self):
         """Publish rigid body positions (ForcePositionMode, SpringConstraintMode)"""

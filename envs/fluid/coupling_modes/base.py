@@ -10,13 +10,14 @@ class ICouplingMode(ABC):
     """Abstract base class for coupling mode implementations"""
     
     @abstractmethod
-    def initialize(self, config: Dict[str, Any], env, orcalink_client) -> bool:
+    def initialize(self, config: Dict[str, Any], env, orcalink_client, loop) -> bool:
         """Initialize the coupling mode with configuration
         
         Args:
             config: Configuration dictionary for this mode
             env: OrcaGym environment instance
             orcalink_client: OrcaLinkClient instance
+            loop: asyncio event loop for async operations
             
         Returns:
             bool: True if initialization successful, False otherwise

@@ -24,6 +24,8 @@ class SimEnv(OrcaGymLocalEnv):
         max_steps: Optional[int] = None,
         **kwargs,
     ):
+        import sys
+        print("[PRINT-DEBUG] SimEnv.__init__() - START", file=sys.stderr, flush=True)
         
         super().__init__(
             frame_skip = frame_skip,
@@ -32,6 +34,7 @@ class SimEnv(OrcaGymLocalEnv):
             time_step = time_step,            
             **kwargs,
         )
+        print("[PRINT-DEBUG] SimEnv.__init__() - super().__init__() completed", file=sys.stderr, flush=True)
 
         # Three auxiliary variables to understand the component of the xml document but will not be used
         # number of actuators/controls: 7 arm joints and 2 gripper joints
@@ -41,8 +44,10 @@ class SimEnv(OrcaGymLocalEnv):
         # 9 arm joints and 6 free joints
         self.nv = self.model.nv
 
+        print("[PRINT-DEBUG] SimEnv.__init__() - Setting obs/action spaces", file=sys.stderr, flush=True)
         self._set_obs_space()
         self._set_action_space()
+        print("[PRINT-DEBUG] SimEnv.__init__() - END", file=sys.stderr, flush=True)
 
     def _set_obs_space(self):
         self.observation_space = self.generate_observation_space(self._get_obs().copy())
