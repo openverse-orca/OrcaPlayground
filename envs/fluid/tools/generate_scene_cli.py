@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-从 XML 文件生成 SPH 场景脚本
+从 XML 文件生成 SPH 场景的命令行工具
 
 从 MuJoCo XML 文件直接解析并生成 SPH scene.json 文件。
 无需 OrcaGym 环境，适合调试和分析场景配置。
 
 使用方法:
-    python generate_scene_from_xml.py <xml_path> <output_json_path> [选项]
+    python -m envs.fluid.tools.generate_scene_cli <xml_path> <output_json_path> [选项]
     
 示例:
-    python generate_scene_from_xml.py \\
+    python -m envs.fluid.tools.generate_scene_cli \\
         "/path/to/out.xml" \\
         "scene.json" \\
         --config scene_config.json
@@ -189,7 +189,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
-  python generate_scene_from_xml.py \\
+  python -m envs.fluid.tools.generate_scene_cli \\
     "/path/to/out.xml" "scene.json" \\
     --config scene_config.json
         """
@@ -212,10 +212,16 @@ def main():
             logger.error(f"XML 文件不存在: {xml_path}")
             return False
         
+        # 尝试从多个位置查找配置文件
         config_path = Path(args.config)
         if not config_path.exists():
-            logger.error(f"配置文件不存在: {config_path}")
-            return False
+            # 尝试从 examples/fluid/ 目录查找
+            examples_config = Path(__file__).parent.parent.parent.parent / "examples" / "fluid" / args.config
+            if examples_config.exists():
+                config_path = examples_config
+            else:
+                logger.error(f"配置文件不存在: {args.config}")
+                return False
         
         logger.info(f"📁 XML 文件: {xml_path}")
         logger.info(f"⚙️  配置文件: {config_path}")

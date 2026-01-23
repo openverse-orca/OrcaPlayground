@@ -45,14 +45,13 @@ class RigidBodyConfig:
 class OrcaLinkBridge:
     """SPH-MuJoCo 多点软连接包装器（OrcaLink 适配器）"""
     
-    def __init__(self, env, config_path: str = None):
+    def __init__(self, env, config: dict):
         """
         初始化 OrcaLinkBridge（非阻塞）- 只加载配置，不连接
         
         Args:
             env: OrcaGymLocalEnv 实例
-            config_path: 模板配置文件路径 (sph_mujoco_config_template.json)
-                        如果为 None，使用默认路径
+            config: 配置字典（从 fluid_config.json 传入）
         """
         self.env = env
         self.rigid_bodies: Dict[str, RigidBodyConfig] = {}
@@ -74,12 +73,9 @@ class OrcaLinkBridge:
         # 当前耦合模式实例（NEW: Strategy Pattern）
         self.current_mode = None
         
-        # 生成完整配置
-        if config_path is None:
-            config_path = Path(__file__).parent / "sph_mujoco_config_template.json"
-        
-        self.config_path = str(config_path)
-        self.config = self._generate_config(config_path)
+        # 生成完整配置（从配置字典）
+        self.config = self._prepare_orcalink_config(config)
+        self.fluid_config = config  # 保存原始配置字典供后续使用
         
         logger.info(f"OrcaLinkBridge initializing with generated config")
         
@@ -89,63 +85,48 @@ class OrcaLinkBridge:
         # 不在这里连接，延迟到 connect() 方法
         logger.info(f"OrcaLinkBridge initialized with {len(self.rigid_bodies)} rigid bodies (connection deferred)")
     
-    def _generate_config(self, template_path: str) -> dict:
+    def _prepare_orcalink_config(self, fluid_config: dict) -> dict:
         """
-        生成完整配置：加载模板 + 动态生成 rigid_bodies
+        从 fluid_config 准备 OrcaLink 配置
         
         Args:
-            template_path: 模板配置文件路径
-        
+            fluid_config: 完整的 fluid_config.json 内容
+            
         Returns:
-            dict: 完整的配置字典
+            dict: OrcaLink 客户端配置
         """
-        # 加载模板配置
-        try:
-            with open(template_path, 'r') as f:
-                template_config = json.load(f)
-            logger.info(f"Template configuration loaded from {template_path}")
-        except FileNotFoundError:
-            logger.error(f"Template config file not found: {template_path}")
-            raise
-        except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in template config file: {e}")
-            raise
+        orcalink_cfg = fluid_config['orcalink']
+        
+        # 构建 orcalink_client 配置
+        orcalink_config = {
+            "orcalink_client": {
+                "enabled": orcalink_cfg.get('enabled', True),
+                "server_address": f"{orcalink_cfg.get('host', 'localhost')}:{orcalink_cfg.get('port', 50351)}",
+                **orcalink_cfg.get('client', {})
+            },
+            "orcalink_bridge": orcalink_cfg.get('bridge', {}),
+            "simulation": fluid_config.get('simulation', {}),
+            "rigid_bodies": [],  # 动态生成
+            "debug": fluid_config.get('debug', {})
+        }
+        
+        # 确保 server_address 正确（覆盖 client 中的值）
+        orcalink_config['orcalink_client']['server_address'] = f"{orcalink_cfg.get('host', 'localhost')}:{orcalink_cfg.get('port', 50351)}"
+        orcalink_config['orcalink_client']['enabled'] = orcalink_cfg.get('enabled', True)
         
         # 使用 ConfigGenerator 生成 rigid_bodies
         try:
-            from config_generator import ConfigGenerator
+            from .config_generator import ConfigGenerator
             
             generator = ConfigGenerator(self.env)
             rigid_bodies = generator.generate_rigid_bodies()
-            
-            # 合并到模板配置
-            template_config['rigid_bodies'] = rigid_bodies
-            
+            orcalink_config['rigid_bodies'] = rigid_bodies
             logger.info(f"Generated {len(rigid_bodies)} rigid bodies from MuJoCo model")
-            
         except Exception as e:
             logger.error(f"Error generating rigid_bodies: {e}", exc_info=True)
-            # 如果生成失败，使用模板中的空列表
-            template_config['rigid_bodies'] = []
+            orcalink_config['rigid_bodies'] = []
         
-        # 保存生成的配置到临时目录
-        try:
-            orcagym_tmp_dir = Path.home() / ".orcagym" / "tmp"
-            orcagym_tmp_dir.mkdir(parents=True, exist_ok=True)
-            
-            config_uuid = str(uuid.uuid4()).replace('-', '_')
-            generated_config_path = orcagym_tmp_dir / f"sph_mujoco_config_{config_uuid}.json"
-            
-            with open(generated_config_path, 'w') as f:
-                json.dump(template_config, f, indent=2)
-            
-            logger.info(f"Generated config saved to: {generated_config_path}")
-            self.config_path = str(generated_config_path)
-            
-        except Exception as e:
-            logger.warning(f"Failed to save generated config: {e}. Using in-memory config.")
-        
-        return template_config
+        return orcalink_config
     
     def _parse_rigid_bodies(self):
         """解析刚体和连接点配置"""
@@ -246,11 +227,11 @@ class OrcaLinkBridge:
             # 导入 OrcaLinkClient（通过 pip 安装的包）
             from orcalink_client import OrcaLinkClient
             from orcalink_client.data_structures import OrcaLinkConfig
-            from orcalink_client.config_loader import load_config_from_json
+            from orcalink_client.config_loader import _build_orcalink_config_from_dict
             
-            # 使用配置加载器加载完整配置（包括所有必需字段）
-            logger.info(f"Loading OrcaLink configuration from: {self.config_path}")
-            config = load_config_from_json(self.config_path)
+            # 从配置字典构建 OrcaLinkConfig 对象
+            logger.info("Building OrcaLink configuration from config dict")
+            config = _build_orcalink_config_from_dict(self.config)
             
             # 验证关键配置
             if not config.enabled:

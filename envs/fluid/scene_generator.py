@@ -67,10 +67,12 @@ class SceneGenerator:
     
     def _resolve_geometry_path(self, geometry_file: str) -> str:
         """
-        将相对路径转换为绝对路径
+        将相对路径转换为绝对路径，支持包资源加载
         
-        配置文件中的相对路径是相对于 scene_generator.py 所在目录的。
-        例如：../../../data/models/UnitBox.obj 会被解析为绝对路径。
+        支持三种路径格式：
+        1. 绝对路径：直接返回
+        2. package://orcasph/data/models/UnitBox.obj：从 orcasph_client 包加载
+        3. 相对路径：相对于 scene_generator.py 所在目录，如果不存在则尝试从包中加载
         
         Args:
             geometry_file: 几何文件路径（可能是相对路径或绝对路径）
@@ -85,10 +87,96 @@ class SceneGenerator:
         if os.path.isabs(geometry_file):
             return geometry_file
         
+        # 支持包资源路径：package://orcasph/data/models/UnitBox.obj
+        if geometry_file.startswith('package://orcasph/'):
+            resource_path = geometry_file[len('package://orcasph/'):]
+            abs_path = self._load_from_orcasph_package(resource_path)
+            if abs_path:
+                logger.info(f"Loaded from orcasph package: '{geometry_file}' -> '{abs_path}'")
+                return abs_path
+            else:
+                logger.warning(f"Failed to load package resource: '{geometry_file}'")
+        
         # 相对路径：从 scene_generator.py 所在目录解析
         abs_path = os.path.abspath(os.path.join(self._base_dir, geometry_file))
+        
+        # 如果文件不存在，尝试从 orcasph_client 包中加载（fallback）
+        if not os.path.exists(abs_path):
+            logger.warning(f"File not found at: {abs_path}")
+            
+            # 尝试从包中加载
+            # 例如：../../../data/models/UnitBox.obj -> data/models/UnitBox.obj
+            filename = os.path.basename(geometry_file)
+            dirname = os.path.dirname(geometry_file)
+            
+            # 尝试常见的资源路径
+            possible_paths = [
+                f"data/models/{filename}",
+                f"data/{filename}",
+                filename,
+            ]
+            
+            for resource_path in possible_paths:
+                package_path = self._load_from_orcasph_package(resource_path)
+                if package_path and os.path.exists(package_path):
+                    logger.info(f"Found in orcasph package: '{geometry_file}' -> '{package_path}'")
+                    return package_path
+            
+            logger.warning(f"Could not find file in package, using original path: {abs_path}")
+        
         logger.info(f"Resolved geometry path: '{geometry_file}' -> '{abs_path}'")
         return abs_path
+    
+    def _load_from_orcasph_package(self, resource_path: str) -> str:
+        """
+        从 orcasph_client 包中加载资源文件
+        
+        兼容：
+        - pip install orca-sph（普通安装）
+        - pip install -e .（可编辑安装）
+        
+        Args:
+            resource_path: 包内资源路径，如 'data/models/UnitBox.obj'
+            
+        Returns:
+            资源文件的绝对路径，如果找不到返回 None
+        """
+        try:
+            # 方法1：使用 __file__ 定位（兼容 editable install）
+            try:
+                import orcasph_client
+                package_dir = Path(orcasph_client.__file__).parent
+                resource_file = package_dir / resource_path
+                
+                if resource_file.exists():
+                    return str(resource_file.resolve())
+            except ImportError:
+                pass
+            
+            # 方法2：使用 importlib.resources（Python 3.9+）
+            try:
+                from importlib import resources
+                if hasattr(resources, 'files'):
+                    resource = resources.files('orcasph_client').joinpath(resource_path)
+                    if resource.is_file():
+                        return str(resource)
+            except Exception:
+                pass
+            
+            # 方法3：使用 pkg_resources（fallback，兼容旧版本）
+            try:
+                import pkg_resources
+                resource_file = pkg_resources.resource_filename('orcasph_client', resource_path)
+                if os.path.exists(resource_file):
+                    return resource_file
+            except Exception:
+                pass
+            
+            return None
+            
+        except Exception as e:
+            logger.debug(f"Error loading package resource '{resource_path}': {e}")
+            return None
     
     def _load_config(self, config_path: str) -> Dict:
         """加载 JSON 配置文件"""
