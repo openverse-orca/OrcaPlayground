@@ -1,0 +1,138 @@
+{
+  "description": "SPlisHSPlasH 配置文件模板 (用于生成SPH程序配置)",
+  
+  "orcalink_client": {
+    "enabled": true,
+    "server_address": "localhost:50351",
+    "session_id": 1,
+    "client_name": "SPlisHSPlasH",
+    "update_rate_hz": 50,
+    "encoding": {
+      "i_frame_interval": 30,
+      "change_threshold": 0.001
+    },
+    "session": {
+      "control_mode": "sync",
+      "expected_clients": 2,
+      "ready_timeout_sec": 30.0,
+      "grpc_call_timeout_sec": 5.0,
+      "async_params": {
+        "flow_control_enabled": true,
+        "flow_control_window_size": 10,
+        "speed_ratio_threshold": 2.0
+      },
+      "sync_params": {
+        "sync_window_size": 1
+      }
+    }
+  },
+  
+  "orcalink_bridge": {
+    "coupling_mode": "multi_point_force",
+    "spring_constraint": {
+      "channels": {
+        "position": {
+          "channel_id": 2,
+          "publish": false,
+          "subscribe": true,
+          "comment": "SPH接收位置来自MuJoCo"
+        }
+      },
+      "spring_parameters": {
+        "linear_spring_stiffness": 5000.0,
+        "linear_damping_coefficient": 100.0,
+        "max_spring_force": 5000.0,
+        "apply_spring_forces": true
+      },
+      "rigid_body_dynamics": {
+        "mode": "internal",
+        "comment": "SPH内部PBD处理刚体动力学"
+      },
+      "gravity_module": {
+        "enable_rigid_body_gravity": true,
+        "anchor_particle_mass_ratio": 1.0
+      },
+      "force_clamping": {
+        "enabled": true,
+        "rigid_body": {
+          "enabled": true,
+          "max_acceleration_g": 10.0,
+          "discard_on_clamp": true
+        },
+        "debug": {
+          "log_clamped_forces": true,
+          "log_threshold_n": 1000.0
+        }
+      }
+    },
+    "multi_point_force": {
+      "channels": {
+        "force": {
+          "channel_id": 3,
+          "publish": true,
+          "subscribe": false,
+          "comment": "SPH发送多点力给MuJoCo"
+        },
+        "position": {
+          "channel_id": 2,
+          "publish": false,
+          "subscribe": true,
+          "comment": "SPH接收位置来自MuJoCo"
+        }
+      },
+      "force_decomposition": {
+        "precompute_inverse": true,
+        "regularization": 0.001
+      },
+      "rigid_body_dynamics": {
+        "mode": "internal",
+        "comment": "刚体动力学由MuJoCo主导，SPH跳过PBD时间步"
+      }
+    },
+    "shared_modules": {
+      "spring_force": {
+        "linear_spring_stiffness": 5000.0,
+        "linear_damping_coefficient": 100.0,
+        "max_spring_force": 5000.0
+      },
+      "gravity": {
+        "enable_rigid_body_gravity": false,
+        "enable_rigid_body_collision": false,
+        "anchor_particle_mass_ratio": 1.0
+      },
+      "force_clamping": {
+        "enabled": true,
+        "rigid_body": {
+          "enabled": true,
+          "max_acceleration_g": 10.0,
+          "discard_on_clamp": true
+        },
+        "debug": {
+          "log_clamped_forces": true,
+          "log_threshold_n": 1000.0
+        }
+      }
+    }
+  },
+  
+  "physics": {
+    "gravity": [0, 0, -9.81],
+    "linear_damping": 0.01,
+    "angular_damping": 0.01,
+    "enable_debug_output": false,
+    "physics_dt": 0.001
+  },
+  
+  "debug": {
+    "verbose_logging": true,
+    "enable_spring_force_stats": true,
+    "enable_fluid_force_stats": true,
+    "visualize_anchor_particles": true,
+    "visualize_target_positions": true,
+    "visualize_spring_connections": true,
+    "anchor_particle_size": 0.02,
+    "target_position_size": 0.015,
+    "comment": "Debug选项：verbose_logging启用详细日志；enable_spring_force_stats启用弹簧力统计（每1秒）；enable_fluid_force_stats启用流体力统计（每1秒）；visualize_*控制锚点粒子可视化"
+  }
+}
+

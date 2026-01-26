@@ -84,10 +84,40 @@ def generate_orcasph_config(fluid_config: Dict, output_path: Path) -> Path:
     orcasph_cfg = fluid_config.get('orcasph', {})
     orcalink_cfg = fluid_config.get('orcalink', {})
     
-    # 从 fluid_config 获取 orcasph 配置模板
-    orcasph_config_template = orcasph_cfg.get('config', {})
+    # 支持两种方式：外部模板文件（新）或内嵌配置（旧，向后兼容）
+    orcasph_config_template = {}
     
-    # 构建完整的 orcasph 配置
+    if 'config_template' in orcasph_cfg:
+        # 新方式：从外部文件加载模板
+        template_filename = orcasph_cfg['config_template']
+        # 尝试多个位置查找模板文件
+        template_paths = [
+            Path(__file__).parent.parent.parent / "examples" / "fluid" / template_filename,
+            Path(__file__).parent / template_filename,
+            Path(template_filename)  # 相对于当前工作目录
+        ]
+        
+        template_path = None
+        for path in template_paths:
+            if path.exists():
+                template_path = path
+                break
+        
+        if template_path:
+            with open(template_path, 'r', encoding='utf-8') as f:
+                orcasph_config_template = json.load(f)
+            logger.info(f"✅ 从模板加载 SPH 配置: {template_path}")
+        else:
+            logger.warning(f"⚠️  配置模板文件未找到: {template_filename}，尝试的路径：{template_paths}")
+            orcasph_config_template = {}
+    elif 'config' in orcasph_cfg:
+        # 旧方式：内嵌配置（向后兼容）
+        orcasph_config_template = orcasph_cfg['config']
+        logger.info("✅ 使用内嵌 SPH 配置（旧格式）")
+    else:
+        logger.warning("⚠️  未找到 SPH 配置模板，使用空配置")
+    
+    # 构建完整的 orcasph 配置（合并模板和动态参数）
     orcasph_config = {
         "orcalink_client": {
             "enabled": orcalink_cfg.get('enabled', True),
@@ -99,7 +129,7 @@ def generate_orcasph_config(fluid_config: Dict, output_path: Path) -> Path:
         "debug": orcasph_config_template.get('debug', {})
     }
     
-    # 确保 server_address 正确（覆盖模板中的值）
+    # 覆盖关键参数（确保动态值生效）
     orcasph_config['orcalink_client']['server_address'] = f"{orcalink_cfg.get('host', 'localhost')}:{orcalink_cfg.get('port', 50351)}"
     orcasph_config['orcalink_client']['enabled'] = orcalink_cfg.get('enabled', True)
     

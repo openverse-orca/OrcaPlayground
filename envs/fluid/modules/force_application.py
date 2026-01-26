@@ -97,46 +97,24 @@ class ForceApplicationModule:
             logger.error(f"Error applying site forces: {e}", exc_info=True)
     
     def _apply_force_to_body(self, force_data):
-        """Apply force to a rigid body (internal helper)"""
+        """Apply force to a rigid body using OrcaGym API"""
         try:
-            import mujoco
-            
             body_name = force_data.object_id
             force = np.array(force_data.force, dtype=np.float64)
             torque = np.array(force_data.torque, dtype=np.float64) if hasattr(force_data, 'torque') else np.zeros(3)
             
-            # Convert force from SPH Y-up to MuJoCo Z-up if needed
-            # SPH: [x, y, z] where y is up
-            # MuJoCo: [x, y, z] where z is up
-            # Conversion: MuJoCo_y = SPH_x, MuJoCo_z = SPH_y, MuJoCo_x = -SPH_z
-            # Actually, let's check if conversion is needed based on the environment
-            force_mujoco = force.copy()
-            torque_mujoco = torque.copy()
+            # Apply force using OrcaGym API (required)
+            if not hasattr(self.env, 'apply_force_to_body'):
+                raise AttributeError(
+                    f"Environment does not provide 'apply_force_to_body' method. "
+                    f"Cannot apply forces to rigid bodies. "
+                    f"Environment type: {type(self.env).__name__}"
+                )
             
-            # Find body ID
-            if not hasattr(self.env, 'mj_model') or not hasattr(self.env, 'mj_data'):
-                # Fallback: try environment-specific method
-                if hasattr(self.env, 'apply_force_to_body'):
-                    self.env.apply_force_to_body(body_name, force_mujoco, torque_mujoco)
-                    logger.debug(f"Applied force to body '{body_name}' via env method: F={force_mujoco}, τ={torque_mujoco}")
-                    return
-                else:
-                    logger.warning(f"Environment does not have mj_model/mj_data or apply_force_to_body method")
-                    return
+            self.env.apply_force_to_body(body_name, force, torque)
+            logger.debug(f"Applied force to body '{body_name}': F={force}, τ={torque}")
             
-            body_id = mujoco.mj_name2id(self.env.mj_model, mujoco.mjtObj.mjOBJ_BODY, body_name)
-            if body_id < 0:
-                logger.warning(f"Body '{body_name}' not found in MuJoCo model")
-                return
-            
-            # Apply force to xfrc_applied (external force/torque)
-            # xfrc_applied format: [fx, fy, fz, tx, ty, tz]
-            self.env.mj_data.xfrc_applied[body_id][:3] += force_mujoco
-            self.env.mj_data.xfrc_applied[body_id][3:] += torque_mujoco
-            
-            logger.debug(f"Applied force to body '{body_name}' (id={body_id}): F={force_mujoco}, τ={torque_mujoco}")
-        except ImportError:
-            logger.error("mujoco module not available, cannot apply forces")
         except Exception as e:
             logger.error(f"Error applying force to body '{body_name}': {e}", exc_info=True)
+            raise
 

@@ -62,12 +62,11 @@ class SpringConstraintMode(ICouplingMode):
         self.position_publish_module = None
     
     def _receive_and_apply_target_positions(self):
-        """Receive target positions from SPH and apply to mocap bodies"""
+        """Subscribe to target positions and apply to mocap bodies using OrcaGym API"""
         if not self.orcalink_client or not self.loop:
             return
         
         try:
-            import mujoco
             import logging
             logger = logging.getLogger(__name__)
             
@@ -77,60 +76,45 @@ class SpringConstraintMode(ICouplingMode):
             )
             
             if not positions:
+                logger.debug("No target positions received")
                 return
             
-            # Check if environment has MuJoCo model/data
-            if not hasattr(self.env, 'mj_model') or not hasattr(self.env, 'mj_data'):
-                # Fallback: try environment-specific method
-                if hasattr(self.env, 'set_mocap_pos'):
-                    for pos_data in positions:
-                        self.env.set_mocap_pos(pos_data.object_id, pos_data.position)
-                        if hasattr(self.env, 'set_mocap_quat'):
-                            self.env.set_mocap_quat(pos_data.object_id, pos_data.rotation)
-                    return
-                else:
-                    logger.warning("Environment does not have mj_model/mj_data or set_mocap_pos method")
-                    return
+            # Check if environment supports mocap API
+            if not hasattr(self.env, 'set_mocap_pos_and_quat'):
+                raise AttributeError(
+                    f"Environment does not provide 'set_mocap_pos_and_quat' method. "
+                    f"Cannot set mocap targets for spring constraint mode. "
+                    f"Environment type: {type(self.env).__name__}"
+                )
             
-            # Apply target positions to mocap bodies using MuJoCo API
+            # Build mocap position/quaternion dictionary for batch update
+            mocap_pos_and_quat_dict = {}
+            
             for pos_data in positions:
                 body_name = pos_data.object_id
-                
-                # Find body ID
-                body_id = mujoco.mj_name2id(self.env.mj_model, mujoco.mjtObj.mjOBJ_BODY, body_name)
-                if body_id < 0:
-                    logger.debug(f"Body '{body_name}' not found in MuJoCo model")
-                    continue
-                
-                # Check if this body is a mocap body
-                mocap_id = self.env.mj_model.body_mocapid[body_id]
-                if mocap_id < 0:
-                    logger.warning(f"Body '{body_name}' (id={body_id}) is not a mocap body")
-                    continue
-                
-                # Set mocap position and quaternion
-                # Convert position from SPH Y-up to MuJoCo Z-up if needed
-                # SPH: [x, y, z] where y is up
-                # MuJoCo: [x, y, z] where z is up
-                # Conversion: MuJoCo_y = SPH_x, MuJoCo_z = SPH_y, MuJoCo_x = -SPH_z
-                # Actually, positions might already be in MuJoCo format from OrcaLink
                 pos = np.array(pos_data.position, dtype=np.float64)
                 quat = np.array(pos_data.rotation, dtype=np.float64) if hasattr(pos_data, 'rotation') else np.array([1, 0, 0, 0], dtype=np.float64)
                 
                 # Ensure quaternion is in [w, x, y, z] format (MuJoCo format)
-                if len(quat) == 4:
-                    self.env.mj_data.mocap_pos[mocap_id] = pos
-                    self.env.mj_data.mocap_quat[mocap_id] = quat
-                    
-                    logger.debug(f"Set mocap target for '{body_name}' (mocap_id={mocap_id}): pos={pos}, quat={quat}")
-                else:
-                    logger.warning(f"Invalid quaternion format for body '{body_name}': {quat}")
-        except ImportError:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error("mujoco module not available, cannot apply target positions")
+                if len(quat) != 4:
+                    logger.warning(f"Invalid quaternion format for body '{body_name}': {quat}, skipping")
+                    continue
+                
+                mocap_pos_and_quat_dict[body_name] = {
+                    "pos": pos,
+                    "quat": quat
+                }
+                
+                logger.debug(f"Prepared mocap target for '{body_name}': pos={pos}, quat={quat}")
+            
+            # Apply all mocap targets in batch
+            if mocap_pos_and_quat_dict:
+                self.env.set_mocap_pos_and_quat(mocap_pos_and_quat_dict)
+                logger.debug(f"Applied {len(mocap_pos_and_quat_dict)} mocap targets")
+        
         except Exception as e:
             import logging
             logger = logging.getLogger(__name__)
-            logger.error(f"Error receiving target positions: {e}", exc_info=True)
+            logger.error(f"Error applying mocap targets: {e}", exc_info=True)
+            raise
 

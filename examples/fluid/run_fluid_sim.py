@@ -62,8 +62,8 @@ def main():
     
     parser.add_argument(
         '--config',
-        default='fluid_config.json',
-        help='配置文件路径 (默认: fluid_config.json)'
+        default='fluid_sim_config.json',
+        help='配置文件路径 (默认: fluid_sim_config.json)'
     )
     parser.add_argument(
         '--manual-mode',

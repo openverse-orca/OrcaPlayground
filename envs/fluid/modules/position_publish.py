@@ -54,118 +54,149 @@ class PositionPublishModule:
     
     def publish_site_positions(self):
         """Publish SITE positions (MultiPointForceMode)"""
+        logger.debug(f"[DEBUG] publish_site_positions - START")
+        logger.debug(f"[DEBUG] publish_site_positions - client={self.client is not None}, loop={self.loop is not None}")
+        logger.debug(f"[DEBUG] publish_site_positions - rigid_bodies count: {len(self.rigid_bodies)}")
+        
         if not self.client or not self.loop:
+            logger.warning("[WARNING] publish_site_positions - client or loop not available, returning")
             return
         
         try:
             positions = self._collect_site_positions()
+            logger.debug(f"[DEBUG] publish_site_positions - Collected {len(positions)} positions")
+            
             if positions:
+                logger.info(f"[INFO] publish_site_positions - Publishing {len(positions)} positions to channel {self.client.position_channel_id}")
                 self.loop.run_until_complete(
                     self.client.publish_positions(positions)
                 )
+                logger.info(f"[INFO] publish_site_positions - Successfully published {len(positions)} positions")
+            else:
+                logger.warning("[WARNING] publish_site_positions - No positions collected, not publishing")
         except Exception as e:
             logger.error(f"Error publishing site positions: {e}", exc_info=True)
     
     def _collect_body_positions(self) -> List:
-        """Collect rigid body positions from MuJoCo"""
+        """Collect rigid body positions from MuJoCo using OrcaGym API"""
         positions = []
         
-        if not hasattr(self.env, 'mj_data') or not hasattr(self.env, 'mj_model'):
-            return positions
-        
-        mj_data = self.env.mj_data
-        mj_model = self.env.mj_model
-        
-        # Iterate through rigid bodies
-        for body_config in self.rigid_bodies:
-            body_name = body_config.get('mujoco_body', '')
-            if not body_name:
-                continue
+        try:
+            # 1. 收集所有需要查询的 body 名称
+            body_names = []
+            body_to_object_id = {}  # 映射 body_name -> object_id (用于 OrcaLink)
             
-            # Find body ID
-            body_id = None
-            for i in range(mj_model.nbody):
-                if mj_model.body(i).name == body_name:
-                    body_id = i
-                    break
+            for body_config in self.rigid_bodies:
+                body_name = body_config.get('mujoco_body', '')
+                object_id = body_config.get('object_id', body_name)
+                if body_name:
+                    body_names.append(body_name)
+                    body_to_object_id[body_name] = object_id
             
-            if body_id is None:
-                continue
+            if not body_names:
+                logger.debug("[DEBUG] _collect_body_positions - No body names to query")
+                return positions
             
-            # Get position and rotation
-            pos = mj_data.xpos[body_id].copy()
-            quat = mj_data.xquat[body_id].copy()
+            logger.debug(f"[DEBUG] _collect_body_positions - Querying {len(body_names)} bodies")
             
-            # Convert to position data structure
-            try:
-                from data_structures import RigidBodyPosition
-                position_data = RigidBodyPosition()
-                position_data.object_id = body_name
-                position_data.position = pos
-                position_data.rotation = quat
-            except ImportError:
-                # Fallback: create dict-like object
-                position_data = type('RigidBodyPosition', (), {
-                    'object_id': body_name,
-                    'position': pos,
-                    'rotation': quat
-                })()
+            # 2. 更新 MuJoCo 数据
+            self.env.mj_forward()
             
-            positions.append(position_data)
-        
-        return positions
-    
-    def _collect_site_positions(self) -> List:
-        """Collect SITE positions from MuJoCo"""
-        positions = []
-        
-        if not hasattr(self.env, 'mj_data') or not hasattr(self.env, 'mj_model'):
-            return positions
-        
-        mj_data = self.env.mj_data
-        mj_model = self.env.mj_model
-        
-        # Iterate through rigid bodies and their connection points
-        for body_config in self.rigid_bodies:
-            connection_points = body_config.get('connection_points', [])
+            # 3. 批量查询 body 位置、旋转矩阵和四元数（使用 OrcaGym API）
+            body_dict = self.env.get_body_xpos_xmat_xquat(body_names)
             
-            for cp in connection_points:
-                site_name = cp.get('site_name', '')
-                if not site_name:
-                    continue
-                
-                # Find site ID
-                site_id = None
-                for i in range(mj_model.nsite):
-                    if mj_model.site(i).name == site_name:
-                        site_id = i
-                        break
-                
-                if site_id is None:
-                    continue
-                
-                # Get site position
-                pos = mj_data.site_xpos[site_id].copy()
-                
-                # Use identity quaternion for sites (or get from body)
-                quat = np.array([1.0, 0.0, 0.0, 0.0])  # Identity quaternion
+            # 4. 转换为 OrcaLink 格式
+            for body_name, body_data in body_dict.items():
+                object_id = body_to_object_id.get(body_name, body_name)
+                pos = body_data['xpos']
+                quat = body_data['xquat']
                 
                 # Convert to position data structure
                 try:
                     from data_structures import RigidBodyPosition
                     position_data = RigidBodyPosition()
-                    position_data.object_id = site_name  # Use site name as object ID
-                    position_data.position = pos
-                    position_data.rotation = quat
+                    position_data.object_id = object_id
+                    position_data.position = np.array(pos, dtype=np.float32)
+                    position_data.rotation = np.array(quat, dtype=np.float32)
                 except ImportError:
                     # Fallback: create dict-like object
                     position_data = type('RigidBodyPosition', (), {
-                        'object_id': site_name,
-                        'position': pos,
-                        'rotation': quat
+                        'object_id': object_id,
+                        'position': np.array(pos, dtype=np.float32),
+                        'rotation': np.array(quat, dtype=np.float32)
                     })()
                 
                 positions.append(position_data)
+                logger.debug(f"[DEBUG] _collect_body_positions - Collected body '{body_name}' -> object_id '{object_id}', pos={pos}")
+            
+            logger.debug(f"[DEBUG] _collect_body_positions - Collected {len(positions)} positions")
+            return positions
+            
+        except Exception as e:
+            logger.error(f"Error collecting body positions: {e}", exc_info=True)
+            return []
+    
+    def _collect_site_positions(self) -> List:
+        """Collect SITE positions from MuJoCo using OrcaGym API"""
+        logger.debug(f"[DEBUG] _collect_site_positions - START")
+        logger.debug(f"[DEBUG] _collect_site_positions - rigid_bodies count: {len(self.rigid_bodies)}")
+        positions = []
         
-        return positions
+        try:
+            # 1. 收集所有需要查询的 SITE 名称
+            site_names = []
+            site_to_object_id = {}  # 映射 site_name -> object_id (用于 OrcaLink)
+            
+            for body_config in self.rigid_bodies:
+                connection_points = body_config.get('connection_points', [])
+                for cp in connection_points:
+                    site_name = cp.get('site_name', '')
+                    # 使用 point_id 作为 object_id，如果没有则使用 site_name
+                    object_id = cp.get('point_id', cp.get('object_id', site_name))
+                    if site_name:
+                        site_names.append(site_name)
+                        site_to_object_id[site_name] = object_id
+            
+            if not site_names:
+                logger.debug("[DEBUG] _collect_site_positions - No site names to query")
+                return positions
+            
+            logger.debug(f"[DEBUG] _collect_site_positions - Querying {len(site_names)} sites")
+            
+            # 2. 更新 MuJoCo 数据
+            self.env.mj_forward()
+            
+            # 3. 批量查询 SITE 位置和四元数（使用 OrcaGym API）
+            site_dict = self.env.query_site_pos_and_quat(site_names)
+            
+            # 4. 转换为 OrcaLink 格式
+            for site_name, site_data in site_dict.items():
+                object_id = site_to_object_id.get(site_name, site_name)
+                pos = site_data['xpos']
+                quat = site_data['xquat']
+                
+                # 转换为 position data structure
+                try:
+                    from data_structures import RigidBodyPosition
+                    position_data = RigidBodyPosition()
+                    position_data.object_id = object_id
+                    position_data.position = np.array(pos, dtype=np.float32)
+                    position_data.rotation = np.array(quat, dtype=np.float32)
+                except ImportError:
+                    # Fallback: create dict-like object
+                    position_data = type('RigidBodyPosition', (), {
+                        'object_id': object_id,
+                        'position': np.array(pos, dtype=np.float32),
+                        'rotation': np.array(quat, dtype=np.float32)
+                    })()
+                
+                positions.append(position_data)
+                logger.debug(f"[DEBUG] _collect_site_positions - Collected site '{site_name}' -> object_id '{object_id}', pos={pos}")
+            
+            logger.debug(f"[DEBUG] _collect_site_positions - Collected {len(positions)} positions")
+            return positions
+            
+        except Exception as e:
+            logger.error(f"Error collecting site positions: {e}", exc_info=True)
+            return []
 

@@ -312,7 +312,14 @@ class OrcaLinkBridge:
                 import sys
                 print(f"[PRINT-DEBUG] _init_orcalink - current_mode is not None: {type(self.current_mode).__name__}", file=sys.stderr, flush=True)
                 logger.info("[DEBUG] _init_orcalink - Initializing coupling mode...")
+                # 获取模式特定配置
                 mode_config = self.config.get('orcalink_bridge', {}).get(self.coupling_mode, {})
+                logger.info(f"[DEBUG] _init_orcalink - Mode config keys: {mode_config.keys()}")
+                
+                # 将顶层的 rigid_bodies 配置传入 mode_config
+                mode_config['rigid_bodies'] = self.config.get('rigid_bodies', [])
+                logger.info(f"[DEBUG] _init_orcalink - Added {len(mode_config['rigid_bodies'])} rigid bodies to mode_config")
+                
                 logger.info(f"[DEBUG] _init_orcalink - Mode config: {mode_config}")
                 
                 print(f"[PRINT-DEBUG] _init_orcalink - About to call initialize()", file=sys.stderr, flush=True)
@@ -344,156 +351,157 @@ class OrcaLinkBridge:
             logger.error(f"[DEBUG] _init_orcalink - EXCEPTION: {e}")
             logger.error(f"Failed to initialize OrcaLinkClient: {e}", exc_info=True)
             raise
-    
-    def send_positions_to_sph(self):
-        """
-        发送 MuJoCo SITE 位置到 SPH
-        每个 SITE 作为独立的虚拟刚体发送
-        """
-        try:
-            self.env.mj_forward()
-            from data_structures import RigidBodyPosition
-            positions_data = []
+
+    # 老方案，先保留不删除。
+    # def send_positions_to_sph(self):
+    #     """
+    #     发送 MuJoCo SITE 位置到 SPH
+    #     每个 SITE 作为独立的虚拟刚体发送
+    #     """
+    #     try:
+    #         self.env.mj_forward()
+    #         from data_structures import RigidBodyPosition
+    #         positions_data = []
             
-            for rb_config in self.rigid_bodies.values():
-                site_names = [pt.site_name for pt in rb_config.connection_points]
-                site_dict = self.env.query_site_pos_and_quat(site_names)
+    #         for rb_config in self.rigid_bodies.values():
+    #             site_names = [pt.site_name for pt in rb_config.connection_points]
+    #             site_dict = self.env.query_site_pos_and_quat(site_names)
                 
-                if not site_dict:
-                    continue
+    #             if not site_dict:
+    #                 continue
                 
-                for pt in rb_config.connection_points:
-                    if pt.site_name not in site_dict:
-                        continue
+    #             for pt in rb_config.connection_points:
+    #                 if pt.site_name not in site_dict:
+    #                     continue
                         
-                    xpos = site_dict[pt.site_name].get('xpos')
-                    if xpos is None:
-                        continue
+    #                 xpos = site_dict[pt.site_name].get('xpos')
+    #                 if xpos is None:
+    #                     continue
                     
-                    # 关键：使用 Python 自己的 SITE 名称作为 object_id
-                    position_obj = RigidBodyPosition(
-                        object_id=pt.site_name,  # 例如 "toys_usda_box_body_SPH_SITE_000"
-                        position=np.array(xpos, dtype=np.float32),
-                        rotation=np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
-                    )
-                    positions_data.append(position_obj)
-                    logger.debug(f"Send SITE: '{pt.site_name}' pos={xpos}")
+    #                 # 关键：使用 Python 自己的 SITE 名称作为 object_id
+    #                 position_obj = RigidBodyPosition(
+    #                     object_id=pt.site_name,  # 例如 "toys_usda_box_body_SPH_SITE_000"
+    #                     position=np.array(xpos, dtype=np.float32),
+    #                     rotation=np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+    #                 )
+    #                 positions_data.append(position_obj)
+    #                 logger.debug(f"Send SITE: '{pt.site_name}' pos={xpos}")
             
-            if positions_data:
-                self.loop.run_until_complete(self.orcalink_client.publish_positions(positions_data))
-                logger.debug(f"Sent {len(positions_data)} SITE positions")
-        except Exception as e:
-            logger.error(f"Error in send_positions_to_sph: {e}", exc_info=True)
+    #         if positions_data:
+    #             self.loop.run_until_complete(self.orcalink_client.publish_positions(positions_data))
+    #             logger.debug(f"Sent {len(positions_data)} SITE positions")
+    #     except Exception as e:
+    #         logger.error(f"Error in send_positions_to_sph: {e}", exc_info=True)
     
-    def receive_and_apply_sph_targets(self):
-        """
-        接收 SPH 发送的 SITE 位置，映射到本地 MOCAP
-        对方的 SITE_000 → 本地的 MOCAP_000
-        """
-        try:
-            sph_data = self.loop.run_until_complete(
-                self.orcalink_client.subscribe_positions(max_count=100, enable_sync_window=True)
-            )
+    # def receive_and_apply_sph_targets(self):
+    #     """
+    #     接收 SPH 发送的 SITE 位置，映射到本地 MOCAP
+    #     对方的 SITE_000 → 本地的 MOCAP_000
+    #     """
+    #     try:
+    #         sph_data = self.loop.run_until_complete(
+    #             self.orcalink_client.subscribe_positions(max_count=100, enable_sync_window=True)
+    #         )
             
-            if not sph_data:
-                return
+    #         if not sph_data:
+    #             return
             
-            mocap_updates = {}
+    #         mocap_updates = {}
             
-            for obj_data in sph_data:
-                # obj_data.object_id 是对方的 SITE 名称，例如 "toys_usda_box_body_SPH_SITE_000"
-                remote_site_name = obj_data.object_id
+    #         for obj_data in sph_data:
+    #             # obj_data.object_id 是对方的 SITE 名称，例如 "toys_usda_box_body_SPH_SITE_000"
+    #             remote_site_name = obj_data.object_id
                 
-                # 从 SITE 名称提取 body_name 和索引
-                # "toys_usda_box_body_SPH_SITE_000" -> body_name="toys_usda_box_body", index=0
-                match = re.search(r'(.+)_SPH_SITE_(\d+)$', remote_site_name)
-                if not match:
-                    logger.warning(f"Cannot parse SITE name: '{remote_site_name}'")
-                    continue
+    #             # 从 SITE 名称提取 body_name 和索引
+    #             # "toys_usda_box_body_SPH_SITE_000" -> body_name="toys_usda_box_body", index=0
+    #             match = re.search(r'(.+)_SPH_SITE_(\d+)$', remote_site_name)
+    #             if not match:
+    #                 logger.warning(f"Cannot parse SITE name: '{remote_site_name}'")
+    #                 continue
                 
-                body_name = match.group(1)
-                site_index = int(match.group(2))
+    #             body_name = match.group(1)
+    #             site_index = int(match.group(2))
                 
-                # 映射到本地 MOCAP
-                key = (body_name, site_index)
-                if key not in self.site_index_to_mocap:
-                    logger.warning(f"No local MOCAP for remote SITE '{remote_site_name}'")
-                    continue
+    #             # 映射到本地 MOCAP
+    #             key = (body_name, site_index)
+    #             if key not in self.site_index_to_mocap:
+    #                 logger.warning(f"No local MOCAP for remote SITE '{remote_site_name}'")
+    #                 continue
                 
-                mocap_name = self.site_index_to_mocap[key]
+    #             mocap_name = self.site_index_to_mocap[key]
                 
-                # 不需要检查 mocap_name_to_id，直接使用 mocap_name
-                # set_mocap_pos_and_quat 接受 mocap body 名称
-                target_pos = obj_data.position
-                target_quat = np.array([1.0, 0.0, 0.0, 0.0])
+    #             # 不需要检查 mocap_name_to_id，直接使用 mocap_name
+    #             # set_mocap_pos_and_quat 接受 mocap body 名称
+    #             target_pos = obj_data.position
+    #             target_quat = np.array([1.0, 0.0, 0.0, 0.0])
                 
-                # 调试打印：使用 DEBUG 级别
-                logger.debug(f"[Python←OrcaLink] RECV '{remote_site_name}': "
-                           f"pos=[{target_pos[0]:.3f}, {target_pos[1]:.3f}, {target_pos[2]:.3f}] "
-                           f"(MuJoCo Z-up, from C++) → MOCAP '{mocap_name}'")
+    #             # 调试打印：使用 DEBUG 级别
+    #             logger.debug(f"[Python←OrcaLink] RECV '{remote_site_name}': "
+    #                        f"pos=[{target_pos[0]:.3f}, {target_pos[1]:.3f}, {target_pos[2]:.3f}] "
+    #                        f"(MuJoCo Z-up, from C++) → MOCAP '{mocap_name}'")
                 
-                mocap_updates[mocap_name] = {
-                    'pos': target_pos,
-                    'quat': target_quat
-                }
+    #             mocap_updates[mocap_name] = {
+    #                 'pos': target_pos,
+    #                 'quat': target_quat
+    #             }
                 
-                logger.debug(f"Receive remote SITE '{remote_site_name}' -> local MOCAP '{mocap_name}'")
+    #             logger.debug(f"Receive remote SITE '{remote_site_name}' -> local MOCAP '{mocap_name}'")
             
-            if mocap_updates:
-                self.env.set_mocap_pos_and_quat(mocap_updates)
-                logger.debug(f"Updated {len(mocap_updates)} mocap positions")
-        except Exception as e:
-            logger.error(f"Error in receive_and_apply_sph_targets: {e}", exc_info=True)
+    #         if mocap_updates:
+    #             self.env.set_mocap_pos_and_quat(mocap_updates)
+    #             logger.debug(f"Updated {len(mocap_updates)} mocap positions")
+    #     except Exception as e:
+    #         logger.error(f"Error in receive_and_apply_sph_targets: {e}", exc_info=True)
     
-    def subscribe_and_apply_forces(self):
-        """
-        订阅多点力并应用到 MuJoCo SITE 点
+    # def subscribe_and_apply_forces(self):
+    #     """
+    #     订阅多点力并应用到 MuJoCo SITE 点
         
-        重要：必须在 mj_forward() 之后，mj_step() 之前调用
-        """
-        import numpy as np
+    #     重要：必须在 mj_forward() 之后，mj_step() 之前调用
+    #     """
+    #     import numpy as np
         
-        try:
-            # 订阅力数据
-            forces = self.loop.run_until_complete(
-                self.orcalink_client.subscribe_forces()
-            )
+    #     try:
+    #         # 订阅力数据
+    #         forces = self.loop.run_until_complete(
+    #             self.orcalink_client.subscribe_forces()
+    #         )
             
-            logger.info(f"[DEBUG] subscribe_forces returned: {len(forces) if forces else 0} force data units")
+    #         logger.info(f"[DEBUG] subscribe_forces returned: {len(forces) if forces else 0} force data units")
             
-            if not forces:
-                logger.info("[DEBUG] No forces received from SPH")
-                return
+    #         if not forces:
+    #             logger.info("[DEBUG] No forces received from SPH")
+    #             return
             
-            # 应用每个力到对应的 SITE 点
-            for i, force_data in enumerate(forces):
-                site_name = force_data.object_id  # SITE 点 ID
+    #         # 应用每个力到对应的 SITE 点
+    #         for i, force_data in enumerate(forces):
+    #             site_name = force_data.object_id  # SITE 点 ID
                 
-                # 打印原始力数据（SPH Y-up坐标系）
-                force_sph = force_data.force
-                logger.info(f"[DEBUG] Force {i}: SITE='{site_name}', SPH_force=[{force_sph[0]:.3f}, {force_sph[1]:.3f}, {force_sph[2]:.3f}]")
+    #             # 打印原始力数据（SPH Y-up坐标系）
+    #             force_sph = force_data.force
+    #             logger.info(f"[DEBUG] Force {i}: SITE='{site_name}', SPH_force=[{force_sph[0]:.3f}, {force_sph[1]:.3f}, {force_sph[2]:.3f}]")
                 
-                # 坐标转换: SPH 发送 [fx, -fz, fy] (MuJoCo Z-up)
-                # MuJoCo 需要 [fx, fy, fz]
-                force_mujoco = np.array([
-                    force_data.force[0],   # fx
-                    force_data.force[2],   # fy
-                    -force_data.force[1]   # fz
-                ], dtype=np.float64)
+    #             # 坐标转换: SPH 发送 [fx, -fz, fy] (MuJoCo Z-up)
+    #             # MuJoCo 需要 [fx, fy, fz]
+    #             force_mujoco = np.array([
+    #                 force_data.force[0],   # fx
+    #                 force_data.force[2],   # fy
+    #                 -force_data.force[1]   # fz
+    #             ], dtype=np.float64)
                 
-                logger.info(f"[DEBUG] Force {i}: MuJoCo_force=[{force_mujoco[0]:.3f}, {force_mujoco[1]:.3f}, {force_mujoco[2]:.3f}]")
+    #             logger.info(f"[DEBUG] Force {i}: MuJoCo_force=[{force_mujoco[0]:.3f}, {force_mujoco[1]:.3f}, {force_mujoco[2]:.3f}]")
                 
-                # 零力矩（当前场景不需要施加力矩）
-                torque_mujoco = np.zeros(3, dtype=np.float64)
+    #             # 零力矩（当前场景不需要施加力矩）
+    #             torque_mujoco = np.zeros(3, dtype=np.float64)
                 
-                # 使用封装的方法在 SITE 点施加力
-                self.env.mj_apply_force_at_site(site_name, force_mujoco, torque_mujoco)
+    #             # 使用封装的方法在 SITE 点施加力
+    #             self.env.mj_apply_force_at_site(site_name, force_mujoco, torque_mujoco)
                 
-                logger.debug(f"Applied force to SITE '{site_name}': {force_mujoco}")
+    #             logger.debug(f"Applied force to SITE '{site_name}': {force_mujoco}")
         
-        except Exception as e:
-            logger.error(f"Error applying forces: {e}", exc_info=True)
-    
+    #     except Exception as e:
+    #         logger.error(f"Error applying forces: {e}", exc_info=True)
+        
     def step(self) -> bool:
         """
         SPH 同步单步（参考 C++ SimulatorBase::timeStep 实现）
@@ -520,52 +528,20 @@ class OrcaLinkBridge:
         
         logger.debug("[DEBUG] step() - Session ready, delegating to mode")
         try:
-            # Delegate to current mode if available (NEW: Strategy Pattern)
+            # Delegate to current mode (Strategy Pattern)
             if self.current_mode:
                 logger.debug(f"[DEBUG] step() - Calling current_mode.step() [{type(self.current_mode).__name__}]")
                 result = self.current_mode.step()
                 logger.debug(f"[DEBUG] step() - current_mode.step() returned: {result}")
                 return result
             else:
-                # Fallback to legacy implementation for backward compatibility
-                logger.warning("No coupling mode set, using legacy step implementation")
-                return self._legacy_step()
+                # No coupling mode configured
+                logger.error("No coupling mode set, cannot proceed")
+                return False
             
         except Exception as e:
             logger.error(f"OrcaLinkBridge.step error: {e}", exc_info=True)
             return False
-    
-    def _legacy_step(self) -> bool:
-        """Legacy step implementation (for backward compatibility)"""
-        # 1. Subscribe to forces if configured
-        if self.force_channel_config and self.force_channel_config.subscribe:
-            self.subscribe_and_apply_forces()
-        
-        # 2. Subscribe to positions if configured
-        if self.position_channel_config and self.position_channel_config.subscribe:
-            self.receive_and_apply_sph_targets()
-        
-        # 3. Check flow control
-        should_pause = self.orcalink_client.should_pause_this_cycle()
-        if should_pause:
-            control_mode = self.orcalink_client.config.session.control_mode
-            if control_mode == "async":
-                pending_before = self.orcalink_client.pending_pause_cycles
-                logger.debug(f"[OrcaLink] Flow control paused (async mode, pause_cycles={pending_before} remaining)")
-            else:
-                window = self.orcalink_client.current_sync_window
-                logger.debug(f"[OrcaLink] Flow control paused (sync mode, window={window})")
-            return False  # 暂停 MuJoCo step
-        
-        # 4. Publish positions if configured
-        if self.position_channel_config and self.position_channel_config.publish:
-            self.send_positions_to_sph()
-        
-        # 5. Publish forces if configured (future: for bidirectional modes)
-        if self.force_channel_config and self.force_channel_config.publish:
-            logger.warning("Force publishing from MuJoCo not yet implemented")
-        
-        return True
     
     def _create_mode(self, mode_name: str, config: dict):
         """Factory method to create coupling mode instance"""
