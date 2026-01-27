@@ -21,6 +21,7 @@ import sys
 import argparse
 import json
 from pathlib import Path
+from datetime import datetime
 
 # 获取脚本文件所在目录，然后计算项目根目录
 # 从 examples/fluid/run_fluid_sim.py 到项目根目录需要向上两级
@@ -41,10 +42,38 @@ def load_config(config_path: str) -> dict:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='Fluid-MuJoCo 耦合仿真',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
+    # 生成统一时间戳（在所有其他操作之前）
+    session_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    orcagym_tmp_dir = Path.home() / ".orcagym" / "tmp"
+    orcagym_tmp_dir.mkdir(parents=True, exist_ok=True)
+    log_file = orcagym_tmp_dir / f"run_fluid_sim_{session_timestamp}.log"
+    
+    # 设置日志重定向（同时输出到控制台和文件）
+    class TeeOutput:
+        def __init__(self, *files):
+            self.files = files
+        def write(self, obj):
+            for f in self.files:
+                f.write(obj)
+                f.flush()
+        def flush(self):
+            for f in self.files:
+                f.flush()
+    
+    log_handle = open(log_file, 'w', encoding='utf-8', buffering=1)
+    original_stdout = sys.stdout
+    original_stderr = sys.stderr
+    sys.stdout = TeeOutput(sys.stdout, log_handle)
+    sys.stderr = TeeOutput(sys.stderr, log_handle)
+    
+    try:
+        print(f"📝 日志文件: {log_file}")
+        print("=" * 60)
+        
+        parser = argparse.ArgumentParser(
+            description='Fluid-MuJoCo 耦合仿真',
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+            epilog="""
 【运行前提】
   1. 已启动 OrcaStudio/OrcaLab 并加载场景
   2. 场景中包含带 SPH 标记的刚体
@@ -57,54 +86,59 @@ def main():
   python run_fluid_sim.py
   python run_fluid_sim.py --config my_config.json
   python run_fluid_sim.py --manual-mode
-        """
-    )
-    
-    parser.add_argument(
-        '--config',
-        default='fluid_sim_config.json',
-        help='配置文件路径 (默认: fluid_sim_config.json)'
-    )
-    parser.add_argument(
-        '--manual-mode',
-        action='store_true',
-        help='手动模式：禁用自动启动，需预先启动 orcalink 和 orcasph'
-    )
-    
-    args = parser.parse_args()
-    
-    # 加载配置
-    config_path = Path(__file__).parent / args.config
-    if not config_path.exists():
-        print(f"❌ 错误: 配置文件不存在: {config_path}")
-        return 1
-    
-    config = load_config(str(config_path))
-    
-    # 手动模式
-    if args.manual_mode:
-        print("=" * 60)
-        print("⚙️  手动模式已启用")
-        print("=" * 60)
-        print("请确保已手动启动以下服务：")
-        print(f"  1. OrcaLink: orcalink --port {config['orcalink']['port']}")
-        print(f"  2. OrcaSPH: orcasph --scene <scene.json> --gui")
-        print("=" * 60)
-        config['orcalink']['auto_start'] = False
-        config['orcasph']['auto_start'] = False
-    
-    # 运行仿真
-    try:
-        run_simulation_with_config(config)
-    except KeyboardInterrupt:
-        print("\n✅ 仿真已停止")
-    except Exception as e:
-        print(f"\n❌ 错误: {e}")
-        import traceback
-        traceback.print_exc()
-        return 1
-    
-    return 0
+            """
+        )
+        
+        parser.add_argument(
+            '--config',
+            default='fluid_sim_config.json',
+            help='配置文件路径 (默认: fluid_sim_config.json)'
+        )
+        parser.add_argument(
+            '--manual-mode',
+            action='store_true',
+            help='手动模式：禁用自动启动，需预先启动 orcalink 和 orcasph'
+        )
+        
+        args = parser.parse_args()
+        
+        # 加载配置
+        config_path = Path(__file__).parent / args.config
+        if not config_path.exists():
+            print(f"❌ 错误: 配置文件不存在: {config_path}")
+            return 1
+        
+        config = load_config(str(config_path))
+        
+        # 手动模式
+        if args.manual_mode:
+            print("=" * 60)
+            print("⚙️  手动模式已启用")
+            print("=" * 60)
+            print("请确保已手动启动以下服务：")
+            print(f"  1. OrcaLink: orcalink --port {config['orcalink']['port']}")
+            print(f"  2. OrcaSPH: orcasph --scene <scene.json> --gui")
+            print("=" * 60)
+            config['orcalink']['auto_start'] = False
+            config['orcasph']['auto_start'] = False
+        
+        # 运行仿真，传入时间戳
+        try:
+            run_simulation_with_config(config, session_timestamp=session_timestamp)
+        except KeyboardInterrupt:
+            print("\n✅ 仿真已停止")
+        except Exception as e:
+            print(f"\n❌ 错误: {e}")
+            import traceback
+            traceback.print_exc()
+            return 1
+        
+        return 0
+    finally:
+        # 恢复标准输出
+        sys.stdout = original_stdout
+        sys.stderr = original_stderr
+        log_handle.close()
 
 
 if __name__ == "__main__":

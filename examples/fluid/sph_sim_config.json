@@ -68,16 +68,16 @@
     "multi_point_force": {
       "channels": {
         "force": {
-          "channel_id": 3,
+          "channel_id": 2,
           "publish": true,
-          "subscribe": false,
-          "comment": "SPH发送多点力给MuJoCo"
+          "subscribe": true,
+          "comment": "混合通道：SPH发送force（data_type=FORCE），接收position（data_type=POSITION）"
         },
         "position": {
           "channel_id": 2,
-          "publish": false,
+          "publish": true,
           "subscribe": true,
-          "comment": "SPH接收位置来自MuJoCo"
+          "comment": "混合通道：与force使用同一通道，通过data_type区分。客户端自动过滤：只发position，只收force"
         }
       },
       "force_decomposition": {

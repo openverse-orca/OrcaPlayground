@@ -70,7 +70,7 @@ class ProcessManager:
             self.terminate_process(name)
 
 
-def generate_orcasph_config(fluid_config: Dict, output_path: Path) -> Path:
+def generate_orcasph_config(fluid_config: Dict, output_path: Path) -> tuple[Path, bool]:
     """
     动态生成 orcasph 配置文件
     
@@ -79,7 +79,7 @@ def generate_orcasph_config(fluid_config: Dict, output_path: Path) -> Path:
         output_path: 输出配置文件路径
         
     Returns:
-        生成的配置文件路径
+        (生成的配置文件路径, verbose_logging配置值)
     """
     orcasph_cfg = fluid_config.get('orcasph', {})
     orcalink_cfg = fluid_config.get('orcalink', {})
@@ -138,11 +138,14 @@ def generate_orcasph_config(fluid_config: Dict, output_path: Path) -> Path:
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(orcasph_config, f, indent=2, ensure_ascii=False)
     
+    # 提取 verbose_logging 配置值
+    verbose_logging = orcasph_config.get('debug', {}).get('verbose_logging', False)
+    
     logger.info(f"✅ 已生成 orcasph 配置文件: {output_path}")
-    return output_path
+    return output_path, verbose_logging
 
 
-def run_simulation_with_config(config: Dict) -> None:
+def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = None) -> None:
     """
     使用配置文件运行仿真
     
@@ -152,6 +155,10 @@ def run_simulation_with_config(config: Dict) -> None:
         3. 启动 orcalink（等待 5 秒）
         4. 启动 orcasph --scene <scene.json>（依赖 scene.json）
         5. 连接并开始仿真
+    
+    Args:
+        config: 配置字典
+        session_timestamp: 会话时间戳（用于统一日志文件名），如果为None则自动生成
     """
     import gymnasium as gym
     import sys
@@ -159,6 +166,13 @@ def run_simulation_with_config(config: Dict) -> None:
     from datetime import datetime
     from .orcalink_bridge import OrcaLinkBridge
     from .scene_generator import SceneGenerator
+    
+    # 生成或使用统一时间戳
+    if session_timestamp is None:
+        session_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    
+    orcagym_tmp_dir = Path.home() / ".orcagym" / "tmp"
+    orcagym_tmp_dir.mkdir(parents=True, exist_ok=True)
     
     process_manager = ProcessManager()
     env = None
@@ -201,8 +215,6 @@ def run_simulation_with_config(config: Dict) -> None:
         # ============ 步骤 2: 生成 scene.json ============
         if config['orcasph']['enabled'] and config['orcasph']['scene_auto_generate']:
             logger.info("📝 步骤 2: 生成 SPH scene.json...")
-            orcagym_tmp_dir = Path.home() / ".orcagym" / "tmp"
-            orcagym_tmp_dir.mkdir(parents=True, exist_ok=True)
             scene_uuid = str(uuid.uuid4()).replace('-', '_')
             scene_output_path = orcagym_tmp_dir / f"sph_scene_{scene_uuid}.json"
             
@@ -256,7 +268,7 @@ def run_simulation_with_config(config: Dict) -> None:
                         orcalink_args.append(arg)
             
             logger.info(f"启动 OrcaLink，端口: {orcalink_port}")
-            log_file = Path.home() / ".orcagym" / "tmp" / f"orcalink_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+            log_file = orcagym_tmp_dir / f"orcalink_{session_timestamp}.log"
             process_manager.start_process(
                 "OrcaLink",
                 str(orcalink_bin),
@@ -295,16 +307,22 @@ def run_simulation_with_config(config: Dict) -> None:
                         )
                 
                 # 动态生成 orcasph 配置文件
-                orcagym_tmp_dir = Path.home() / ".orcagym" / "tmp"
-                orcasph_config_path = orcagym_tmp_dir / f"orcasph_config_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-                generate_orcasph_config(config, orcasph_config_path)
+                orcasph_config_path = orcagym_tmp_dir / f"orcasph_config_{session_timestamp}.json"
+                orcasph_config_path, verbose_logging = generate_orcasph_config(config, orcasph_config_path)
                 
                 # 构建启动参数
                 orcasph_args = config['orcasph']['args'].copy()
                 orcasph_args.extend(["--config", str(orcasph_config_path)])
                 orcasph_args.extend(["--scene", str(scene_output_path)])
                 
-                log_file = orcagym_tmp_dir / f"orcasph_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+                # 根据配置文件自动设置日志级别
+                if verbose_logging:
+                    orcasph_args.extend(["--log-level", "DEBUG"])
+                    logger.info("🔍 启用 DEBUG 日志级别 (verbose_logging=true)")
+                else:
+                    logger.info("ℹ️  使用默认 INFO 日志级别 (verbose_logging=false)")
+                
+                log_file = orcagym_tmp_dir / f"orcasph_{session_timestamp}.log"
                 process_manager.start_process(
                     "OrcaSPH",
                     str(orcasph_bin),

@@ -72,14 +72,14 @@
           "position": {
             "channel_id": 2,
             "publish": true,
-            "subscribe": false,
-            "comment": "MuJoCo发送SITE位置，接收SPH的MOCAP位置（用于可视化）"
+            "subscribe": true,
+            "comment": "混合通道：MuJoCo发送position（data_type=POSITION），接收force（data_type=FORCE）"
           },
           "force": {
-            "channel_id": 3,
-            "publish": false,
+            "channel_id": 2,
+            "publish": true,
             "subscribe": true,
-            "comment": "MuJoCo接收SPH发送的多点力"
+            "comment": "混合通道：与position使用同一通道，通过data_type区分。客户端自动过滤：只发force，只收position"
           }
         }
       }
