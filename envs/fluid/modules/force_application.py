@@ -76,12 +76,9 @@ class ForceApplicationModule:
                 # Apply force to SITE point
                 site_name = force_data.object_id  # SITE point ID
                 
-                # Convert force from SPH Y-up to MuJoCo Z-up if needed
-                force_mujoco = np.array([
-                    force_data.force[0],   # fx
-                    force_data.force[2],   # fy
-                    -force_data.force[1]   # fz
-                ], dtype=np.float64)
+                # 直接使用接收到的力（已经是MuJoCo Z-up坐标系）
+                # 坐标转换已经在C++的GrpcDataMapper中完成
+                force_mujoco = np.array(force_data.force, dtype=np.float64)
                 
                 # Zero torque (handled by MuJoCo)
                 torque_mujoco = np.zeros(3, dtype=np.float64)
