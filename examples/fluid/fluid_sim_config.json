@@ -44,7 +44,7 @@
     },
     
     "bridge": {
-      "coupling_mode": "spring_constraint",
+      "coupling_mode": "multi_point_force",
       "spring_constraint": {
         "channels": {
           "position": {

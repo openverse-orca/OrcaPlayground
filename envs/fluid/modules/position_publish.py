@@ -22,13 +22,13 @@ class PositionPublishModule:
         """
         import sys
         print(f"[PRINT-DEBUG] PositionPublishModule.__init__() - START", file=sys.stderr, flush=True)
-        logger.debug("[DEBUG] PositionPublishModule.__init__() - Start")
+        logger.debug("PositionPublishModule.__init__() - Start")
         self.env = env
         self.client = orcalink_client
         self.loop = loop
         self.rigid_bodies = rigid_bodies_config
         print(f"[PRINT-DEBUG] PositionPublishModule.__init__() - END (rigid_bodies count: {len(rigid_bodies_config)})", file=sys.stderr, flush=True)
-        logger.debug(f"[DEBUG] PositionPublishModule.__init__() - Initialized with {len(rigid_bodies_config)} rigid bodies")
+        logger.debug(f"PositionPublishModule.__init__() - Initialized with {len(rigid_bodies_config)} rigid bodies")
     
     def publish_positions(self):
         """Publish rigid body positions (ForcePositionMode, SpringConstraintMode)"""
@@ -46,26 +46,26 @@ class PositionPublishModule:
     
     def publish_site_positions(self):
         """Publish SITE positions (MultiPointForceMode)"""
-        logger.debug(f"[DEBUG] publish_site_positions - START")
-        logger.debug(f"[DEBUG] publish_site_positions - client={self.client is not None}, loop={self.loop is not None}")
-        logger.debug(f"[DEBUG] publish_site_positions - rigid_bodies count: {len(self.rigid_bodies)}")
+        logger.debug(f"publish_site_positions - START")
+        logger.debug(f"publish_site_positions - client={self.client is not None}, loop={self.loop is not None}")
+        logger.debug(f"publish_site_positions - rigid_bodies count: {len(self.rigid_bodies)}")
         
         if not self.client or not self.loop:
-            logger.warning("[WARNING] publish_site_positions - client or loop not available, returning")
+            logger.warning("publish_site_positions - client or loop not available, returning")
             return
         
         try:
             positions = self._collect_site_positions()
-            logger.debug(f"[DEBUG] publish_site_positions - Collected {len(positions)} positions")
+            logger.debug(f"publish_site_positions - Collected {len(positions)} positions")
             
             if positions:
-                logger.info(f"[INFO] publish_site_positions - Publishing {len(positions)} positions to channel {self.client.position_channel_id}")
+                logger.debug(f"Publish_site_positions - Publishing {len(positions)} positions to channel {self.client.position_channel_id}")
                 self.loop.run_until_complete(
                     self.client.publish_positions(positions)
                 )
-                logger.info(f"[INFO] publish_site_positions - Successfully published {len(positions)} positions")
+                logger.debug(f"Publish_site_positions - Successfully published {len(positions)} positions")
             else:
-                logger.warning("[WARNING] publish_site_positions - No positions collected, not publishing")
+                logger.warning("publish_site_positions - No positions collected, not publishing")
         except Exception as e:
             logger.error(f"Error publishing site positions: {e}", exc_info=True)
     
@@ -86,10 +86,10 @@ class PositionPublishModule:
                     body_to_object_id[body_name] = object_id
             
             if not body_names:
-                logger.debug("[DEBUG] _collect_body_positions - No body names to query")
+                logger.debug("_collect_body_positions - No body names to query")
                 return positions
             
-            logger.debug(f"[DEBUG] _collect_body_positions - Querying {len(body_names)} bodies")
+            logger.debug(f"_collect_body_positions - Querying {len(body_names)} bodies")
             
             # 2. 更新 MuJoCo 数据
             self.env.mj_forward()
@@ -125,9 +125,9 @@ class PositionPublishModule:
                     })()
                 
                 positions.append(position_data)
-                logger.debug(f"[DEBUG] _collect_body_positions - Collected body '{body_name}' -> object_id '{object_id}', pos={pos}")
+                logger.debug(f"_collect_body_positions - Collected body '{body_name}' -> object_id '{object_id}', pos={pos}")
             
-            logger.debug(f"[DEBUG] _collect_body_positions - Collected {len(positions)} positions")
+            logger.debug(f"_collect_body_positions - Collected {len(positions)} positions")
             return positions
             
         except Exception as e:
@@ -136,8 +136,8 @@ class PositionPublishModule:
     
     def _collect_site_positions(self) -> List:
         """Collect SITE positions from MuJoCo using OrcaGym API"""
-        logger.debug(f"[DEBUG] _collect_site_positions - START")
-        logger.debug(f"[DEBUG] _collect_site_positions - rigid_bodies count: {len(self.rigid_bodies)}")
+        logger.debug(f"_collect_site_positions - START")
+        logger.debug(f"_collect_site_positions - rigid_bodies count: {len(self.rigid_bodies)}")
         positions = []
         
         try:
@@ -156,10 +156,10 @@ class PositionPublishModule:
                         site_to_object_id[site_name] = object_id
             
             if not site_names:
-                logger.debug("[DEBUG] _collect_site_positions - No site names to query")
+                logger.debug("_collect_site_positions - No site names to query")
                 return positions
             
-            logger.debug(f"[DEBUG] _collect_site_positions - Querying {len(site_names)} sites")
+            logger.debug(f"_collect_site_positions - Querying {len(site_names)} sites")
             
             # 2. 更新 MuJoCo 数据
             self.env.mj_forward()
@@ -189,9 +189,9 @@ class PositionPublishModule:
                     })()
                 
                 positions.append(position_data)
-                logger.debug(f"[DEBUG] _collect_site_positions - Collected site '{site_name}' -> object_id '{object_id}', pos={pos}")
+                logger.debug(f"_collect_site_positions - Collected site '{site_name}' -> object_id '{object_id}', pos={pos}")
             
-            logger.debug(f"[DEBUG] _collect_site_positions - Collected {len(positions)} positions")
+            logger.debug(f"_collect_site_positions - Collected {len(positions)} positions")
             return positions
             
         except Exception as e:

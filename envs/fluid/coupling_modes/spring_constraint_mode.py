@@ -53,7 +53,7 @@ class SpringConstraintMode(ICouplingMode):
         
         # 3. Publish local positions
         if self.position_publish_module:
-            self.position_publish_module.publish_positions()
+            self.position_publish_module.publish_site_positions()
         
         return True
     
