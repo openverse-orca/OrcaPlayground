@@ -28,21 +28,15 @@
   },
   
   "orcalink_bridge": {
-    "coupling_mode": "multi_point_force",
+    "coupling_mode": "spring_constraint",
     "spring_constraint": {
       "channels": {
         "position": {
           "channel_id": 2,
-          "publish": false,
+          "publish": true,
           "subscribe": true,
           "comment": "SPH接收位置来自MuJoCo"
         }
-      },
-      "spring_parameters": {
-        "linear_spring_stiffness": 5000.0,
-        "linear_damping_coefficient": 100.0,
-        "max_spring_force": 5000.0,
-        "apply_spring_forces": true
       },
       "rigid_body_dynamics": {
         "mode": "internal",
@@ -70,12 +64,12 @@
         "force": {
           "channel_id": 2,
           "publish": true,
-          "subscribe": true,
+          "subscribe": false,
           "comment": "混合通道：SPH发送force（data_type=FORCE），接收position（data_type=POSITION）"
         },
         "position": {
           "channel_id": 2,
-          "publish": true,
+          "publish": false,
           "subscribe": true,
           "comment": "混合通道：与force使用同一通道，通过data_type区分。客户端自动过滤：只发position，只收force"
         }
@@ -91,9 +85,21 @@
     },
     "shared_modules": {
       "spring_force": {
+        "apply_spring_forces": true,
+        "auto_tune": true,
+        "natural_frequency_hz": 0.2,
+        "damping_ratio": 0.7,
         "linear_spring_stiffness": 5000.0,
         "linear_damping_coefficient": 100.0,
-        "max_spring_force": 5000.0
+        "angular_spring_stiffness": 40.0,
+        "angular_damping_coefficient": 2.0,
+        "max_spring_force": 5000.0,
+        "max_spring_torque": 200.0,
+        "position_deadzone": 0.0001,
+        "rotation_deadzone": 0.001,
+        "estimate_remote_velocity": false,
+        "velocity_filter_alpha": 0.3,
+        "comment": "完整的弹簧力配置（14个必选参数）。estimate_remote_velocity设为false避免导入velocity_estimator模块错误"
       },
       "gravity": {
         "enable_rigid_body_gravity": false,
@@ -124,7 +130,7 @@
   },
   
   "debug": {
-    "verbose_logging": true,
+    "verbose_logging": false,
     "enable_spring_force_stats": true,
     "enable_fluid_force_stats": true,
     "visualize_anchor_particles": true,

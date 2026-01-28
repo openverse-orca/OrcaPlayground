@@ -17,11 +17,6 @@ from pathlib import Path
 
 # 设置日志
 logger = logging.getLogger(__name__)
-if not logger.handlers:
-    logger.setLevel(logging.DEBUG)
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter('[OrcaLinkBridge] %(levelname)s: %(message)s'))
-    logger.addHandler(handler)
 
 
 @dataclass
@@ -213,18 +208,18 @@ class OrcaLinkBridge:
         logger.info("Connecting to OrcaLink server...")
         
         try:
-            logger.info("[DEBUG] connect() - Calling _init_orcalink()...")
+            logger.debug("[DEBUG] connect() - Calling _init_orcalink()...")
             self._init_orcalink()
-            logger.info("[DEBUG] connect() - _init_orcalink() completed")
-            logger.info("[DEBUG] connect() - Setting connection state to 'connected'")
+            logger.debug("[DEBUG] connect() - _init_orcalink() completed")
+            logger.debug("[DEBUG] connect() - Setting connection state to 'connected'")
             self._connection_state = "connected"
-            logger.info("[DEBUG] connect() - Connection state set")
+            logger.debug("[DEBUG] connect() - Connection state set")
             logger.info("✅ Connected to OrcaLink successfully")
-            logger.info("[DEBUG] connect() - About to return True")
+            logger.debug("[DEBUG] connect() - About to return True")
             import sys
             sys.stdout.flush()
             sys.stderr.flush()
-            logger.info("[DEBUG] connect() - Streams flushed, returning True")
+            logger.debug("[DEBUG] connect() - Streams flushed, returning True")
             return True
         except Exception as e:
             self._connection_state = "failed"
@@ -243,14 +238,14 @@ class OrcaLinkBridge:
     
     def _init_orcalink(self):
         """初始化 OrcaLink 客户端"""
-        logger.info("[DEBUG] _init_orcalink - START")
+        logger.debug("[DEBUG] _init_orcalink - START")
         try:
             # 导入 OrcaLinkClient（通过 pip 安装的包）
-            logger.info("[DEBUG] _init_orcalink - Importing OrcaLinkClient...")
+            logger.debug("[DEBUG] _init_orcalink - Importing OrcaLinkClient...")
             from orcalink_client import OrcaLinkClient
             from orcalink_client.data_structures import OrcaLinkConfig
             from orcalink_client.config_loader import _build_orcalink_config_from_dict
-            logger.info("[DEBUG] _init_orcalink - Imports successful")
+            logger.debug("[DEBUG] _init_orcalink - Imports successful")
             
             # 从配置字典构建 OrcaLinkConfig 对象
             logger.info("Building OrcaLink configuration from config dict")
@@ -273,29 +268,29 @@ class OrcaLinkBridge:
             logger.info(f"  - force channel: publish={config.force_channel.publish}, subscribe={config.force_channel.subscribe}")
             
             # 创建客户端
-            logger.info("[DEBUG] _init_orcalink - Creating OrcaLinkClient instance...")
+            logger.debug("[DEBUG] _init_orcalink - Creating OrcaLinkClient instance...")
             self.orcalink_client = OrcaLinkClient(config)
-            logger.info("[DEBUG] _init_orcalink - OrcaLinkClient instance created")
+            logger.debug("[DEBUG] _init_orcalink - OrcaLinkClient instance created")
             
             # 创建持久事件循环
-            logger.info("[DEBUG] _init_orcalink - Creating event loop...")
+            logger.debug("[DEBUG] _init_orcalink - Creating event loop...")
             import asyncio
             self.loop = asyncio.new_event_loop()
             asyncio.set_event_loop(self.loop)
-            logger.info("[DEBUG] _init_orcalink - Event loop created")
+            logger.debug("[DEBUG] _init_orcalink - Event loop created")
             
             # 连接到服务器
             logger.info(f"Connecting to OrcaLink server at {config.server_address}...")
-            logger.info("[DEBUG] _init_orcalink - Calling orcalink_client.initialize()...")
+            logger.debug("[DEBUG] _init_orcalink - Calling orcalink_client.initialize()...")
             success = self.loop.run_until_complete(self.orcalink_client.initialize())
-            logger.info(f"[DEBUG] _init_orcalink - orcalink_client.initialize() returned: {success}")
+            logger.debug(f"[DEBUG] _init_orcalink - orcalink_client.initialize() returned: {success}")
             
             if not success:
                 raise RuntimeError(f"Failed to connect to OrcaLink server at {config.server_address}")
             
             logger.info(f"✅ OrcaLinkClient successfully connected to {config.server_address}")
             
-            logger.info("[DEBUG] _init_orcalink - Reading coupling mode config...")
+            logger.debug("[DEBUG] _init_orcalink - Reading coupling mode config...")
             # 读取耦合模式和通道配置
             self.coupling_mode = config.coupling_mode
             self.force_channel_config = config.force_channel
@@ -305,34 +300,34 @@ class OrcaLinkBridge:
             logger.info(f"Position channel: publish={self.position_channel_config.publish}, subscribe={self.position_channel_config.subscribe}")
             
             # Create coupling mode instance (NEW: Strategy Pattern)
-            logger.info("[DEBUG] _init_orcalink - Creating coupling mode instance...")
+            logger.debug("[DEBUG] _init_orcalink - Creating coupling mode instance...")
             self.current_mode = self._create_mode(self.coupling_mode, self.config)
-            logger.info(f"[DEBUG] _init_orcalink - Mode instance created: {type(self.current_mode).__name__ if self.current_mode else 'None'}")
+            logger.debug(f"[DEBUG] _init_orcalink - Mode instance created: {type(self.current_mode).__name__ if self.current_mode else 'None'}")
             if self.current_mode:
                 import sys
                 print(f"[PRINT-DEBUG] _init_orcalink - current_mode is not None: {type(self.current_mode).__name__}", file=sys.stderr, flush=True)
-                logger.info("[DEBUG] _init_orcalink - Initializing coupling mode...")
+                logger.debug("[DEBUG] _init_orcalink - Initializing coupling mode...")
                 # 获取模式特定配置
                 mode_config = self.config.get('orcalink_bridge', {}).get(self.coupling_mode, {})
-                logger.info(f"[DEBUG] _init_orcalink - Mode config keys: {mode_config.keys()}")
+                logger.debug(f"[DEBUG] _init_orcalink - Mode config keys: {mode_config.keys()}")
                 
                 # 将顶层的 rigid_bodies 配置传入 mode_config
                 mode_config['rigid_bodies'] = self.config.get('rigid_bodies', [])
-                logger.info(f"[DEBUG] _init_orcalink - Added {len(mode_config['rigid_bodies'])} rigid bodies to mode_config")
+                logger.debug(f"[DEBUG] _init_orcalink - Added {len(mode_config['rigid_bodies'])} rigid bodies to mode_config")
                 
-                logger.info(f"[DEBUG] _init_orcalink - Mode config: {mode_config}")
+                logger.debug(f"[DEBUG] _init_orcalink - Mode config: {mode_config}")
                 
                 print(f"[PRINT-DEBUG] _init_orcalink - About to call initialize()", file=sys.stderr, flush=True)
                 init_result = self.current_mode.initialize(mode_config, self.env, self.orcalink_client, self.loop)
                 print(f"[PRINT-DEBUG] _init_orcalink - initialize() returned: {init_result}", file=sys.stderr, flush=True)
-                logger.info(f"[DEBUG] _init_orcalink - Mode initialize() returned: {init_result}")
+                logger.debug(f"[DEBUG] _init_orcalink - Mode initialize() returned: {init_result}")
                 
                 if init_result:
                     print(f"[PRINT-DEBUG] _init_orcalink - init_result is True, registering channels", file=sys.stderr, flush=True)
-                    logger.info("[DEBUG] _init_orcalink - Registering channels...")
+                    logger.debug("[DEBUG] _init_orcalink - Registering channels...")
                     self.current_mode.register_channels()
                     print(f"[PRINT-DEBUG] _init_orcalink - register_channels() completed", file=sys.stderr, flush=True)
-                    logger.info(f"[DEBUG] _init_orcalink - Channels registered")
+                    logger.debug(f"[DEBUG] _init_orcalink - Channels registered")
                     logger.info(f"Coupling mode '{self.coupling_mode}' initialized and registered")
                 else:
                     logger.error(f"Failed to initialize coupling mode '{self.coupling_mode}'")
@@ -340,12 +335,12 @@ class OrcaLinkBridge:
             else:
                 logger.warning("[DEBUG] _init_orcalink - No current_mode created")
             
-            logger.info("[DEBUG] _init_orcalink - COMPLETED SUCCESSFULLY")
-            logger.info("[DEBUG] _init_orcalink - About to exit function")
+            logger.debug("[DEBUG] _init_orcalink - COMPLETED SUCCESSFULLY")
+            logger.debug("[DEBUG] _init_orcalink - About to exit function")
             import sys
             sys.stdout.flush()
             sys.stderr.flush()
-            logger.info("[DEBUG] _init_orcalink - Exiting now")
+            logger.debug("[DEBUG] _init_orcalink - Exiting now")
             
         except Exception as e:
             logger.error(f"[DEBUG] _init_orcalink - EXCEPTION: {e}")
@@ -523,7 +518,7 @@ class OrcaLinkBridge:
         
         # 2. 检查会话是否就绪（等待所有客户端加入）
         if not self.orcalink_client.is_session_ready_status():
-            logger.info("[DEBUG] step() - Waiting for all clients to join session...")
+            logger.debug("[DEBUG] step() - Waiting for all clients to join session...")
             return False
         
         logger.debug("[DEBUG] step() - Session ready, delegating to mode")
@@ -547,7 +542,7 @@ class OrcaLinkBridge:
         """Factory method to create coupling mode instance"""
         import sys
         print(f"[PRINT-DEBUG] _create_mode() - START with mode_name={mode_name}", file=sys.stderr, flush=True)
-        logger.info(f"[DEBUG] _create_mode() - Creating mode: {mode_name}")
+        logger.debug(f"[DEBUG] _create_mode() - Creating mode: {mode_name}")
         
         from .coupling_modes import ForcePositionMode, SpringConstraintMode, MultiPointForceMode
         print(f"[PRINT-DEBUG] _create_mode() - Imports completed", file=sys.stderr, flush=True)

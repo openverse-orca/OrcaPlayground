@@ -10,13 +10,6 @@ from ..modules.position_publish import PositionPublishModule
 
 # 配置模块 logger
 logger = logging.getLogger(__name__)
-if not logger.handlers:
-    logger.setLevel(logging.DEBUG)
-    logger.propagate = False
-    handler = logging.StreamHandler()
-    handler.setLevel(logging.DEBUG)
-    handler.setFormatter(logging.Formatter('[MultiPointForceMode] %(levelname)s: %(message)s'))
-    logger.addHandler(handler)
 
 
 class MultiPointForceMode(ICouplingMode):
@@ -44,28 +37,28 @@ class MultiPointForceMode(ICouplingMode):
         import sys
         
         print("[PRINT-DEBUG] MultiPointForceMode.initialize() - START", file=sys.stderr, flush=True)
-        logger.info("[DEBUG] MultiPointForceMode.initialize() - Start")
+        logger.debug("[DEBUG] MultiPointForceMode.initialize() - Start")
         self.env = env
         self.orcalink_client = orcalink_client
         self.loop = loop  # 直接使用传入的 loop，不再从 orcalink_client 获取
         self.config = config
-        logger.info(f"[DEBUG] MultiPointForceMode.initialize() - Loop: {self.loop is not None}")
+        logger.debug(f"[DEBUG] MultiPointForceMode.initialize() - Loop: {self.loop is not None}")
         
         # Initialize modules
-        logger.info("[DEBUG] MultiPointForceMode.initialize() - Creating ForceApplicationModule...")
+        logger.debug("[DEBUG] MultiPointForceMode.initialize() - Creating ForceApplicationModule...")
         print("[PRINT-DEBUG] MultiPointForceMode.initialize() - Creating ForceApplicationModule", file=sys.stderr, flush=True)
         self.force_application_module = ForceApplicationModule(env, orcalink_client, self.loop)
         print("[PRINT-DEBUG] MultiPointForceMode.initialize() - ForceApplicationModule created", file=sys.stderr, flush=True)
-        logger.info("[DEBUG] MultiPointForceMode.initialize() - ForceApplicationModule created")
+        logger.debug("[DEBUG] MultiPointForceMode.initialize() - ForceApplicationModule created")
         
-        logger.info("[DEBUG] MultiPointForceMode.initialize() - Creating PositionPublishModule...")
+        logger.debug("[DEBUG] MultiPointForceMode.initialize() - Creating PositionPublishModule...")
         print("[PRINT-DEBUG] MultiPointForceMode.initialize() - Creating PositionPublishModule", file=sys.stderr, flush=True)
         self.position_publish_module = PositionPublishModule(
             env, orcalink_client, self.loop, config.get('rigid_bodies', []))
         print("[PRINT-DEBUG] MultiPointForceMode.initialize() - PositionPublishModule created", file=sys.stderr, flush=True)
-        logger.info("[DEBUG] MultiPointForceMode.initialize() - PositionPublishModule created")
+        logger.debug("[DEBUG] MultiPointForceMode.initialize() - PositionPublishModule created")
         
-        logger.info("[DEBUG] MultiPointForceMode.initialize() - Returning True")
+        logger.debug("[DEBUG] MultiPointForceMode.initialize() - Returning True")
         print("[PRINT-DEBUG] MultiPointForceMode.initialize() - Returning True", file=sys.stderr, flush=True)
         return True
     

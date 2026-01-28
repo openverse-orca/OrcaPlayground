@@ -91,21 +91,29 @@ class SpringConstraintMode(ICouplingMode):
             mocap_pos_and_quat_dict = {}
             
             for pos_data in positions:
-                body_name = pos_data.object_id
+                site_name = pos_data.object_id  # SPH 发送的是 SITE 名称
                 pos = np.array(pos_data.position, dtype=np.float64)
                 quat = np.array(pos_data.rotation, dtype=np.float64) if hasattr(pos_data, 'rotation') else np.array([1, 0, 0, 0], dtype=np.float64)
                 
                 # Ensure quaternion is in [w, x, y, z] format (MuJoCo format)
                 if len(quat) != 4:
-                    logger.warning(f"Invalid quaternion format for body '{body_name}': {quat}, skipping")
+                    logger.warning(f"Invalid quaternion format for site '{site_name}': {quat}, skipping")
                     continue
                 
-                mocap_pos_and_quat_dict[body_name] = {
+                # 将 SITE 名称转换为对应的 MOCAP body 名称
+                # 例如: toys_usda_box_body_SPH_SITE_000 -> toys_usda_box_body_SPH_MOCAP_000
+                if '_SPH_SITE_' in site_name:
+                    mocap_name = site_name.replace('_SPH_SITE_', '_SPH_MOCAP_')
+                else:
+                    logger.warning(f"Unexpected site name format: '{site_name}', skipping")
+                    continue
+                
+                mocap_pos_and_quat_dict[mocap_name] = {
                     "pos": pos,
                     "quat": quat
                 }
                 
-                logger.debug(f"Prepared mocap target for '{body_name}': pos={pos}, quat={quat}")
+                logger.debug(f"Prepared mocap target: SITE '{site_name}' -> MOCAP '{mocap_name}', pos={pos}, quat={quat}")
             
             # Apply all mocap targets in batch
             if mocap_pos_and_quat_dict:

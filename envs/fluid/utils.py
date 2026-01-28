@@ -145,6 +145,46 @@ def generate_orcasph_config(fluid_config: Dict, output_path: Path) -> tuple[Path
     return output_path, verbose_logging
 
 
+def setup_python_logging(config: Dict) -> None:
+    """根据配置设置 Python 日志级别"""
+    verbose_logging = config.get('debug', {}).get('verbose_logging', False)
+    
+    # 设置根 logger 的级别
+    root_logger = logging.getLogger()
+    
+    # 清除现有的 handlers（避免重复）
+    root_logger.handlers.clear()
+    
+    # 创建统一的 formatter，包含模块名称
+    # 格式: [模块名] 级别: 消息
+    formatter = logging.Formatter('[%(name)s] %(levelname)s: %(message)s')
+    
+    # 创建 console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    
+    # 根据配置设置日志级别
+    if verbose_logging:
+        root_logger.setLevel(logging.DEBUG)
+        console_handler.setLevel(logging.DEBUG)
+        logger.info("🔍 Python 日志级别: DEBUG (verbose_logging=true)")
+    else:
+        root_logger.setLevel(logging.INFO)
+        console_handler.setLevel(logging.INFO)
+        logger.info("ℹ️  Python 日志级别: INFO (verbose_logging=false)")
+    
+    # 添加 handler 到根 logger
+    root_logger.addHandler(console_handler)
+    
+    # 配置 OrcaLinkClient 的日志
+    try:
+        from orcalink_client import setup_logging as setup_orcalink_logging
+        setup_orcalink_logging(verbose=verbose_logging, use_root_handler=True)
+    except ImportError:
+        # 如果 orcalink_client 未安装，跳过
+        pass
+
+
 def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = None) -> None:
     """
     使用配置文件运行仿真
@@ -170,6 +210,9 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
     # 生成或使用统一时间戳
     if session_timestamp is None:
         session_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    
+    # 根据配置设置 Python 日志级别（必须在导入其他模块之前）
+    setup_python_logging(config)
     
     orcagym_tmp_dir = Path.home() / ".orcagym" / "tmp"
     orcagym_tmp_dir.mkdir(parents=True, exist_ok=True)
@@ -333,7 +376,7 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
                 time.sleep(2)
                 logger.info("✅ OrcaSPH 已启动\n")
         
-        logger.info("[DEBUG] About to enter main loop...")
+        logger.debug("[DEBUG] About to enter main loop...")
         sys.stdout.flush()
         sys.stderr.flush()
 
@@ -341,21 +384,21 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
         if config['orcasph']['enabled']:
             logger.info("🔗 步骤 5: 初始化 OrcaLinkBridge...")
             # 直接传入配置字典，不再需要 sph_mujoco_config_template.json
-            logger.info("[DEBUG] Creating OrcaLinkBridge instance...")
+            logger.debug("[DEBUG] Creating OrcaLinkBridge instance...")
             print("[PRINT-DEBUG] utils.py - Creating OrcaLinkBridge instance...", file=sys.stderr, flush=True)
             sph_wrapper = OrcaLinkBridge(env.unwrapped, config=config)
-            logger.info("[DEBUG] OrcaLinkBridge instance created")
+            logger.debug("[DEBUG] OrcaLinkBridge instance created")
             print("[PRINT-DEBUG] utils.py - OrcaLinkBridge instance created...", file=sys.stderr, flush=True)
             
             logger.info("🔗 连接到 OrcaLink...")
-            logger.info("[DEBUG] Calling sph_wrapper.connect()...")
+            logger.debug("[DEBUG] Calling sph_wrapper.connect()...")
             import sys
             sys.stdout.flush()
             sys.stderr.flush()
             print("[PRINT-DEBUG] utils.py - Calling sph_wrapper.connect()...", file=sys.stderr, flush=True)
             connect_result = sph_wrapper.connect()
             print(f"[PRINT-DEBUG] utils.py - sph_wrapper.connect() returned: {connect_result}", file=sys.stderr, flush=True)
-            logger.info(f"[DEBUG] sph_wrapper.connect() RETURNED: {connect_result}")
+            logger.debug(f"[DEBUG] sph_wrapper.connect() RETURNED: {connect_result}")
             sys.stdout.flush()
             sys.stderr.flush()
             
@@ -364,12 +407,12 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
                 config['orcasph']['enabled'] = False
             else:
                 logger.info("✅ OrcaLink 连接成功\n")
-                logger.info("[DEBUG] After OrcaLink connection success message")
+                logger.debug("[DEBUG] After OrcaLink connection success message")
         else:
             logger.warning("⚠️  OrcaLink 未启用，SPH 集成已禁用")
         
         import sys
-        logger.info("[DEBUG] About to enter main loop...")
+        logger.debug("[DEBUG] About to enter main loop...")
         sys.stdout.flush()
         sys.stderr.flush()
         logger.info("=" * 80)
@@ -384,28 +427,28 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
         step_count = 0
         REALTIME_STEP = 0.02
         
-        logger.info("[DEBUG] Entering while True loop...")
+        logger.debug("[DEBUG] Entering while True loop...")
         while True:
             start_time = datetime.now()
             
             if step_count == 0:
-                logger.info("[DEBUG] First iteration - before SPH sync")
+                logger.debug("[DEBUG] First iteration - before SPH sync")
             
             # SPH 同步
             should_step = True
             if config['orcasph']['enabled'] and sph_wrapper is not None:
                 try:
                     if step_count == 0:
-                        logger.info("[DEBUG] Calling sph_wrapper.step()...")
+                        logger.debug("[DEBUG] Calling sph_wrapper.step()...")
                     should_step = sph_wrapper.step()
                     if step_count == 0:
-                        logger.info(f"[DEBUG] sph_wrapper.step() returned: {should_step}")
+                        logger.debug(f"[DEBUG] sph_wrapper.step() returned: {should_step}")
                 except Exception as e:
                     logger.error(f"SPH 同步失败: {e}")
                     config['orcasph']['enabled'] = False
             
             if step_count == 0:
-                logger.info(f"[DEBUG] Before MuJoCo step, should_step={should_step}")
+                logger.debug(f"[DEBUG] Before MuJoCo step, should_step={should_step}")
             
             # MuJoCo step
             if should_step:
@@ -416,7 +459,7 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
                 env.render()
             
             if step_count == 0:
-                logger.info("[DEBUG] After render")
+                logger.debug("[DEBUG] After render")
             
             # 实时同步
             elapsed = (datetime.now() - start_time).total_seconds()
@@ -425,7 +468,7 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
             
             step_count += 1
             if step_count == 1:
-                logger.info("[DEBUG] Completed first iteration successfully")
+                logger.debug("[DEBUG] Completed first iteration successfully")
             if step_count % 100 == 0:
                 logger.info(f"仿真步数: {step_count}")
     

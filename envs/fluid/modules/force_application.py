@@ -7,14 +7,6 @@ import logging
 from typing import List, Optional
 
 logger = logging.getLogger(__name__)
-# 配置 logger
-if not logger.handlers:
-    logger.setLevel(logging.DEBUG)
-    logger.propagate = False
-    handler = logging.StreamHandler()
-    handler.setLevel(logging.DEBUG)
-    handler.setFormatter(logging.Formatter('[ForceApplicationModule] %(levelname)s: %(message)s'))
-    logger.addHandler(handler)
 
 
 class ForceApplicationModule:
@@ -65,9 +57,8 @@ class ForceApplicationModule:
         """Subscribe to multi-point forces and apply to SITE (MultiPointForceMode)
         
         增量式力管理（不依赖系统状态）：
-        1. 取消上一帧我们对每个site的力（用负值应用）
-        2. 应用新力
-        3. 记录新力供下一帧使用
+        - 有新数据时：取消旧力 + 应用新力
+        - 无新数据时：保持上一帧的力不变（不做任何操作）
         
         由于 mj_applyFT 是累加操作，通过 -F_old + F_new 实现力的替换。
         """
@@ -76,34 +67,34 @@ class ForceApplicationModule:
             return
         
         try:
-            # Step 1: 取消上一帧我们施加的力
-            if self._previous_site_forces:
-                for site_name, (prev_force, prev_torque) in self._previous_site_forces.items():
-                    # 用负值取消旧力
-                    cancel_force = -prev_force
-                    cancel_torque = -prev_torque
-                    
-                    if hasattr(self.env, 'mj_apply_force_at_site'):
-                        self.env.mj_apply_force_at_site(site_name, cancel_force, cancel_torque)
-                        logger.debug(f"[DEBUG] Cancelled previous force for site '{site_name}'")
-                
-                logger.debug(f"[DEBUG] Cancelled {len(self._previous_site_forces)} previous site forces")
-            
-            # Step 2: 订阅新力
+            # Step 1: 订阅新力（先查询，再决定是否更新）
             logger.debug("[DEBUG] subscribe_and_apply_site_forces - About to call subscribe_forces()...")
             forces = self.loop.run_until_complete(
                 self.client.subscribe_forces()
             )
-            logger.debug(f"[DEBUG] subscribe_and_apply_site_forces - subscribe_forces() returned {len(forces) if forces else 0} forces")
             
-            # Step 3: 清空旧记录
-            self._previous_site_forces.clear()
-            
+            # Step 2: 如果没有新数据，保持上一帧的力不变
             if not forces:
-                logger.debug("[DEBUG] subscribe_and_apply_site_forces - No forces received")
+                logger.debug("[DEBUG] subscribe_and_apply_site_forces - No forces received, keeping previous forces")
                 return
             
-            # Step 4: 应用所有新力并记录
+            # Step 3: 有新数据，统计并输出日志
+            site_names = [f.object_id for f in forces]
+            logger.debug(f"[DEBUG] subscribe_and_apply_site_forces - Received {len(forces)} SITE forces: {site_names}")
+            
+            # Step 4: 取消旧力（只有确定要更新时才取消）
+            if self._previous_site_forces:
+                for site_name, (prev_force, prev_torque) in self._previous_site_forces.items():
+                    cancel_force = -prev_force
+                    cancel_torque = -prev_torque
+                    if hasattr(self.env, 'mj_apply_force_at_site'):
+                        self.env.mj_apply_force_at_site(site_name, cancel_force, cancel_torque)
+                logger.debug(f"[DEBUG] Cancelled {len(self._previous_site_forces)} previous site forces")
+            
+            # Step 5: 清空旧记录，准备记录新力
+            self._previous_site_forces.clear()
+            
+            # Step 6: 应用所有新力并记录
             for force_data in forces:
                 site_name = force_data.object_id  # SITE point ID
                 
@@ -112,11 +103,8 @@ class ForceApplicationModule:
                 force_mujoco = np.array(force_data.force, dtype=np.float64)
                 torque_mujoco = np.zeros(3, dtype=np.float64)
                 
-                # Apply force at SITE point (累加到 qfrc_applied)
                 if hasattr(self.env, 'mj_apply_force_at_site'):
                     self.env.mj_apply_force_at_site(site_name, force_mujoco, torque_mujoco)
-                    
-                    # 记录这次施加的力，供下一帧取消
                     self._previous_site_forces[site_name] = (force_mujoco.copy(), torque_mujoco.copy())
                 else:
                     logger.warning(f"Environment does not support mj_apply_force_at_site")

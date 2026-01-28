@@ -7,14 +7,6 @@ import logging
 from typing import List, Dict, Optional, Any
 
 logger = logging.getLogger(__name__)
-# 配置 logger
-if not logger.handlers:
-    logger.setLevel(logging.DEBUG)
-    logger.propagate = False
-    handler = logging.StreamHandler()
-    handler.setLevel(logging.DEBUG)
-    handler.setFormatter(logging.Formatter('[PositionPublishModule] %(levelname)s: %(message)s'))
-    logger.addHandler(handler)
 
 
 class PositionPublishModule:
@@ -103,13 +95,19 @@ class PositionPublishModule:
             self.env.mj_forward()
             
             # 3. 批量查询 body 位置、旋转矩阵和四元数（使用 OrcaGym API）
-            body_dict = self.env.get_body_xpos_xmat_xquat(body_names)
+            # 返回值是三个扁平数组的元组: (xpos, xmat, xquat)
+            xpos_flat, xmat_flat, xquat_flat = self.env.get_body_xpos_xmat_xquat(body_names)
             
-            # 4. 转换为 OrcaLink 格式
-            for body_name, body_data in body_dict.items():
+            # 4. 解析扁平数组
+            num_bodies = len(body_names)
+            xpos_list = xpos_flat.reshape(num_bodies, 3)
+            xquat_list = xquat_flat.reshape(num_bodies, 4)
+            
+            # 5. 转换为 OrcaLink 格式
+            for i, body_name in enumerate(body_names):
                 object_id = body_to_object_id.get(body_name, body_name)
-                pos = body_data['xpos']
-                quat = body_data['xquat']
+                pos = xpos_list[i]
+                quat = xquat_list[i]
                 
                 # Convert to position data structure
                 try:
