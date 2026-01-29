@@ -139,6 +139,56 @@
     "anchor_particle_size": 0.02,
     "target_position_size": 0.015,
     "comment": "Debug选项：verbose_logging启用详细日志；enable_spring_force_stats启用弹簧力统计（每1秒）；enable_fluid_force_stats启用流体力统计（每1秒）；visualize_*控制锚点粒子可视化"
+  },
+  
+  "particle_render": {
+    "grpc": {
+      "server_address": "localhost:50251",
+      "enabled": true,
+      "update_rate_hz": 20,
+      "realtime_sync": true,
+      "compression": {
+        "enabled": false,
+        "show_stats": false
+      },
+      "quantization": {
+        "enabled": true
+      },
+      "transmission_mode": "particle_frame"
+    },
+    "voxel_grid": {
+      "width": 128,
+      "height": 128,
+      "depth": 128,
+      "voxel_size_ratio": 1.0,
+      "origin": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "data_mode": "density_velocity",
+      "velocity": {
+        "max_speed": 5.0,
+        "enabled": true
+      },
+      "statistics": {
+        "enabled": false
+      }
+    },
+    "particle_frame": {
+      "grid_resolution": {
+        "x": 512,
+        "y": 512,
+        "z": 512
+      },
+      "voxel_size_ratio": 1.0,
+      "ip_frame": {
+        "i_frame_interval": 30,
+        "position_threshold": 2,
+        "velocity_threshold": 5,
+        "change_ratio_threshold": 0.5
+      }
+    }
   }
 }
 

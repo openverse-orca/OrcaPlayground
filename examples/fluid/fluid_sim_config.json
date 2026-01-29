@@ -90,7 +90,7 @@
     "enabled": true,
     "auto_start": true,
     "command": "orcasph",
-    "args": ["--gui"],
+    "args": [""],
     "scene_auto_generate": true,
     "config_template": "sph_sim_config.json"
   },

@@ -129,6 +129,10 @@ def generate_orcasph_config(fluid_config: Dict, output_path: Path) -> tuple[Path
         "debug": orcasph_config_template.get('debug', {})
     }
     
+    # 添加 particle_render 配置（如果模板中存在）
+    if 'particle_render' in orcasph_config_template:
+        orcasph_config['particle_render'] = orcasph_config_template['particle_render']
+    
     # 覆盖关键参数（确保动态值生效）
     orcasph_config['orcalink_client']['server_address'] = f"{orcalink_cfg.get('host', 'localhost')}:{orcalink_cfg.get('port', 50351)}"
     orcasph_config['orcalink_client']['enabled'] = orcalink_cfg.get('enabled', True)
