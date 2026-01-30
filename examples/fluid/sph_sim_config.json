@@ -40,10 +40,11 @@
       },
       "rigid_body_dynamics": {
         "mode": "internal",
-        "comment": "SPH内部PBD处理刚体动力学"
+        "force_smoothing_alpha": 0.3,
+        "comment": "mode: internal=SPH内部PBD处理动力学+Mujoco参与, external=Mujoco完全负责动力学。force_smoothing_alpha: EMA平滑系数[0,1]，推荐0.3（约3个周期平滑），避免力脉冲导致刚体被弹飞。两种模式都将平滑后的力发送给Mujoco参与动力学计算"
       },
       "gravity_module": {
-        "enable_rigid_body_gravity": true,
+        "enable_rigid_body_gravity": false,
         "anchor_particle_mass_ratio": 1.0
       },
       "force_clamping": {
@@ -80,7 +81,8 @@
       },
       "rigid_body_dynamics": {
         "mode": "internal",
-        "comment": "刚体动力学由MuJoCo主导，SPH跳过PBD时间步"
+        "force_smoothing_alpha": 0.3,
+        "comment": "mode: internal=SPH内部PBD处理动力学+Mujoco参与, external=Mujoco完全负责动力学。force_smoothing_alpha: EMA平滑系数[0,1]，推荐0.3（约3个周期平滑），避免力脉冲导致刚体被弹飞。两种模式都将平滑后的力发送给Mujoco参与动力学计算"
       }
     },
     "shared_modules": {
