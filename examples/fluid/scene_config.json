@@ -10,15 +10,15 @@
   },
   "wall_rigid_body": {
     "geometryFile": "../../../data/models/UnitBox.obj",
-    "translation": [0, 3.0, 0],
+    "translation": [0, 2, 0],
     "rotationAxis": [1, 0, 0],
     "rotationAngle": 0,
-    "scale": [1.5, 6, 1.5],
+    "scale": [5, 5, 5],
     "color": [0.1, 0.4, 0.6, 1.0],
     "isDynamic": false,
     "isWall": true,
     "collisionObjectType": 2,
-    "collisionObjectScale": [1.5, 6, 1.5],
+    "collisionObjectScale": [5, 5, 5],
     "invertSDF": true,
     "mapInvert": true,
     "mapThickness": 0.0,
@@ -60,8 +60,8 @@
         "denseMode": 0,
         "start": [-0.35, -0.35, -0.35],
         "end": [0.35, 0.35, 0.35],
-        "translation": [0.0, 0.35, 0.0],
-        "scale": [1.5, 2.0, 1.5]
+        "translation": [0.0, 0.75, 0.0],
+        "scale": [1.5, 1, 1.5]
       }
     ]
   }

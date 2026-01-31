@@ -83,9 +83,10 @@ def main():
   手动模式: 用户预先启动，脚本仅连接（使用 --manual-mode）
 
 【示例】
-  python run_fluid_sim.py
-  python run_fluid_sim.py --config my_config.json
-  python run_fluid_sim.py --manual-mode
+  python run_fluid_sim.py                    # 默认配置，无 GUI
+  python run_fluid_sim.py --gui              # 启用 GUI
+  python run_fluid_sim.py --config my.json   # 自定义配置
+  python run_fluid_sim.py --manual-mode      # 手动模式
             """
         )
         
@@ -99,6 +100,11 @@ def main():
             action='store_true',
             help='手动模式：禁用自动启动，需预先启动 orcalink 和 orcasph'
         )
+        parser.add_argument(
+            '--gui',
+            action='store_true',
+            help='启用 OrcaSPH GUI 可视化界面（默认禁用）'
+        )
         
         args = parser.parse_args()
         
@@ -110,6 +116,20 @@ def main():
         
         config = load_config(str(config_path))
         
+        # 设置 OrcaSPH GUI 参数
+        if 'orcasph' in config and config['orcasph'].get('enabled', False):
+            # 初始化 args 如果不存在
+            if 'args' not in config['orcasph']:
+                config['orcasph']['args'] = []
+            
+            # 移除现有的 --gui 参数（如果有）
+            config['orcasph']['args'] = [arg for arg in config['orcasph']['args'] if arg != '--gui']
+            
+            # 根据命令行参数添加 --gui
+            if args.gui:
+                config['orcasph']['args'].append('--gui')
+                print("🎨 OrcaSPH GUI 已启用")
+        
         # 手动模式
         if args.manual_mode:
             print("=" * 60)
@@ -117,7 +137,8 @@ def main():
             print("=" * 60)
             print("请确保已手动启动以下服务：")
             print(f"  1. OrcaLink: orcalink --port {config['orcalink']['port']}")
-            print(f"  2. OrcaSPH: orcasph --scene <scene.json> --gui")
+            gui_flag = "--gui" if args.gui else ""
+            print(f"  2. OrcaSPH: orcasph --scene <scene.json> {gui_flag}")
             print("=" * 60)
             config['orcalink']['auto_start'] = False
             config['orcasph']['auto_start'] = False

@@ -30,6 +30,7 @@ class GeomInfo:
     mesh_name: str = ""
     size: List[float] = None
     scale: List[float] = None
+    is_static: bool = False  # 标记是否为静态刚体
     
     def __post_init__(self):
         if self.size is None:
@@ -194,17 +195,17 @@ class SceneGenerator:
     
     def identify_sph_bodies(self) -> List[str]:
         """
-        识别需要导出的刚体（有 SPH_MESH_GEOM 的 body）并缓存 geom 信息
+        识别需要导出的刚体（有 SPH_MESH_GEOM 或 SPH_STATIC_MESH_GEOM 的 body）并缓存 geom 信息
         
         识别策略：
-        1. 遍历所有 geom，根据名称过滤出 SPH_MESH_GEOM
+        1. 遍历所有 geom，根据名称过滤出 SPH_MESH_GEOM 和 SPH_STATIC_MESH_GEOM
         2. 从 geom 的 BodyName 字段直接获取 body 名称
         3. 同时获取 mesh 文件路径和 scale 信息并缓存
         4. 去重并返回
         
         命名规则：
-        - SPH_MESH_GEOM 的命名格式为 ${bodyName}_SPH_MESH_GEOM
-        - 通过 geom 名称包含 '_SPH_MESH_GEOM' 来识别
+        - 动态刚体：${bodyName}_SPH_MESH_GEOM，对应 mesh 为 ${bodyName}_SPH_MESH
+        - 静态刚体：${bodyName}_SPH_STATIC_MESH_GEOM，对应 mesh 为 ${bodyName}_SPH_STATIC_MESH
         
         Returns:
             List[str]: body 名称列表
@@ -223,28 +224,39 @@ class SceneGenerator:
                 logger.warning("geom_dict not available")
                 return []
             
-            logger.info(f"Scanning {len(geom_dict)} geoms for SPH_MESH_GEOM...")
+            logger.info(f"Scanning {len(geom_dict)} geoms for SPH geoms (dynamic and static)...")
             
-            # 过滤出 SPH_MESH_GEOM 并提取信息
+            # 过滤出 SPH_MESH_GEOM 和 SPH_STATIC_MESH_GEOM 并提取信息
             sph_geoms = []
             for geom_name, geom_info in geom_dict.items():
-                if '_SPH_MESH_GEOM' in geom_name:
+                # 检查是否为静态刚体或动态刚体
+                is_static = '_SPH_STATIC_MESH_GEOM' in geom_name
+                is_dynamic = '_SPH_MESH_GEOM' in geom_name and not is_static
+                
+                if is_static or is_dynamic:
                     body_name = geom_info.get('BodyName', '')
                     if not body_name:
-                        logger.warning(f"SPH_MESH_GEOM '{geom_name}' has no BodyName!")
+                        logger.warning(f"SPH geom '{geom_name}' has no BodyName!")
                         continue
                     
                     sph_bodies.add(body_name)
-                    sph_geoms.append({'geom': geom_name, 'body': body_name})
+                    sph_geoms.append({
+                        'geom': geom_name, 
+                        'body': body_name, 
+                        'is_static': is_static
+                    })
                     
                     # 获取并缓存 geom 信息（mesh 文件路径和 scale）
                     # 注意：
                     # 1. 不能通过 geom 的 DataID 获取，因为 DataID 可能指向其他用途的 mesh
-                    # 2. 应该直接通过命名规则获取 SPH_MESH
+                    # 2. 应该直接通过命名规则获取 SPH_MESH 或 SPH_STATIC_MESH
                     # 3. scale 从 mesh 的 Scale 属性获取（从 XML 解析）
                     try:
-                        # 构造 SPH_MESH 名称
-                        sph_mesh_name = f"{body_name}_SPH_MESH"
+                        # 根据类型构造 SPH_MESH 或 SPH_STATIC_MESH 名称
+                        if is_static:
+                            sph_mesh_name = f"{body_name}_SPH_STATIC_MESH"
+                        else:
+                            sph_mesh_name = f"{body_name}_SPH_MESH"
                         
                         # 通过 mesh 名称获取 mesh 信息
                         mesh_info = mesh_dict.get(sph_mesh_name) if mesh_dict else None
@@ -259,10 +271,12 @@ class SceneGenerator:
                                 geom_type='mesh',
                                 mesh_name=mesh_file,
                                 size=[],
-                                scale=list(mesh_scale) if mesh_scale else [1.0, 1.0, 1.0]
+                                scale=list(mesh_scale) if mesh_scale else [1.0, 1.0, 1.0],
+                                is_static=is_static
                             )
                             
-                            logger.info(f"Cached geom info for '{body_name}': mesh='{sph_mesh_name}', file='{mesh_file}', scale={mesh_scale}")
+                            body_type = "static" if is_static else "dynamic"
+                            logger.info(f"Cached {body_type} geom info for '{body_name}': mesh='{sph_mesh_name}', file='{mesh_file}', scale={mesh_scale}")
                         else:
                             logger.warning(f"SPH_MESH '{sph_mesh_name}' not found in mesh_dict for body '{body_name}'")
                     except Exception as e:
@@ -270,9 +284,12 @@ class SceneGenerator:
             
             # 日志输出识别结果
             if sph_geoms:
-                logger.info(f"Found {len(sph_geoms)} SPH_MESH_GEOM(s):")
+                dynamic_count = sum(1 for g in sph_geoms if not g['is_static'])
+                static_count = sum(1 for g in sph_geoms if g['is_static'])
+                logger.info(f"Found {len(sph_geoms)} SPH geom(s): {dynamic_count} dynamic, {static_count} static")
                 for item in sph_geoms:
-                    logger.info(f"  - geom: '{item['geom']}' -> body: '{item['body']}'")
+                    body_type = "static" if item['is_static'] else "dynamic"
+                    logger.info(f"  - [{body_type}] geom: '{item['geom']}' -> body: '{item['body']}'")
             
             result = sorted(list(sph_bodies))
             logger.info(f"Identified {len(result)} SPH body(bodies): {result}")
@@ -726,7 +743,7 @@ class SceneGenerator:
         
         Args:
             body_name: MuJoCo body 名称
-            rb_id: 刚体在 scene.json 中的 ID
+            rb_id: �体在 scene.json 中的 ID
             
         Returns:
             Dict: 刚体配置（SPH scene.json 格式）
@@ -746,11 +763,15 @@ class SceneGenerator:
             # 获取默认值
             default_rb = self.config.get('default_rigid_body', {})
             
+            # 根据 geom_info.is_static 确定 isDynamic
+            is_static = body_info['geom_info'].is_static
+            is_dynamic = not is_static if is_static else default_rb.get('isDynamic', True)
+            
             config = {
                 "id": rb_id,
                 "entityName": entity_name,
                 "geometryFile": body_info['geom_info'].mesh_name,
-                "isDynamic": default_rb.get('isDynamic', True),
+                "isDynamic": is_dynamic,
                 "density": default_rb.get('density', 500),  # 保留作为默认值
                 "mass": body_info['mass'],  # 新增：从 MuJoCo 读取的质量
                 "translation": translation,
@@ -768,7 +789,8 @@ class SceneGenerator:
                 "mapResolution": default_rb.get('mapResolution', [20, 20, 20])
             }
             
-            logger.debug(f"Generated rigid body config for '{body_name}': {config}")
+            body_type = "static" if is_static else "dynamic"
+            logger.debug(f"Generated {body_type} rigid body config for '{body_name}': {config}")
             return config
             
         except Exception as e:
@@ -1008,6 +1030,12 @@ class SceneGenerator:
                 rb_id = main_rb.get("id")
                 if rb_id is None:
                     continue
+                
+                # 跳过静态刚体（不需要锚点）
+                if main_rb.get("isDynamic") == False:
+                    logger.info(f"  Skipping anchor points for static body '{main_body_name}'")
+                    continue
+                
                 anchor_point = self.generate_anchor_points(main_body_name, rb_id)
                 if anchor_point:
                     anchor_points.append(anchor_point)
