@@ -272,7 +272,28 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
                 # 如果不存在，尝试 envs/fluid/ 目录
                 scene_config_path = Path(__file__).parent / config['sph']['scene_config']
             
-            scene_generator = SceneGenerator(env.unwrapped, config_path=str(scene_config_path))
+            # 加载 sph_sim_config.json（SPH 侧配置模板）
+            # 这个配置包含 orcalink_bridge.shared_modules.spring_force 等 SPH 侧参数
+            sph_config_template_path = Path(__file__).parent.parent.parent / "examples" / "fluid" / config['orcasph']['config_template']
+            if not sph_config_template_path.exists():
+                sph_config_template_path = Path(__file__).parent / config['orcasph']['config_template']
+            
+            if sph_config_template_path.exists():
+                with open(sph_config_template_path, 'r', encoding='utf-8') as f:
+                    sph_config = json.load(f)
+                logger.info(f"✅ 加载 SPH 配置模板用于场景生成: {sph_config_template_path}")
+            else:
+                raise FileNotFoundError(
+                    f"SPH 配置模板未找到: {config['orcasph']['config_template']}\n"
+                    f"场景生成需要从该文件读取弹簧参数等配置。\n"
+                    f"尝试的路径: {sph_config_template_path}"
+                )
+            
+            scene_generator = SceneGenerator(
+                env.unwrapped, 
+                config_path=str(scene_config_path),
+                runtime_config=sph_config  # 传递 SPH 配置（包含 orcalink_bridge.shared_modules.spring_force）
+            )
             scene_data = scene_generator.generate_complete_scene(
                 output_path=str(scene_output_path),
                 include_fluid_blocks=config['sph']['include_fluid_blocks'],

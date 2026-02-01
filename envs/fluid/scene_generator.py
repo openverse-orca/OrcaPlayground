@@ -42,17 +42,19 @@ class GeomInfo:
 class SceneGenerator:
     """MuJoCo to SPH 场景生成器"""
     
-    def __init__(self, env, config: Dict = None, config_path: str = None):
+    def __init__(self, env, config: Dict = None, config_path: str = None, runtime_config: Dict = None):
         """
         初始化 SceneGenerator
         
         Args:
             env: OrcaGymLocalEnv 实例
-            config: 配置字典（直接传入）
-            config_path: 配置文件路径（优先从路径加载）
+            config: 配置字典（场景模板配置，直接传入）
+            config_path: 场景模板配置文件路径（优先从路径加载）
+            runtime_config: 运行时配置（必须包含 orcalink_bridge.shared_modules.spring_force）
         """
         self.env = env
         self.config = self._load_config(config_path) if config_path else config or {}
+        self.runtime_config = runtime_config or {}
         
         # 保存 scene 文件所在的目录（用于相对路径转换）
         self.scene_dir = None  # 在 generate_complete_scene 中设置
@@ -837,9 +839,34 @@ class SceneGenerator:
         if not site_points and not mocap_points:
             return None
         
-        # 3. 从配置读取弹簧参数（或使用默认值）
-        spring_stiffness = 5000.0
-        spring_damping = 100.0
+        # 3. 从运行时配置读取弹簧参数（必需配置）
+        spring_force_config = (
+            self.runtime_config
+            .get('orcalink_bridge', {})
+            .get('shared_modules', {})
+            .get('spring_force', {})
+        )
+
+        if not spring_force_config:
+            raise ValueError(
+                "弹簧力配置缺失！必须在 sph_sim_config.json 中配置 "
+                "'orcalink_bridge.shared_modules.spring_force' 字段"
+            )
+
+        spring_stiffness = spring_force_config.get('linear_spring_stiffness')
+        spring_damping = spring_force_config.get('linear_damping_coefficient')
+
+        if spring_stiffness is None or spring_damping is None:
+            raise ValueError(
+                f"弹簧参数不完整！需要配置:\n"
+                f"  - linear_spring_stiffness (当前: {spring_stiffness})\n"
+                f"  - linear_damping_coefficient (当前: {spring_damping})\n"
+                f"请在 sph_sim_config.json 的 orcalink_bridge.shared_modules.spring_force 中配置"
+            )
+
+        logger.info(
+            f"[SceneGenerator] 使用弹簧参数: k={spring_stiffness} N/m, c={spring_damping} N·s/m"
+        )
         
         return {
             "rigid_body_id": rb_id,

@@ -92,7 +92,7 @@
         "natural_frequency_hz": 0.2,
         "damping_ratio": 0.7,
         "linear_spring_stiffness": 5000.0,
-        "linear_damping_coefficient": 100.0,
+        "linear_damping_coefficient": 180.0,
         "angular_spring_stiffness": 40.0,
         "angular_damping_coefficient": 2.0,
         "max_spring_force": 5000.0,
