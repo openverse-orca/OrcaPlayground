@@ -38,6 +38,10 @@
           "comment": "SPH接收位置来自MuJoCo"
         }
       },
+      "anchor_particles": {
+        "actuator_type": "spring_force",
+        "comment": "actuator_type: spring_force=弹簧力, pd_controller=PD控制器"
+      },
       "rigid_body_dynamics": {
         "mode": "internal",
         "force_smoothing_alpha": 0.3,
@@ -79,6 +83,10 @@
         "precompute_inverse": true,
         "regularization": 0.001
       },
+      "anchor_particles": {
+        "actuator_type": "pd_controller",
+        "comment": "actuator_type: spring_force=弹簧力, pd_controller=PD控制器"
+      },
       "rigid_body_dynamics": {
         "mode": "internal",
         "force_smoothing_alpha": 0.3,
@@ -89,8 +97,8 @@
       "spring_force": {
         "apply_spring_forces": true,
         "auto_tune": true,
-        "natural_frequency_hz": 0.2,
-        "damping_ratio": 0.7,
+        "natural_frequency_hz": 2.0,
+        "damping_ratio": 0.2,
         "linear_spring_stiffness": 5000.0,
         "linear_damping_coefficient": 180.0,
         "angular_spring_stiffness": 40.0,
@@ -101,7 +109,29 @@
         "rotation_deadzone": 0.001,
         "estimate_remote_velocity": false,
         "velocity_filter_alpha": 0.3,
-        "comment": "完整的弹簧力配置（14个必选参数）。estimate_remote_velocity设为false避免导入velocity_estimator模块错误"
+        "comment": "弹簧力配置（用于 spring_constraint 模式，仍通过 scene 传递）。完整的弹簧力配置（14个必选参数）。estimate_remote_velocity设为false避免导入velocity_estimator模块错误"
+      },
+      "pd_controller": {
+        "enabled": true,
+        "auto_tune": true,
+        "natural_frequency_hz": 1.8,
+        "damping_ratio": 1.2,
+        "Kp": 5000.0,
+        "Kd": 500.0,
+        "max_force": 2000.0,
+        "position_deadzone": 0.0001,
+        "velocity_filter_alpha": 0.4,
+        "comment": "PD 控制器配置（用于 multi_point_force 模式，直接读取）。auto_tune=true时根据刚体质量自动计算Kp和Kd。natural_frequency_hz控制响应速度（越大越快），damping_ratio控制阻尼程度（1.0=临界阻尼，>1.0=过阻尼）"
+      },
+      "passivity_control": {
+        "enabled": true,
+        "auto_tune": true,
+        "reference_mass": 5.0,
+        "energy_threshold_per_kg": 1.0,
+        "max_damping_per_sqrt_kg": 150.0,
+        "dissipation_time_constant": 0.2,
+        "min_velocity_threshold": 0.01,
+        "comment": "无源性控制：启用 auto_tune 后，能量阈值和最大阻尼会根据刚体质量自动调整。reference_mass 是参考质量(kg)，energy_threshold_per_kg 是单位质量能量阈值(J/kg)，max_damping_per_sqrt_kg 是单位根号质量阻尼系数。当物理尺度缩放时，只需保持这些per_kg参数不变即可。统计信息由 debug 块的 enable_actuator_force_stats 和 stats_log_interval 控制"
       },
       "gravity": {
         "enable_rigid_body_gravity": false,
@@ -130,19 +160,7 @@
     "enable_debug_output": false,
     "physics_dt": 0.001
   },
-  
-  "debug": {
-    "verbose_logging": false,
-    "enable_spring_force_stats": true,
-    "enable_fluid_force_stats": true,
-    "visualize_anchor_particles": true,
-    "visualize_target_positions": true,
-    "visualize_spring_connections": true,
-    "anchor_particle_size": 0.02,
-    "target_position_size": 0.015,
-    "comment": "Debug选项：verbose_logging启用详细日志；enable_spring_force_stats启用弹簧力统计（每1秒）；enable_fluid_force_stats启用流体力统计（每1秒）；visualize_*控制锚点粒子可视化"
-  },
-  
+
   "particle_render": {
     "grpc": {
       "server_address": "localhost:50251",
@@ -191,6 +209,20 @@
         "change_ratio_threshold": 0.5
       }
     }
+  },
+
+  "debug": {
+    "verbose_logging": false,
+    "enable_actuator_force_stats": true,
+    "enable_fluid_force_stats": true,
+    "enable_passivity_stats": true,
+    "stats_log_interval": 1.0,
+    "visualize_anchor_particles": true,
+    "visualize_target_positions": true,
+    "visualize_actuator_connections": true,
+    "anchor_particle_size": 0.02,
+    "target_position_size": 0.015,
+    "comment": "Debug选项：verbose_logging启用详细日志；enable_actuator_force_stats启用弹簧力/PD控制器统计；enable_fluid_force_stats启用流体力统计；enable_passivity_stats启用无源性控制统计；stats_log_interval统计输出间隔（秒）；visualize_*控制锚点粒子可视化"
   }
 }
 
