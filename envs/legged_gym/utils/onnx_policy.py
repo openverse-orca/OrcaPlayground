@@ -11,8 +11,14 @@ import numpy as np
 from typing import Union, Optional
 import os
 
-from orca_gym.log.orca_log import get_orca_logger
-_logger = get_orca_logger()
+try:
+    from orca_gym.log.orca_log import get_orca_logger
+    _logger = get_orca_logger()
+except ImportError:
+    import logging
+    _logger = logging.getLogger(__name__)
+
+from .device_utils import get_onnx_providers
 
 
 
@@ -35,7 +41,7 @@ class ONNXPolicy:
         
         Args:
             model_path: ONNX模型文件路径
-            device: 设备类型 ('cpu' 或 'cuda')
+            device: 'cpu' | 'cuda' | 'gpu'
             num_threads: 线程数
             providers: ONNX Runtime提供者列表
         """
@@ -51,12 +57,8 @@ class ONNXPolicy:
         session_options.intra_op_num_threads = num_threads
         session_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         
-        # 设置提供者
         if providers is None:
-            if device == "cuda":
-                providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
-            else:
-                providers = ['CPUExecutionProvider']
+            providers = get_onnx_providers(device)
         
         # 创建ONNX Runtime会话
         try:

@@ -23,6 +23,7 @@ from examples.legged_gym.scripts.scene_util import clear_scene, publish_terrain,
 from orca_gym.devices.keyboard import KeyboardInput, KeyboardInputSourceType
 from envs.legged_gym.legged_sim_env import LeggedSimEnv
 from envs.legged_gym.legged_config import LeggedRobotConfig, LeggedObsConfig, CurriculumConfig, LeggedEnvConfig
+from envs.legged_gym.utils.device_utils import get_onnx_providers
 
 from examples.legged_gym.scripts.grpc_client import GrpcInferenceClient, create_grpc_client
 
@@ -190,12 +191,9 @@ def load_sb3_model(model_file: dict):
 def load_onnx_model(model_file: dict):
     import onnxruntime as ort
     models = {}
+    # 兼容 N 卡 CUDA 与 A 卡 MIGraphX
+    providers = get_onnx_providers("gpu")
     for key, value in model_file.items():
-        # 显式指定GPU优先
-        providers = [
-            'CUDAExecutionProvider',  # 优先尝试GPU
-            'CPUExecutionProvider'    # GPU不可用时回退到CPU
-        ]
         models[key] = ort.InferenceSession(value, providers=providers)
     return models
 

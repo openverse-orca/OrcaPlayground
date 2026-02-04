@@ -123,6 +123,19 @@ pip install -r requirements.txt
 2. **Python 版本**：Python >= 3.9
 3. **场景配置**：在 OrcaStudio 场景中添加对应的机器人（名称参考各示例 README）
 
+## 🖥️ GPU 兼容性（NVIDIA / AMD ROCm）
+
+本项目训练与推理**同时支持 NVIDIA (CUDA) 与 AMD (ROCm)**，便于在不同显卡环境下运行。
+
+| 特性 | 说明 |
+|------|------|
+| **NVIDIA (CUDA)** | 安装 PyTorch CUDA 版即可，`device: "auto"` 或 `device: "cuda"` 使用 GPU。 |
+| **AMD (ROCm)** | 需安装与当前 ROCm 版本及显卡匹配的 PyTorch ROCm 版（如 ROCm 7.1/7.2 + RX 9000）。配置中 `device: "cuda"` 即使用 AMD GPU。 |
+| **设备配置** | 在示例配置（如 `examples/legged_gym/configs/sb3_ppo_config.yaml`）中可设置 `training.device`：`"auto"`（N 卡用 GPU，A 卡默认策略）、`"cuda"`（强制 GPU）、`"cpu"`（仅 CPU）。 |
+| **日志显示** | 使用 AMD GPU 时，训练日志会标明 **后端: ROCm (AMD GPU)**；PyTorch/SB3 中的 “Using cuda device” 为兼容命名，即当前 AMD 显卡。 |
+
+- **迁移步骤、依赖冲突、ONNX 兼容与 N 卡/A 卡性能对比**：见 [NVIDIA 到 AMD GPU 迁移指南](docs/NVIDIA_to_AMD_GPU_MIGRATION.md)。
+
 ## 🔧 OrcaLab 配置
 
 ### 配置文件位置
@@ -243,3 +256,4 @@ orcalab --init-config
 
 - OrcaGym 主仓库：https://github.com/openverse-orca/OrcaGym
 - 各示例详细说明：查看 `examples/*/README.md`
+- **GPU 兼容（N 卡 / A 卡）**：[NVIDIA 到 AMD GPU 迁移指南](docs/NVIDIA_to_AMD_GPU_MIGRATION.md)

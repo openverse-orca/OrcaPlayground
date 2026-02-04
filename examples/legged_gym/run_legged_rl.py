@@ -161,6 +161,16 @@ def run_sb3_ppo_rl(
         skip_terrain=skip_terrain,
     )
 
+    # 强制使用 AMD GPU 时：在导入 torch 前固定可见 GPU（如仅用 RX 9070 XT，避免 iGPU）
+    device_pref = run_mode_config.get("device", "auto")
+    if device_pref == "cuda":
+        visible = run_mode_config.get("cuda_visible_devices")
+        if visible is not None:
+            os.environ["CUDA_VISIBLE_DEVICES"] = str(visible)
+        elif "CUDA_VISIBLE_DEVICES" not in os.environ:
+            os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+            print("[Device] device=cuda 且未设置 CUDA_VISIBLE_DEVICES，已设为 0（仅用第一块 GPU，如 RX 9070 XT）")
+
     import examples.legged_gym.scripts.sb3_ppo_vecenv_rl as sb3_rl
 
     if run_mode == "training":
@@ -183,6 +193,7 @@ def run_sb3_ppo_rl(
             model_file=model_file, 
             height_map_file=height_map_file, 
             curriculum_list=run_mode_config['curriculum_list'][task],
+            device=run_mode_config.get('device', 'auto'),
         )
     elif run_mode in ["testing", "play"]:
         print("Start Testing! Run mode: ", run_mode, "task: ", task, " subenv_num: ", subenv_num, " agent_num: ", agent_num, " agent_name: ", agent_name)
@@ -202,6 +213,7 @@ def run_sb3_ppo_rl(
             model_file=model_file, 
             height_map_file=height_map_file,
             curriculum_list=run_mode_config['curriculum_list'][task],
+            device=run_mode_config.get('device', 'auto'),
         )  
   
     else:

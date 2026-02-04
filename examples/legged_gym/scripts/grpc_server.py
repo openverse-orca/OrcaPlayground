@@ -35,6 +35,15 @@ except ImportError:
     _logger.performance("Please install: pip install onnxruntime")
     sys.exit(1)
 
+# 兼容 N 卡 CUDA 与 A 卡 MIGraphX 的 Provider 选择
+try:
+    from envs.legged_gym.utils.device_utils import get_onnx_providers
+except ImportError:
+    def get_onnx_providers(device: str):
+        if (device or "").lower() in ("gpu", "cuda"):
+            return ["CUDAExecutionProvider", "CPUExecutionProvider"]
+        return ["CPUExecutionProvider"]
+
 logger = logging.getLogger(__name__)
 
 
@@ -86,13 +95,9 @@ class ONNXInferenceService(inference_pb2_grpc.InferenceServiceServicer):
                     logger.warning(f"ONNX model file not found: {model_path}")
                     continue
                 
-                # 加载ONNX模型
+                # 加载ONNX模型（兼容 N 卡 CUDA 与 A 卡 MIGraphX）
                 logger.info(f"Loading ONNX model: {model_path}")
-                # 显式指定GPU优先
-                providers = [
-                    'CUDAExecutionProvider',  # 优先尝试GPU
-                    'CPUExecutionProvider'    # GPU不可用时回退到CPU
-                ]
+                providers = get_onnx_providers("gpu")
                 session = ort.InferenceSession(model_path, providers=providers)
                 
                 # 获取模型输入输出信息

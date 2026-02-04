@@ -24,6 +24,33 @@ from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()
 
 
+def _get_pytorch_rocm_install_instructions():
+    """返回与当前环境兼容的 PyTorch ROCm 安装指引（AMD 推荐 repo.radeon.com，勿长期用 CPU）。"""
+    py_ver = sys.version_info
+    if py_ver.major == 3 and py_ver.minor == 12:
+        return (
+            "当前 PyTorch ROCm 与显卡不兼容（易出现 HIP invalid device function）。\n"
+            "请安装与 ROCm 7.2 + 当前显卡兼容的 PyTorch（AMD 推荐 repo.radeon.com，勿长期用 CPU）：\n\n"
+            "  # Python 3.12（Ubuntu 24.04）示例，完整命令见 AMD 文档：\n"
+            "  wget https://repo.radeon.com/rocm/manylinux/rocm-rel-7.2/torch-2.9.1%2Brocm7.2.0.lw.git7e1940d4-cp312-cp312-linux_x86_64.whl\n"
+            "  pip install torch-2.9.1+rocm7.2.0.lw.git7e1940d4-cp312-cp312-linux_x86_64.whl\n\n"
+            "  文档与 torchvision/triton/torchaudio: https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/install/installrad/native_linux/install-pytorch.html\n"
+            "  或 Docker: docker pull rocm/pytorch:rocm7.2_ubuntu24.04_py3.12_pytorch_release_2.9.1"
+        )
+    if py_ver.major == 3 and py_ver.minor == 10:
+        return (
+            "当前 PyTorch ROCm 与显卡不兼容。请安装与 ROCm 7.2 兼容的 PyTorch（AMD 推荐 repo.radeon.com）：\n\n"
+            "  # Python 3.10 示例（Ubuntu 22.04）：\n"
+            "  见 https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/install/installrad/native_linux/install-pytorch.html\n"
+            "  或 Docker: docker pull rocm/pytorch:rocm7.2_ubuntu22.04_py3.10_pytorch_release_2.9.1"
+        )
+    return (
+        "当前 PyTorch ROCm 与显卡不兼容。请安装与系统 ROCm 版本及 Python 匹配的 PyTorch：\n"
+        "  https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/install/installrad/native_linux/install-pytorch.html\n"
+        "  https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/3rd-party/pytorch-install.html"
+    )
+
+
 class SnapshotCallback(BaseCallback):
     def __init__(self, 
                  save_interval : int, 
@@ -206,13 +233,50 @@ def setup_model_ppo(
     env_num: int, 
     agent_num: int, 
     agent_config : dict,
-    model_file: str, 
+    model_file: str,
+    device: str = "auto",
 ) -> PPO:
-    """
-    设置或加载 PPO 模型。
-    """
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
+    """设置或加载 PPO 模型。device: auto | cuda | cpu。"""
+    device_preference = device
+    is_rocm = bool(getattr(torch.version, "hip", None))
+    if device_preference == "cpu":
+        device_obj = torch.device("cpu")
+        backend = "N/A"
+    elif device_preference == "auto":
+        if torch.cuda.is_available() and not is_rocm:
+            device_obj = torch.device("cuda")
+            backend = "CUDA"
+        else:
+            device_obj = torch.device("cpu")
+            backend = "ROCm(跳过GPU)" if is_rocm else "N/A"
+    else:
+        if torch.cuda.is_available():
+            device_obj = torch.device("cuda")
+            backend = "ROCm" if is_rocm else "CUDA"
+            if is_rocm:
+                try:
+                    torch.cuda.synchronize()
+                    x = torch.zeros(2, 2, device="cuda")
+                    _ = (x + 1).sum().item()
+                except RuntimeError as e:
+                    if "HIP" in str(e) or "invalid device function" in str(e).lower():
+                        _logger.error("[Device] ROCm 探测失败，当前 PyTorch 与显卡不兼容。请安装兼容的 PyTorch ROCm 后重试。")
+                        _logger.error(f"[Device] 错误: {e}")
+                        for line in _get_pytorch_rocm_install_instructions().split("\n"):
+                            _logger.error(line)
+                        sys.exit(1)
+                    else:
+                        raise
+        else:
+            device_obj = torch.device("cpu")
+            backend = "N/A"
+    device = device_obj
+
+    backend_display = "ROCm (AMD GPU)" if (device.type == "cuda" and is_rocm) else backend
+    _logger.info(f"[Device] device={device_preference} -> {device.type.upper()} | 后端: {backend_display}")
+    if device.type == "cuda" and is_rocm:
+        _logger.info("[Device] AMD GPU (ROCm)；日志中 'Using cuda device' 为兼容命名。")
+
     # 根据环境数量和智能体数量计算批次大小和采样步数
     total_envs = env_num * agent_num
     n_steps = agent_config["n_steps"]
@@ -325,6 +389,7 @@ def train_model(
     height_map_file: str,
     curriculum_list: list[dict[str, int]],
     render_mode: str,
+    device: str = "auto",
 ):
     model = None
     env = None
@@ -365,6 +430,7 @@ def train_model(
             agent_num=agent_num,
             agent_config=agent_config,
             model_file=model_file,
+            device=device,
         )
 
         training_model(model, total_timesteps, model_file, curriculum_list)
@@ -392,6 +458,7 @@ def test_model(
     height_map_file: str,
     curriculum_list: list[dict[str, int]],
     render_mode: str,
+    device: str = "auto",
     ):
     try:
         _logger.info(f"simulation running... , orcagym_addr:  {orcagym_addresses}")
@@ -422,9 +489,14 @@ def test_model(
         ]
         env = OrcaGymAsyncSubprocVecEnv(env_fns, agent_num)
         env.setup_curriculum(curriculum_list[0]["name"])
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
-        model: PPO = PPO.load(model_file, env=env, device=device)
+        is_rocm = bool(getattr(torch.version, "hip", None))
+        if device == "cpu":
+            device_obj = torch.device("cpu")
+        elif device == "auto" and (not torch.cuda.is_available() or is_rocm):
+            device_obj = torch.device("cpu")
+        else:
+            device_obj = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model: PPO = PPO.load(model_file, env=env, device=device_obj)
 
         testing_model(
             env=env,
