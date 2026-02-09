@@ -55,3 +55,10 @@ display_name = "run_ackerman"
 command = "python"
 args = [ "-m", "examples.wheeled_chassis.run_ackerman",]
 description = "启动阿克曼仿真"
+
+[[external_programs.programs]]
+name = "g1"
+display_name = "run_g1"
+command = "python"
+args = [ "-m", "examples.g1.run_g1_sim",]
+description = "启动G1仿真"
