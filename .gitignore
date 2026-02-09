@@ -201,6 +201,11 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
+# legged_gym 训练产物
+ppo_tensorboard/
+reward_history/
+trained_models_tmp/
+
 # Marimo
 marimo/_static/
 marimo/_lsp/
