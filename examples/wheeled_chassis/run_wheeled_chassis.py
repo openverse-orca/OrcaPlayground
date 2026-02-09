@@ -1,5 +1,7 @@
 import argparse
 from orca_gym.scene.orca_gym_scene_runtime import OrcaGymSceneRuntime
+from orca_gym.scene.orca_gym_scene import OrcaGymScene, Actor
+from orca_gym.utils.rotations import euler2quat
 import time
 import gymnasium as gym
 import sys
@@ -8,6 +10,44 @@ from typing import Optional
 
 from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()
+
+# WheeledChassis 场景 spawn 用资产路径（与机器狗方式一致，脚本自动创建场景）
+WHEELED_CHASSIS_AGENT_ASSET_PATH = "assets/e071469a36d3c8aa/default_project/prefabs/openloong_gripper_2f85_mobile_base_usda"
+WHEELED_CHASSIS_FLAT_TERRAIN_PATH = "assets/e071469a36d3c8aa/default_project/prefabs/terrain_test_usda"
+
+
+def publish_wheeled_chassis_scene(orcagym_addr: str, agent_name: str, agent_asset_path: str) -> None:
+    """仿照机器狗方式，通过 spawn（replicator）自动创建场景，无需手动拖拽到布局。"""
+    _logger.info("=============> 发布 WheeledChassis 场景 (spawn)...")
+    temp_scene = OrcaGymScene(orcagym_addr)
+    temp_scene.publish_scene()
+    time.sleep(1)
+    temp_scene.close()
+    time.sleep(1)
+    scene = OrcaGymScene(orcagym_addr)
+    agent = Actor(
+        name=agent_name,
+        asset_path=agent_asset_path.replace("//", "/"),
+        position=[0, 0, 0],
+        rotation=euler2quat([0, 0, 0]),
+        scale=1.0,
+    )
+    scene.add_actor(agent)
+    _logger.info(f"    =============> Add agent {agent_name} with path {agent_asset_path} ...")
+    terrain = Actor(
+        name=WHEELED_CHASSIS_FLAT_TERRAIN_PATH,
+        asset_path=WHEELED_CHASSIS_FLAT_TERRAIN_PATH.replace("//", "/"),
+        position=[0, 0, 0],
+        rotation=euler2quat([0, 0, 0]),
+        scale=1.0,
+    )
+    scene.add_actor(terrain)
+    _logger.info(f"    =============> Add terrain {WHEELED_CHASSIS_FLAT_TERRAIN_PATH} ...")
+    scene.publish_scene()
+    time.sleep(3)
+    scene.close()
+    time.sleep(1)
+    _logger.info("=============> 发布 WheeledChassis 场景完成.")
 
 
 ENV_ENTRY_POINT = {
@@ -49,6 +89,9 @@ def run_simulation(orcagym_addr : str,
     env = None  # Initialize env to None
     try:
         _logger.info(f"simulation running... , orcagym_addr:  {orcagym_addr}")
+
+        # 通过 spawn（replicator）自动创建场景，无需手动拖拽
+        publish_wheeled_chassis_scene(orcagym_addr, agent_name, WHEELED_CHASSIS_AGENT_ASSET_PATH)
 
         env_index = 0
         env_id, kwargs = register_env(orcagym_addr, 

@@ -13,12 +13,52 @@ import argparse
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 
 from envs.xbot_gym.xbot_simple_env import XBotSimpleEnv
+from orca_gym.scene.orca_gym_scene import OrcaGymScene, Actor
+from orca_gym.utils.rotations import euler2quat
 import torch
 import numpy as np
 import math
 
 from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()
+
+# XBot 场景 spawn 用资产路径（与机器狗方式一致，脚本自动创建场景）
+XBOT_AGENT_ASSET_PATH = "assets/e071469a36d3c8aa/default_project/prefabs/XBot-L_usda"
+XBOT_FLAT_TERRAIN_PATH = "assets/e071469a36d3c8aa/default_project/prefabs/terrain_test_usda"
+
+
+def publish_xbot_scene(orcagym_addr: str) -> None:
+    """仿照机器狗方式，通过 spawn（replicator）自动创建场景，无需手动拖拽到布局。"""
+    _logger.info("=============> 发布 XBot 场景 (spawn)...")
+    temp_scene = OrcaGymScene(orcagym_addr)
+    temp_scene.publish_scene()
+    time.sleep(1)
+    temp_scene.close()
+    time.sleep(1)
+    scene = OrcaGymScene(orcagym_addr)
+    agent = Actor(
+        name="XBot-L",
+        asset_path=XBOT_AGENT_ASSET_PATH.replace("//", "/"),
+        position=[0, 0, 0],
+        rotation=euler2quat([0, 0, 0]),
+        scale=1.0,
+    )
+    scene.add_actor(agent)
+    _logger.info(f"    =============> Add agent XBot-L with path {XBOT_AGENT_ASSET_PATH} ...")
+    terrain = Actor(
+        name=XBOT_FLAT_TERRAIN_PATH,
+        asset_path=XBOT_FLAT_TERRAIN_PATH.replace("//", "/"),
+        position=[0, 0, 0],
+        rotation=euler2quat([0, 0, 0]),
+        scale=1.0,
+    )
+    scene.add_actor(terrain)
+    _logger.info(f"    =============> Add terrain {XBOT_FLAT_TERRAIN_PATH} ...")
+    scene.publish_scene()
+    time.sleep(3)
+    scene.close()
+    time.sleep(1)
+    _logger.info("=============> 发布 XBot 场景完成.")
 
 
 def print_detailed_diagnostics(step, obs, action, env):
@@ -163,6 +203,9 @@ def main(device: str = "cpu"):
     _logger.info(f"  - vx: {CMD_VX} m/s")
     _logger.info(f"  - vy: {CMD_VY} m/s")
     _logger.info(f"  - dyaw: {CMD_DYAW} rad/s")
+    
+    # 通过 spawn（replicator）自动创建场景，无需手动拖拽
+    publish_xbot_scene(config["orcagym_addr"])
     
     # 创建环境
     _logger.info("\n📦 创建环境...")

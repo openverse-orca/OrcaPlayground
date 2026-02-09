@@ -90,6 +90,8 @@ OrcaPlayground/
 - **足式机器人 RL 训练** - [`examples/legged_gym/README.md`](examples/legged_gym/README.md)
 - **轮式底盘** - [`examples/wheeled_chassis/README.md`](examples/wheeled_chassis/README.md)
 - **XBot 机器人** - [`examples/xbot/README.md`](examples/xbot/README.md)
+- **ZQ SA01 人形** - [`examples/zq_sa01/README.md`](examples/zq_sa01/README.md)
+- **G1 人形** - [`examples/g1/README.md`](examples/g1/README.md)
 - **场景复制** - [`examples/replicator/README.md`](examples/replicator/README.md)
 
 > **⚠️ 重要提示：资产准备**
@@ -100,6 +102,24 @@ OrcaPlayground/
 > - 📝 对应的模型名称
 > 
 > 资产下载地址：https://simassets.orca3d.cn/
+
+## 📦 关于资产与扩展开发
+
+OrcaPlayground 依赖 **OrcaPlaygroundAssets** 资产库中的资源，当前示例中使用的资产路径在代码调用中为**写死**的。若您需要接入新模型或进行其他扩展开发，请参阅 **OrcaLab** 及资产库的文档与资源。
+
+## 🔧 手动拖动资产（调试时）
+
+当前各示例默认在 **OrcaLab 中启动**，脚本会通过 spawn（replicator）自动创建场景，无需手动拖入。若需要本地调试、单步跟踪或自定义布局，可以改为在 OrcaStudio 中手动拖动资产：
+
+1. **操作方式**：在资产窗口中选择**中文名称**的资产（如「人形机器人」「黄色越野车」「四足机器人」等），拖入到大纲中；大纲里会显示对应的**英文**资产名。
+2. **建议**：将大纲中的资产重命名为脚本所期望的名称（如 `XBot-L`、`hummer_h2_usda_1` 等），以便环境通过 `agent_names` / `agent_name` 正确识别。若保持默认英文名，请相应修改示例代码中的名称或命令行参数。
+3. **关于名称不一致**：资产在制作时可能使用缩写或内部命名，与 replicator/spawn 中使用的规范名称不同是正常现象；上线前会规范为易读名称，调试时以大纲中的实际名称为准即可。
+
+各示例在「手动拖入」时的写法与修改前样例代码，见对应示例的 README：
+- XBot：[examples/xbot/README.md](examples/xbot/README.md#-手动拖入资产进行调试)
+- 轮式底盘：[examples/wheeled_chassis/README.md](examples/wheeled_chassis/README.md#-手动拖入资产进行调试)
+- ZQ SA01：[examples/zq_sa01/README.md](examples/zq_sa01/README.md#-手动拖入资产进行调试)
+- G1：[examples/g1/README.md](examples/g1/README.md#-手动拖入资产进行调试)
 
 ## 📋 依赖说明
 
@@ -121,7 +141,7 @@ pip install -r requirements.txt
 
 1. **OrcaStudio**：确保 OrcaStudio 正在运行（默认地址：`localhost:50051`）
 2. **Python 版本**：Python >= 3.9
-3. **场景配置**：在 OrcaStudio 场景中添加对应的机器人（名称参考各示例 README）
+3. **场景配置**：默认由脚本 spawn 创建场景；若手动布置，见上方 [手动拖动资产（调试时）](#-手动拖动资产调试时)
 
 ## 🔧 OrcaLab 配置
 

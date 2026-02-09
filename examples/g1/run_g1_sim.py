@@ -1,5 +1,5 @@
 """
-ZQ SA01 人形机器人运行脚本
+G1 人形机器人运行脚本
 使用 ONNX 策略进行推理
 """
 
@@ -17,11 +17,17 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+from orca_gym.scene.orca_gym_scene import OrcaGymScene, Actor
+from orca_gym.utils.rotations import euler2quat
+
 try:
     import onnxruntime as ort
     ONNX_AVAILABLE = True
 except ImportError:
     ONNX_AVAILABLE = False
+
+G1_AGENT_ASSET_PATH = "assets/e071469a36d3c8aa/default_project/prefabs/g1_29dof_old_usda"
+
 
 from envs.g1.rl_policy.deepmimic_dec_loco_height import MotionTrackingDecLocoHeightPolicy
 import threading
@@ -75,6 +81,32 @@ def register_env(
     return env_id, kwargs
 
 
+def publish_g1_scene(orcagym_addr: str, agent_name: str) -> None:
+    """通过 spawn（replicator）自动创建场景，无需手动拖拽。"""
+    _logger.info("=============> 发布 G1 场景 (spawn)...")
+    temp_scene = OrcaGymScene(orcagym_addr)
+    temp_scene.publish_scene()
+    time.sleep(1)
+    temp_scene.close()
+    time.sleep(1)
+    scene = OrcaGymScene(orcagym_addr)
+    agent_path = G1_AGENT_ASSET_PATH.replace("//", "/")
+    agent = Actor(
+        name=agent_name,
+        asset_path=agent_path,
+        position=[0, 0, 0],
+        rotation=euler2quat([0, 0, 0]),
+        scale=1.0,
+    )
+    scene.add_actor(agent)
+    _logger.info(f"    =============> Add agent {agent_name} with path {agent_path} ...")
+    scene.publish_scene()
+    time.sleep(3)
+    scene.close()
+    time.sleep(1)
+    _logger.info("=============> 发布 G1 场景完成.")
+
+
 def policy_thread_func(config, loco_model_path, mimic_model_path, share_state):
     policy = MotionTrackingDecLocoHeightPolicy(
         config=config,
@@ -100,6 +132,9 @@ def run_simulation(
     
     try:
         _logger.info(f"开始仿真... OrcaGym地址: {orcagym_addr}")
+        
+        # 通过 spawn（replicator）自动创建场景，无需手动拖拽
+        publish_g1_scene(orcagym_addr, agent_name)
         
         # 注册并创建环境
         env_index = 0

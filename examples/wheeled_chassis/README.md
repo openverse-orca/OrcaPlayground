@@ -6,7 +6,7 @@
 
 > **📦 相关资产**：https://simassets.orca3d.cn/ **OrcaPlaygroundAssets资产包**
 > 
-> **🔧 是否需要手动拖动到布局中**：**是**
+> **🔧 是否需要手动拖动到布局中**：**否**（脚本会自动创建场景，仿照机器狗 spawn/replicator 方式）
 > 
 > **📝 run_wheeled_chassis.py 对应模型**：`openloong_gripper_2f85_mobile_base_usda`
 > 
@@ -109,9 +109,27 @@ env_name = "Ackerman"
 ## 💡 使用提示
 
 1. **确保 OrcaStudio 正在运行**：默认地址为 `localhost:50051`
-2. **在场景中添加机器人**：确保场景中存在对应的机器人预制体
+2. **场景由脚本自动创建**：默认通过 spawn 添加机器人和地形；若需手动布置，见项目根目录 [README - 手动拖动资产（调试时）](../../README.md#-手动拖动资产调试时) 及下方本示例说明
 3. **修改机器人名称**：如果场景中的机器人名称与默认值不同，请使用 `--agent_name` 参数指定
 4. **键盘控制**：环境支持键盘输入控制（通过 OrcaStudio）
+
+## 🔧 手动拖入资产进行调试
+
+手动拖动资产的操作方式、命名建议及「资产名与 replicator 不一致」的说明见**项目根目录 [README - 手动拖动资产（调试时）](../../README.md#-手动拖动资产调试时)**。
+
+**本示例修改前样例代码（手动拖入时，不调用 spawn）**：
+
+```python
+# 不调用 publish_ackerman_scene(...)，依赖场景中已存在对应名称的 actor
+orcagym_addr = "localhost:50051"
+agent_name = "hummer_h2_usda_1"   # 与大纲中的英文资产名一致；若拖入后为其他名称，请自行修改资产名或此处
+env_name = "Ackerman"
+# run_simulation 内不要调用 publish_ackerman_scene(orcagym_addr, agent_name)
+env_id, kwargs = register_env(orcagym_addr, env_name, 0, agent_name, sys.maxsize)
+env = gym.make(env_id)
+```
+
+差速底盘同理：若不调用 `publish_wheeled_chassis_scene(...)`，需保证场景中已有名为 `agent_name`（默认 `openloong_gripper_2f85_mobile_base_usda_1`）的机器人。
 
 ## 🔍 代码结构
 

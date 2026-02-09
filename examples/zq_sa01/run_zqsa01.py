@@ -6,12 +6,17 @@ ZQ SA01 人形机器人运行脚本
 from datetime import datetime
 import time
 from orca_gym.scene.orca_gym_scene_runtime import OrcaGymSceneRuntime
+from orca_gym.scene.orca_gym_scene import OrcaGymScene, Actor
+from orca_gym.utils.rotations import euler2quat
 import numpy as np
 import gymnasium as gym
 import sys
 import os
 from typing import Optional
 from collections import deque
+
+ZQSA01_AGENT_ASSET_PATH = "assets/e071469a36d3c8aa/default_project/prefabs/zq_sa01_usda"
+
 
 
 try:
@@ -66,6 +71,32 @@ def register_env(
     )
     
     return env_id, kwargs
+
+
+def publish_zqsa01_scene(orcagym_addr: str, agent_name: str) -> None:
+    """通过 spawn（replicator）自动创建场景，无需手动拖拽。"""
+    _logger.info("=============> 发布 ZQ SA01 场景 (spawn)...")
+    temp_scene = OrcaGymScene(orcagym_addr)
+    temp_scene.publish_scene()
+    time.sleep(1)
+    temp_scene.close()
+    time.sleep(1)
+    scene = OrcaGymScene(orcagym_addr)
+    agent_path = ZQSA01_AGENT_ASSET_PATH.replace("//", "/")
+    agent = Actor(
+        name=agent_name,
+        asset_path=agent_path,
+        position=[0, 0, 0],
+        rotation=euler2quat([0, 0, 0]),
+        scale=1.0,
+    )
+    scene.add_actor(agent)
+    _logger.info(f"    =============> Add agent {agent_name} with path {agent_path} ...")
+    scene.publish_scene()
+    time.sleep(3)
+    scene.close()
+    time.sleep(1)
+    _logger.info("=============> 发布 ZQ SA01 场景完成.")
 
 
 def load_policy(logdir):
@@ -125,6 +156,9 @@ def run_simulation(
     
     try:
         _logger.info(f"开始仿真... OrcaGym地址: {orcagym_addr}")
+        
+        # 通过 spawn（replicator）自动创建场景，无需手动拖拽
+        publish_zqsa01_scene(orcagym_addr, agent_name)
         
         # 注册并创建环境
         env_index = 0
