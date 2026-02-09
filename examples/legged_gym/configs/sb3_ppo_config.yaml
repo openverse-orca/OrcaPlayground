@@ -1,7 +1,7 @@
 framework: "sb3"
 orcagym_addresses: ["localhost:50051"]
 agent_name: "Lite3"
-agent_asset_path: "assets/e071469a36d3c8aa/default_project/v20260101/prefabs/lite3_usda"
+agent_asset_path: "assets/e071469a36d3c8aa/default_project/prefabs/lite3_usda"
 training_episode: 100
 task: "flat_terrain"
 
@@ -10,8 +10,8 @@ training:
   agent_num: 32
   render_mode: "none"
   terrain_asset_paths: 
-    flat_terrain: ["assets/e071469a36d3c8aa/default_project/v20260101/prefabs/terrain_ellipsoid_low_usda", "assets/e071469a36d3c8aa/default_project/v20260101/prefabs/terrain_stair_low_flat_usda", "assets/e071469a36d3c8aa/default_project/v20260101/prefabs/terrain_brics_low_usda"]
-    rough_terrain: ["assets/e071469a36d3c8aa/default_project/v20260101/prefabs/terrain_stair_low_usda", "assets/e071469a36d3c8aa/default_project/v20260101/prefabs/terrain_stair_low_flat_usda", "assets/e071469a36d3c8aa/default_project/v20260101/prefabs/terrain_brics_low_usda", "assets/e071469a36d3c8aa/default_project/v20260101/prefabs/terrain_slope_5_usda", "assets/e071469a36d3c8aa/default_project/v20260101/prefabs/terrain_stair_high_usda", "assets/e071469a36d3c8aa/default_project/v20260101/prefabs/terrain_brics_high_usda", "assets/e071469a36d3c8aa/default_project/v20260101/prefabs/terrain_slope_10_usda"]
+    flat_terrain: ["assets/e071469a36d3c8aa/default_project/prefabs/terrain_ellipsoid_low_usda", "assets/e071469a36d3c8aa/default_project/prefabs/terrain_stair_low_flat_usda", "assets/e071469a36d3c8aa/default_project/prefabs/terrain_brics_low_usda"]
+    rough_terrain: ["assets/e071469a36d3c8aa/default_project/prefabs/terrain_stair_low_usda", "assets/e071469a36d3c8aa/default_project/prefabs/terrain_stair_low_flat_usda", "assets/e071469a36d3c8aa/default_project/prefabs/terrain_brics_low_usda", "assets/e071469a36d3c8aa/default_project/prefabs/terrain_slope_5_usda", "assets/e071469a36d3c8aa/default_project/prefabs/terrain_stair_high_usda", "assets/e071469a36d3c8aa/default_project/prefabs/terrain_brics_high_usda", "assets/e071469a36d3c8aa/default_project/prefabs/terrain_slope_10_usda"]
   curriculum_list:
     flat_terrain:
       - name: "flat_terrain"
@@ -27,7 +27,7 @@ testing:
   agent_num: 8
   render_mode: "human"
   terrain_asset_paths: 
-    flat_terrain: ["assets/e071469a36d3c8aa/default_project/v20260101/prefabs/terrain_perlin_rough_slope_usda", "assets/e071469a36d3c8aa/default_project/v20260101/prefabs/terrain_perlin_smooth_slope_usda", "assets/e071469a36d3c8aa/default_project/v20260101/prefabs/terrain_perlin_rough_usda", "assets/e071469a36d3c8aa/default_project/v20260101/prefabs/terrain_perlin_smooth_usda", "assets/e071469a36d3c8aa/default_project/v20260101/prefabs/terrain_stair_high_usda", "assets/e071469a36d3c8aa/default_project/v20260101/prefabs/terrain_stair_low_usda"]
+    flat_terrain: ["assets/e071469a36d3c8aa/default_project/prefabs/terrain_perlin_rough_slope_usda", "assets/e071469a36d3c8aa/default_project/prefabs/terrain_perlin_smooth_slope_usda", "assets/e071469a36d3c8aa/default_project/prefabs/terrain_perlin_rough_usda", "assets/e071469a36d3c8aa/default_project/prefabs/terrain_perlin_smooth_usda", "assets/e071469a36d3c8aa/default_project/prefabs/terrain_stair_high_usda", "assets/e071469a36d3c8aa/default_project/prefabs/terrain_stair_low_usda"]
   curriculum_list:
     flat_terrain:
       - name: "flat_terrain"
@@ -38,7 +38,7 @@ play:
   agent_num: 1
   render_mode: "human"
   terrain_asset_paths: 
-    flat_terrain: ["assets/e071469a36d3c8aa/default_project/v20260101/prefabs/terrain_test_usda"]
+    flat_terrain: ["assets/e071469a36d3c8aa/default_project/prefabs/terrain_test_usda"]
   curriculum_list:
     flat_terrain:
       - name: "flat_terrain"

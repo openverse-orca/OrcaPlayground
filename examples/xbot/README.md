@@ -3,9 +3,9 @@
 
 ## ⚠️ 重要：资产准备
 
-> **📦 相关资产**：https://simassets.orca3d.cn/ **Xbot资产包**
+> **📦 相关资产**：https://simassets.orca3d.cn/ **OrcaPlayGroundAssets资产包**
 > 
-> **🔧 是否需要手动拖动到布局中**：**是**
+> **🔧 是否需要手动拖动到布局中**：**否**（脚本会自动创建场景，仿照机器狗 spawn/replicator 方式）
 > 
 > **📝 对应模型**：`Xbot_usda`
 
@@ -144,12 +144,31 @@ frame_stack = 15   # 观察堆叠
 ## ⚠️ 注意事项
 
 1. **OrcaStudio 必须先启动**：默认地址为 `localhost:50051`
-2. **场景中需要添加机器人**：确保场景中存在名为 `XBot-L` 的机器人预制体
+2. **场景由脚本自动创建**：脚本会通过 spawn（replicator）自动添加名为 `XBot-L` 的机器人和地形，无需手动拖拽
 3. **初始高度约 0.88m**：OrcaStudio 默认 spawn 高度
 4. **设备选择**：
    - 默认使用 GPU（CUDA）进行推理，性能更好
    - 如果没有 GPU 或遇到 CUDA 问题，使用 `--device cpu` 参数
 5. **策略文件**：预训练策略文件位于 `examples/xbot/config/policy_example.pt`，已集成在项目内
+
+## 🔧 手动拖入资产进行调试
+
+手动拖动资产的操作方式、命名建议及「资产名与 replicator 不一致」的说明见**项目根目录 [README - 手动拖动资产（调试时）](../../README.md#-手动拖动资产调试时)**。
+
+**本示例修改前样例代码（手动拖入时，不调用 spawn）**：
+
+```python
+# 不调用 publish_xbot_scene(orcagym_addr)，依赖场景中已存在对应名称的 actor
+config = {
+    "frame_skip": 10,
+    "orcagym_addr": "localhost:50051",
+    "agent_names": ["XBot-L"],   # 与大纲中的英文资产名一致；若拖入后为其他名称，请自行修改资产名或此处
+    "time_step": 0.001,
+    "max_episode_steps": 10000,
+    "render_mode": "human",
+}
+env = XBotSimpleEnv(**config)
+```
 
 ## 🎯 下一步
 
