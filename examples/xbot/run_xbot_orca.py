@@ -24,7 +24,7 @@ _logger = get_orca_logger()
 
 # XBot 场景 spawn 用资产路径（与机器狗方式一致，脚本自动创建场景）
 XBOT_AGENT_ASSET_PATH = "assets/e071469a36d3c8aa/default_project/prefabs/XBot-L_usda"
-XBOT_FLAT_TERRAIN_PATH = "assets/e071469a36d3c8aa/default_project/prefabs/terrain_test_usda"
+
 
 
 def publish_xbot_scene(orcagym_addr: str) -> None:
@@ -45,15 +45,6 @@ def publish_xbot_scene(orcagym_addr: str) -> None:
     )
     scene.add_actor(agent)
     _logger.info(f"    =============> Add agent XBot-L with path {XBOT_AGENT_ASSET_PATH} ...")
-    terrain = Actor(
-        name=XBOT_FLAT_TERRAIN_PATH,
-        asset_path=XBOT_FLAT_TERRAIN_PATH.replace("//", "/"),
-        position=[0, 0, 0],
-        rotation=euler2quat([0, 0, 0]),
-        scale=1.0,
-    )
-    scene.add_actor(terrain)
-    _logger.info(f"    =============> Add terrain {XBOT_FLAT_TERRAIN_PATH} ...")
     scene.publish_scene()
     time.sleep(3)
     scene.close()
