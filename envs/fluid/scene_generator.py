@@ -839,40 +839,12 @@ class SceneGenerator:
         if not site_points and not mocap_points:
             return None
         
-        # 3. 从运行时配置读取弹簧参数（必需配置）
-        spring_force_config = (
-            self.runtime_config
-            .get('orcalink_bridge', {})
-            .get('shared_modules', {})
-            .get('spring_force', {})
-        )
-
-        if not spring_force_config:
-            raise ValueError(
-                "弹簧力配置缺失！必须在 sph_sim_config.json 中配置 "
-                "'orcalink_bridge.shared_modules.spring_force' 字段"
-            )
-
-        spring_stiffness = spring_force_config.get('linear_spring_stiffness')
-        spring_damping = spring_force_config.get('linear_damping_coefficient')
-
-        if spring_stiffness is None or spring_damping is None:
-            raise ValueError(
-                f"弹簧参数不完整！需要配置:\n"
-                f"  - linear_spring_stiffness (当前: {spring_stiffness})\n"
-                f"  - linear_damping_coefficient (当前: {spring_damping})\n"
-                f"请在 sph_sim_config.json 的 orcalink_bridge.shared_modules.spring_force 中配置"
-            )
-
-        logger.info(
-            f"[SceneGenerator] 使用弹簧参数: k={spring_stiffness} N/m, c={spring_damping} N·s/m"
-        )
+        # 弹簧参数现在从 sph_sim_config.json 的 shared_modules.spring_force 直接加载，
+        # 不再需要通过场景文件传递，因此移除了这里的配置读取和转发逻辑
         
         return {
             "rigid_body_id": rb_id,
             "object_name": main_body_name,
-            "spring_stiffness": spring_stiffness,
-            "spring_damping": spring_damping,
             "site_points": site_points,
             "mocap_points": mocap_points
         }
