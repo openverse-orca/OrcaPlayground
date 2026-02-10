@@ -142,36 +142,37 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
             low=-18.0, high=18.0, shape=(full_obs_dim,), dtype=np.float32
         )
 
-        # 识别 XBot 的关节（只匹配包含 'xbot_usda_1' 前缀的关节，避免匹配到其他模型）
+        # 识别 XBot 的关节（匹配前缀 'XBot-L'，与 OrcaPlaygroundAssets 中 XBot-L_usda 导入后命名一致）
         all_joint_names = list(self.model.get_joint_dict().keys())
         all_actuator_names = list(self.model.get_actuator_dict().keys())
-        
+        xbot_prefix = "XBot-L"
+
         xbot_joint_base_names = [
             "left_leg_roll_joint", "left_leg_yaw_joint", "left_leg_pitch_joint",
             "left_knee_joint", "left_ankle_pitch_joint", "left_ankle_roll_joint",
             "right_leg_roll_joint", "right_leg_yaw_joint", "right_leg_pitch_joint",
             "right_knee_joint", "right_ankle_pitch_joint", "right_ankle_roll_joint"
         ]
-        
+
         self.xbot_joint_names = []
         self.xbot_joint_indices = []
         self.xbot_qpos_indices = []
         self.xbot_qvel_indices = []
         self.xbot_actuator_indices = []
-        
+
         for joint_base_name in xbot_joint_base_names:
             matching_joint = None
             for joint_name in all_joint_names:
-                if joint_name.startswith("xbot_usda_1") and joint_name.endswith("_" + joint_base_name):
+                if joint_name.startswith(xbot_prefix) and joint_name.endswith("_" + joint_base_name):
                     matching_joint = joint_name
                     break
-            
+
             if matching_joint:
                 try:
                     joint_id = self.model.joint_name2id(matching_joint)
                     qpos_addr = self.gym.jnt_qposadr(matching_joint)
                     qvel_addr = self.gym.jnt_dofadr(matching_joint)
-                    
+
                     actuator_name = matching_joint
                     if actuator_name in all_actuator_names:
                         actuator_id = self.model.actuator_name2id(actuator_name)
@@ -183,7 +184,7 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
                     else:
                         matching_actuator = None
                         for actuator_name_candidate in all_actuator_names:
-                            if actuator_name_candidate.startswith("xbot_usda_1") and actuator_name_candidate.endswith("_" + joint_base_name):
+                            if actuator_name_candidate.startswith(xbot_prefix) and actuator_name_candidate.endswith("_" + joint_base_name):
                                 matching_actuator = actuator_name_candidate
                                 break
                         if matching_actuator:
@@ -198,10 +199,10 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
             else:
                 matching_actuator = None
                 for actuator_name in all_actuator_names:
-                    if actuator_name.startswith("xbot_usda_1") and actuator_name.endswith("_" + joint_base_name):
+                    if actuator_name.startswith(xbot_prefix) and actuator_name.endswith("_" + joint_base_name):
                         matching_actuator = actuator_name
                         break
-                
+
                 if matching_actuator:
                     try:
                         joint_name = matching_actuator
@@ -219,6 +220,7 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
         
         if len(self.xbot_qpos_indices) < 12:
             _logger.warning(f"[XBot] 只识别到 {len(self.xbot_qpos_indices)} 个关节，使用最后12个作为兜底")
+
             self.xbot_qpos_indices = list(range(max(0, self.nq - 12), self.nq))
             self.xbot_qvel_indices = list(range(max(0, self.nv - 12), self.nv))
             self.xbot_actuator_indices = list(range(max(0, self.nu - 12), self.nu))

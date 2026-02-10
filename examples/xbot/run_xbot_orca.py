@@ -23,7 +23,7 @@ from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()
 
 # XBot 场景 spawn 用资产路径（与机器狗方式一致，脚本自动创建场景）
-XBOT_AGENT_ASSET_PATH = "assets/e071469a36d3c8aa/default_project/prefabs/XBot-L_usda"
+XBOT_AGENT_ASSET_PATH = "assets/e071469a36d3c8aa/default_project/prefabs/xbot_usda"
 
 
 
