@@ -13,7 +13,7 @@ _logger = get_orca_logger()
 
 # WheeledChassis 场景 spawn 用资产路径（与机器狗方式一致，脚本自动创建场景）
 WHEELED_CHASSIS_AGENT_ASSET_PATH = "assets/e071469a36d3c8aa/default_project/prefabs/openloong_gripper_2f85_mobile_base_usda"
-WHEELED_CHASSIS_FLAT_TERRAIN_PATH = "assets/e071469a36d3c8aa/default_project/prefabs/terrain_test_usda"
+
 
 
 def publish_wheeled_chassis_scene(orcagym_addr: str, agent_name: str, agent_asset_path: str) -> None:
@@ -34,15 +34,6 @@ def publish_wheeled_chassis_scene(orcagym_addr: str, agent_name: str, agent_asse
     )
     scene.add_actor(agent)
     _logger.info(f"    =============> Add agent {agent_name} with path {agent_asset_path} ...")
-    terrain = Actor(
-        name=WHEELED_CHASSIS_FLAT_TERRAIN_PATH,
-        asset_path=WHEELED_CHASSIS_FLAT_TERRAIN_PATH.replace("//", "/"),
-        position=[0, 0, 0],
-        rotation=euler2quat([0, 0, 0]),
-        scale=1.0,
-    )
-    scene.add_actor(terrain)
-    _logger.info(f"    =============> Add terrain {WHEELED_CHASSIS_FLAT_TERRAIN_PATH} ...")
     scene.publish_scene()
     time.sleep(3)
     scene.close()

@@ -12,7 +12,6 @@ _logger = get_orca_logger()
 
 # Ackerman 场景 spawn 用资产路径（与机器狗方式一致，脚本自动创建场景）
 ACKERMAN_AGENT_ASSET_PATH = "assets/e071469a36d3c8aa/default_project/prefabs/hummer_h2_usda"
-ACKERMAN_FLAT_TERRAIN_PATH = "assets/e071469a36d3c8aa/default_project/prefabs/terrain_test_usda"
 
 
 def publish_ackerman_scene(orcagym_addr: str, agent_name: str) -> None:
@@ -33,15 +32,6 @@ def publish_ackerman_scene(orcagym_addr: str, agent_name: str) -> None:
     )
     scene.add_actor(agent)
     _logger.info(f"    =============> Add agent {agent_name} with path {ACKERMAN_AGENT_ASSET_PATH} ...")
-    terrain = Actor(
-        name=ACKERMAN_FLAT_TERRAIN_PATH,
-        asset_path=ACKERMAN_FLAT_TERRAIN_PATH.replace("//", "/"),
-        position=[0, 0, 0],
-        rotation=euler2quat([0, 0, 0]),
-        scale=1.0,
-    )
-    scene.add_actor(terrain)
-    _logger.info(f"    =============> Add terrain {ACKERMAN_FLAT_TERRAIN_PATH} ...")
     scene.publish_scene()
     time.sleep(3)
     scene.close()
