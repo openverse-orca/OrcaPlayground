@@ -121,7 +121,7 @@
         "comment": "PD控制器配置（用于multi_point_force模式）。\n\n【自动调参】auto_tune=true时根据锚点粒子质量自动计算Kp和Kd。\n\n【响应速度】natural_frequency_hz控制目标响应频率（Hz）。\n  - 值越大，响应越快，但可能引起振荡\n  - 推荐范围：0.5-2.0 Hz（重物用更低值）\n  - 实际频率补偿：由于锚点通过Ball Joint连接刚体，实际系统频率会降低\n\n【阻尼比】damping_ratio控制阻尼程度：\n  - 1.0 = 临界阻尼（无超调，最快稳定）\n  - <1.0 = 欠阻尼（会振荡）\n  - >1.0 = 过阻尼（响应缓慢）"
       },
       "passivity_control": {
-        "enabled": true,
+        "enabled": false,
         "auto_tune": true,
         "reference_mass": 1.0,
         "energy_threshold_per_kg": 1.0,
@@ -129,7 +129,7 @@
         "dissipation_time_constant": 0.2,
         "min_velocity_threshold": 0.01,
         "fluid_force": {
-          "enabled": true,
+          "enabled": false,
           "auto_tune": true,
           "energy_control": {
             "enabled": true,
@@ -165,8 +165,7 @@
         }
       },
       "force_inference": {
-        "enabled": true,
-        "method": "sph",
+        "method": "acceleration",
         "comment": "method: 'sph' (direct SPH boundary forces) or 'acceleration' (infer from PBD velocity changes)"
       }
     }
