@@ -22,7 +22,7 @@
         "speed_ratio_threshold": 2.0
       },
       "sync_params": {
-        "sync_window_size": 1
+        "sync_window_size": 2
       }
     }
   },
@@ -156,7 +156,7 @@
         "enabled": true,
         "rigid_body": {
           "enabled": true,
-          "max_acceleration_g": 10.0,
+          "max_acceleration_g": 2.0,
           "discard_on_clamp": true
         },
         "debug": {

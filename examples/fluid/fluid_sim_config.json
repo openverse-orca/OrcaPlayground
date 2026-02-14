@@ -36,7 +36,7 @@
           "comment": "异步模式参数：服务端中央流控"
         },
         "sync_params": {
-          "sync_window_size": 1,
+          "sync_window_size": 2,
           "comment": "同步模式参数：客户端本地窗口大小（1~3）"
         },
         "comment": "control_mode: 'sync'=同步模式(客户端本地窗口控制), 'async'=异步模式(服务端中央流控)。grpc_call_timeout_sec: 单次gRPC调用超时（秒），防止服务器无响应时无限阻塞"
