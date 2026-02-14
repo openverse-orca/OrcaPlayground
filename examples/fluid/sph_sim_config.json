@@ -111,8 +111,8 @@
       "pd_controller": {
         "enabled": true,
         "auto_tune": true,
-        "natural_frequency_hz": 2.0,
-        "damping_ratio": 1.0,
+        "natural_frequency_hz": 3.0,
+        "damping_ratio": 1.5,
         "Kp": 5000.0,
         "Kd": 500.0,
         "max_force": 5000.0,
@@ -121,7 +121,7 @@
         "comment": "PD控制器配置（用于multi_point_force模式）。\n\n【自动调参】auto_tune=true时根据锚点粒子质量自动计算Kp和Kd。\n\n【响应速度】natural_frequency_hz控制目标响应频率（Hz）。\n  - 值越大，响应越快，但可能引起振荡\n  - 推荐范围：0.5-2.0 Hz（重物用更低值）\n  - 实际频率补偿：由于锚点通过Ball Joint连接刚体，实际系统频率会降低\n\n【阻尼比】damping_ratio控制阻尼程度：\n  - 1.0 = 临界阻尼（无超调，最快稳定）\n  - <1.0 = 欠阻尼（会振荡）\n  - >1.0 = 过阻尼（响应缓慢）"
       },
       "passivity_control": {
-        "enabled": false,
+        "enabled": true,
         "auto_tune": true,
         "reference_mass": 1.0,
         "energy_threshold_per_kg": 1.0,
@@ -129,7 +129,7 @@
         "dissipation_time_constant": 0.2,
         "min_velocity_threshold": 0.01,
         "fluid_force": {
-          "enabled": false,
+          "enabled": true,
           "auto_tune": true,
           "energy_control": {
             "enabled": true,
@@ -150,7 +150,7 @@
       "gravity": {
         "enable_rigid_body_gravity": false,
         "enable_rigid_body_collision": false,
-        "anchor_particle_mass_ratio": 1.0
+        "anchor_particle_mass_ratio": 0.5
       },
       "force_clamping": {
         "enabled": true,
@@ -166,7 +166,18 @@
       },
       "force_inference": {
         "method": "acceleration",
-        "comment": "method: 'sph' (direct SPH boundary forces) or 'acceleration' (infer from PBD velocity changes)"
+        "smoothing": {
+          "ema_filter": {
+            "enabled": true,
+            "alpha": 0.2
+          },
+          "rate_limit": {
+            "enabled": true,
+            "max_force_change_rate": 5000.0,
+            "max_torque_change_rate": 100.0
+          }
+        },
+        "comment": "method: 'sph' (direct SPH boundary forces) or 'acceleration' (infer from PBD velocity changes). smoothing: EMA filter and rate limit for acceleration inference."
       }
     }
   },
@@ -230,7 +241,7 @@
   },
 
   "debug": {
-    "verbose_logging": true,
+    "verbose_logging": false,
     "enable_actuator_force_stats": true,
     "enable_fluid_force_stats": true,
     "enable_passivity_stats": true,
