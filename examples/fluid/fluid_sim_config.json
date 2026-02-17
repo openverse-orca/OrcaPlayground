@@ -31,8 +31,8 @@
         "grpc_call_timeout_sec": 5.0,
         "async_params": {
           "flow_control_enabled": true,
-          "flow_control_window_size": 10,
-          "speed_ratio_threshold": 2.0,
+          "flow_control_window_size": 5,
+          "speed_ratio_threshold": 1.5,
           "comment": "异步模式参数：服务端中央流控"
         },
         "sync_params": {
