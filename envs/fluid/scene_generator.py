@@ -301,7 +301,57 @@ class SceneGenerator:
         except Exception as e:
             logger.error(f"Error identifying SPH bodies: {e}", exc_info=True)
             return []
-    
+
+    def identify_fluid_block_geoms(self) -> List[Dict]:
+        """
+        识别流体块几何体（命名包含 _SPH_FLUID_BLOCK_GEOM 的 box geom），
+        从 geom 的 Pos（中心）、Size（半轴）重建 start/end。
+        全部为 MuJoCo Z-up 原始数据，不做坐标系转换；转换在 generate_complete_scene 写 scene.json 时统一完成。
+
+        Returns:
+            List[Dict]: 每个元素包含 geom_name, body_name, start, end, position（均为 MuJoCo Z-up）
+        """
+        fluid_blocks = []
+        try:
+            model = self.env.model
+            geom_dict = model.get_geom_dict()
+            if not geom_dict:
+                return fluid_blocks
+            for geom_name, geom_info in geom_dict.items():
+                if '_SPH_FLUID_BLOCK_GEOM' not in geom_name:
+                    continue
+                body_name = geom_info.get('BodyName', '')
+                if not body_name:
+                    logger.warning(f"Fluid block geom '{geom_name}' has no BodyName")
+                    continue
+                size_arr = geom_info.get('Size', None)
+                pos_arr = geom_info.get('Pos', None)
+                if size_arr is None or pos_arr is None:
+                    logger.warning(f"Fluid block geom '{geom_name}' missing Size or Pos")
+                    continue
+                half = np.array(size_arr[:3], dtype=float)
+                center = np.array(pos_arr[:3], dtype=float)
+                start = (center - half).tolist()
+                end = (center + half).tolist()
+                # 直接查询 body 世界坐标，不依赖 _sph_geom_cache（FluidBlock body 无 SPH connector geom）
+                xpos_flat, _, _ = self.env.get_body_xpos_xmat_xquat([body_name])
+                if xpos_flat is not None and len(xpos_flat) >= 3:
+                    position = np.array(xpos_flat[:3])
+                else:
+                    logger.warning(f"Could not get position for body '{body_name}', using zero")
+                    position = np.zeros(3)
+                fluid_blocks.append({
+                    'geom_name': geom_name,
+                    'body_name': body_name,
+                    'start': start,
+                    'end': end,
+                    'position': position,
+                })
+                logger.info(f"Fluid block (Z-up): body={body_name}, start={start}, end={end}, position={position}")
+        except Exception as e:
+            logger.error(f"Error identifying fluid block geoms: {e}", exc_info=True)
+        return fluid_blocks
+
     def extract_mocap_bodies_for_body(self, body_name: str) -> List[Dict]:
         """
         提取指定主刚体对应的所有 Mocap site 世界坐标位置
@@ -958,13 +1008,30 @@ class SceneGenerator:
             # 生成主刚体
             main_rigid_bodies = self.generate_scene_json(output_path=None)["RigidBodies"]
             
+            # 提前计算 FluidBlocks Y-up 数据（供 wall 尺寸和后续 FluidBlocks 写入共用）
+            fluid_blocks_yup = []
+            detected_blocks = self.identify_fluid_block_geoms() if include_fluid_blocks else []
+            logger.info(f"Detected {len(detected_blocks)} FluidBlocks")
+            if detected_blocks:
+                for b in detected_blocks:
+                    start_yup_raw = np.array(self.convert_local_coord_z_to_y(np.array(b["start"])))
+                    end_yup_raw = np.array(self.convert_local_coord_z_to_y(np.array(b["end"])))
+                    start_yup = np.minimum(start_yup_raw, end_yup_raw).tolist()
+                    end_yup = np.maximum(start_yup_raw, end_yup_raw).tolist()
+                    translation_yup = self.convert_local_coord_z_to_y(np.array(b["position"]))
+                    fluid_blocks_yup.append({
+                        "start_yup": start_yup,
+                        "end_yup": end_yup,
+                        "translation_yup": translation_yup,
+                    })
+            
             # 准备收集所有刚体
             all_rigid_bodies = []
             
             # 当前 ID 计数器
             current_rb_id = 0
             
-            # Wall container (id=0)
+            # Wall container (id=0)：有 FluidBlocks 时按 2x/6y/2z 和中心对齐自动计算尺寸
             if include_wall:
                 wall_config = self.config.get('wall_rigid_body', {})
                 if wall_config:
@@ -972,18 +1039,37 @@ class SceneGenerator:
                     geometry_file = wall_config.get('geometryFile', "../models/UnitBox.obj")
                     geometry_file = self._resolve_geometry_path(geometry_file)
                     
+                    wall_translation = wall_config.get('translation', [0, 3.0, 0])
+                    wall_scale = wall_config.get('scale', [1.5, 6, 1.5])
+                    wall_collision_scale = wall_config.get('collisionObjectScale', [1.5, 6, 1.5])
+                    if fluid_blocks_yup:
+                        world_mins = []
+                        world_maxs = []
+                        for fb in fluid_blocks_yup:
+                            t = np.array(fb["translation_yup"])
+                            world_mins.append(t + np.array(fb["start_yup"]))
+                            world_maxs.append(t + np.array(fb["end_yup"]))
+                        world_min = np.minimum.reduce(world_mins)
+                        world_max = np.maximum.reduce(world_maxs)
+                        fluid_size = world_max - world_min
+                        wall_center = ((world_min + world_max) / 2).tolist()
+                        wall_scale = [10.0 * fluid_size[0], 10.0 * fluid_size[1], 10.0 * fluid_size[2]]
+                        wall_translation = wall_center
+                        wall_collision_scale = wall_scale
+                        logger.info(f"Wall auto-sized from FluidBlocks: scale={wall_scale}, translation={wall_translation}")
+                    
                     wall_rigid_body = {
                         "id": current_rb_id,
                         "geometryFile": geometry_file,
-                        "translation": wall_config.get('translation', [0, 3.0, 0]),
+                        "translation": wall_translation,
                         "rotationAxis": wall_config.get('rotationAxis', [1, 0, 0]),
                         "rotationAngle": wall_config.get('rotationAngle', 0),
-                        "scale": wall_config.get('scale', [1.5, 6, 1.5]),
+                        "scale": wall_scale,
                         "color": wall_config.get('color', [0.1, 0.4, 0.6, 1.0]),
                         "isDynamic": wall_config.get('isDynamic', False),
                         "isWall": wall_config.get('isWall', True),
                         "collisionObjectType": wall_config.get('collisionObjectType', 2),
-                        "collisionObjectScale": wall_config.get('collisionObjectScale', [1.5, 6, 1.5]),
+                        "collisionObjectScale": wall_collision_scale,
                         "invertSDF": wall_config.get('invertSDF', True),
                         "mapInvert": wall_config.get('mapInvert', True),
                         "mapThickness": wall_config.get('mapThickness', 0.0),
@@ -1048,17 +1134,32 @@ class SceneGenerator:
             
             # 注意：不再生成辅助刚体和约束，虚拟锚点粒子将在运行时通过 PBD 创建
             
-            # 添加 FluidBlocks
+            # 添加 FluidBlocks：使用已计算的 fluid_blocks_yup，无重复 identify
             if include_fluid_blocks:
-                complete_scene["FluidBlocks"] = scene_template.get('FluidBlocks', [
-                    {
-                        "denseMode": 0,
-                        "start": [-0.35, -0.35, -0.35],
-                        "end": [0.35, 0.35, 0.35],
-                        "translation": [0.0, 0.5, 0.0],
-                        "scale": [2.0, 1.0, 2.0]
-                    }
-                ])
+                if fluid_blocks_yup:
+                    template_blocks = scene_template.get('FluidBlocks', [{}])
+                    template_dense = template_blocks[0].get('denseMode', 0) if template_blocks else 0
+                    complete_scene["FluidBlocks"] = [
+                        {
+                            "denseMode": template_dense,
+                            "start": fb["start_yup"],
+                            "end": fb["end_yup"],
+                            "translation": fb["translation_yup"],
+                            "scale": [1.0, 1.0, 1.0],
+                        }
+                        for fb in fluid_blocks_yup
+                    ]
+                    logger.info(f"FluidBlocks from {len(fluid_blocks_yup)} SPH_FLUID_BLOCK_GEOM(s)")
+                else:
+                    complete_scene["FluidBlocks"] = scene_template.get('FluidBlocks', [
+                        {
+                            "denseMode": 0,
+                            "start": [-0.35, -0.35, -0.35],
+                            "end": [0.35, 0.35, 0.35],
+                            "translation": [0.0, 0.5, 0.0],
+                            "scale": [2.0, 1.0, 2.0]
+                        }
+                    ])
             
             # 保存到文件（如果指定了路径）
             if output_path:
