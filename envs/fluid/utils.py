@@ -189,7 +189,7 @@ def setup_python_logging(config: Dict) -> None:
         pass
 
 
-def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = None) -> None:
+def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = None, cpu_affinity: Optional[str] = None) -> None:
     """
     使用配置文件运行仿真
     
@@ -203,6 +203,7 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
     Args:
         config: 配置字典
         session_timestamp: 会话时间戳（用于统一日志文件名），如果为None则自动生成
+        cpu_affinity: CPU 亲和性核心列表（传递给 taskset -c），例如 "0-7" 或 "0,2,4,6"，None 表示不限制
     """
     import gymnasium as gym
     import sys
@@ -390,10 +391,18 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
                 else:
                     logger.info("ℹ️  使用默认 INFO 日志级别 (verbose_logging=false)")
                 
+                # 如果设置了 CPU 亲和性，使用 taskset 包装启动命令
+                if cpu_affinity:
+                    logger.info(f"📌 OrcaSPH CPU 亲和性: 核心 {cpu_affinity}")
+                    orcasph_cmd = "taskset"
+                    orcasph_args = ["-c", cpu_affinity, str(orcasph_bin)] + orcasph_args
+                else:
+                    orcasph_cmd = str(orcasph_bin)
+                
                 log_file = orcagym_tmp_dir / f"orcasph_{session_timestamp}.log"
                 process_manager.start_process(
                     "OrcaSPH",
-                    str(orcasph_bin),
+                    orcasph_cmd,
                     orcasph_args,
                     log_file
                 )

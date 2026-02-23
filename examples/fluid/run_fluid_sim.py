@@ -105,6 +105,12 @@ def main():
             action='store_true',
             help='启用 OrcaSPH GUI 可视化界面（默认禁用）'
         )
+        parser.add_argument(
+            '--cpu',
+            default=None,
+            metavar='CORES',
+            help='设置 OrcaSPH 进程的 CPU 亲和性（通过 taskset），例如: 0-7 或 0,2,4,6'
+        )
         
         args = parser.parse_args()
         
@@ -145,7 +151,7 @@ def main():
         
         # 运行仿真，传入时间戳
         try:
-            run_simulation_with_config(config, session_timestamp=session_timestamp)
+            run_simulation_with_config(config, session_timestamp=session_timestamp, cpu_affinity=args.cpu)
         except KeyboardInterrupt:
             print("\n✅ 仿真已停止")
         except Exception as e:

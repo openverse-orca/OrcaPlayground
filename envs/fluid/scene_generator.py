@@ -1053,7 +1053,7 @@ class SceneGenerator:
                         world_max = np.maximum.reduce(world_maxs)
                         fluid_size = world_max - world_min
                         wall_center = ((world_min + world_max) / 2).tolist()
-                        wall_scale = [10.0 * fluid_size[0], 10.0 * fluid_size[1], 10.0 * fluid_size[2]]
+                        wall_scale = [4.0 * fluid_size[0], 6.0 * fluid_size[1], 4.0 * fluid_size[2]]
                         wall_translation = wall_center
                         wall_collision_scale = wall_scale
                         logger.info(f"Wall auto-sized from FluidBlocks: scale={wall_scale}, translation={wall_translation}")
