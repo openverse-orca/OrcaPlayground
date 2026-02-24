@@ -1180,6 +1180,11 @@ class SceneGenerator:
                     "y": res_y,
                     "z": res_z,
                 },
+                "origin": {
+                    "x": float(center_yup[0]),
+                    "y": float(center_yup[1]),
+                    "z": float(center_yup[2]),
+                },
             },
             "voxel_grid": {
                 "width":  vg_w,
@@ -1196,7 +1201,8 @@ class SceneGenerator:
         logger.info(
             f"particle_render override computed from bound site "
             f"(particleRadius={self.particle_radius}):\n"
-            f"  particle_frame.grid_resolution = {res_x}×{res_y}×{res_z}\n"
+            f"  particle_frame.grid_resolution = {res_x}×{res_y}×{res_z}, "
+            f"origin={center_yup.tolist()}\n"
             f"  voxel_grid = {vg_w}×{vg_h}×{vg_d}, origin={center_yup.tolist()}"
         )
         return override

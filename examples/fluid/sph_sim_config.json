@@ -221,6 +221,11 @@
         "y": 512,
         "z": 512
       },
+      "origin": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
       "voxel_size_ratio": 1.0,
       "ip_frame": {
         "i_frame_interval": 30,
