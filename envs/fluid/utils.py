@@ -70,7 +70,20 @@ class ProcessManager:
             self.terminate_process(name)
 
 
-def generate_orcasph_config(fluid_config: Dict, output_path: Path) -> tuple[Path, bool]:
+def _deep_merge(base: dict, override: dict) -> None:
+    """Recursively merge *override* into *base* in-place (override wins on conflicts)."""
+    for key, val in override.items():
+        if key in base and isinstance(base[key], dict) and isinstance(val, dict):
+            _deep_merge(base[key], val)
+        else:
+            base[key] = val
+
+
+def generate_orcasph_config(
+    fluid_config: Dict,
+    output_path: Path,
+    particle_render_override: Optional[Dict] = None,
+) -> tuple[Path, bool]:
     """
     动态生成 orcasph 配置文件
     
@@ -132,6 +145,12 @@ def generate_orcasph_config(fluid_config: Dict, output_path: Path) -> tuple[Path
     # 添加 particle_render 配置（如果模板中存在）
     if 'particle_render' in orcasph_config_template:
         orcasph_config['particle_render'] = orcasph_config_template['particle_render']
+
+    # 用从 MJCF bound site 计算出的值覆盖 particle_render 中的 grid_resolution / origin。
+    # 仅当调用方传入了计算结果时才合并（无 bound site 时 particle_render_override=None，不覆盖）。
+    if particle_render_override and 'particle_render' in orcasph_config:
+        _deep_merge(orcasph_config['particle_render'], particle_render_override)
+        logger.info(f"particle_render config overridden from MJCF bound site: {particle_render_override}")
     
     # 覆盖关键参数（确保动态值生效）
     orcasph_config['orcalink_client']['server_address'] = f"{orcalink_cfg.get('host', 'localhost')}:{orcalink_cfg.get('port', 50351)}"
@@ -261,6 +280,7 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
         logger.info("✅ MuJoCo 环境创建成功\n")
         
         # ============ 步骤 2: 生成 scene.json ============
+        particle_render_override = None  # set below when bound site is found
         if config['orcasph']['enabled'] and config['orcasph']['scene_auto_generate']:
             logger.info("📝 步骤 2: 生成 SPH scene.json...")
             scene_uuid = str(uuid.uuid4()).replace('-', '_')
@@ -302,6 +322,10 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
             )
             logger.info(f"✅ scene.json 已生成: {scene_output_path}")
             logger.info(f"   - RigidBodies: {len(scene_data.get('RigidBodies', []))} 个\n")
+
+            # 计算 particle_render 的 grid_resolution / origin 覆盖值。
+            # generate_complete_scene 内已调用 _init_particle_radius()，self.particle_radius 已就绪。
+            particle_render_override = scene_generator.generate_particle_render_config(sph_config)
         
         # ============ 步骤 3: 启动 OrcaLink（延时 5 秒）============
         if config['orcalink']['enabled'] and config['orcalink']['auto_start']:
@@ -377,7 +401,10 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
                 
                 # 动态生成 orcasph 配置文件
                 orcasph_config_path = orcagym_tmp_dir / f"orcasph_config_{session_timestamp}.json"
-                orcasph_config_path, verbose_logging = generate_orcasph_config(config, orcasph_config_path)
+                orcasph_config_path, verbose_logging = generate_orcasph_config(
+                    config, orcasph_config_path,
+                    particle_render_override=particle_render_override
+                )
                 
                 # 构建启动参数
                 orcasph_args = config['orcasph']['args'].copy()
