@@ -976,6 +976,88 @@ class SceneGenerator:
             logger.error(f"Error generating scene JSON: {e}", exc_info=True)
             raise
     
+    def _find_particle_render_bounds(self) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+        """
+        查找 _SPH_PARTICLE_RENDER_BOUNDS Box site（由 MjSphFluidBlockComponent 在
+        ParticleRenderBoundsComponent 存在时生成），同时返回世界坐标中心和物理半尺寸。
+
+        Site 名称模式: "{bodyName}_SPH_PARTICLE_RENDER_BOUNDS"
+        - site pos  → 渲染 entity 世界坐标（Z-up）
+        - site size → GetPhysicalHalfExtents() 已经计算好的半尺寸（Z-up，含 wallSizeRatio）
+
+        Returns:
+            (center_zup, half_extents_zup) 各为 np.ndarray shape (3,)；
+            若未找到 bounds site 返回 None。
+        """
+        try:
+            model = self.env.model
+            site_dict = model.get_site_dict()
+            if not site_dict:
+                logger.warning("No site_dict found, particle_render bounds site not found")
+                return None
+
+            bounds_sites = [name for name in site_dict.keys()
+                            if name.endswith('_SPH_PARTICLE_RENDER_BOUNDS')]
+            if not bounds_sites:
+                return None
+
+            site_name = bounds_sites[0]
+            if len(bounds_sites) > 1:
+                logger.warning(
+                    f"Multiple _SPH_PARTICLE_RENDER_BOUNDS sites found: {bounds_sites}. "
+                    f"Using '{site_name}'.")
+
+            # --- world position ---
+            self.env.mj_forward()
+            site_pos_data = self.env.query_site_pos_and_mat([site_name])
+            if site_name not in site_pos_data:
+                logger.warning(f"Site '{site_name}' not found in query_site_pos_and_mat result")
+                return None
+
+            xpos = site_pos_data[site_name]['xpos']
+            if isinstance(xpos, np.ndarray):
+                center_zup = xpos[:3].copy().astype(float)
+            elif isinstance(xpos, (list, tuple)) and len(xpos) >= 3:
+                center_zup = np.array(xpos[:3], dtype=float)
+            else:
+                logger.warning(f"Invalid xpos format for site '{site_name}': {xpos}")
+                return None
+
+            # --- half-extents from site size ---
+            # Try site_dict first (may expose 'Size' key like get_geom_dict does).
+            half_extents_zup = None
+            site_info = site_dict.get(site_name, {})
+            size_field = site_info.get('Size', None)
+            if size_field is not None:
+                arr = np.array(size_field, dtype=float).flatten()
+                if arr.size >= 3:
+                    half_extents_zup = arr[:3].copy()
+
+            # Fall back to model.site_size raw array (standard MuJoCo Python bindings).
+            if half_extents_zup is None:
+                try:
+                    site_id = model.site_name2id(site_name)
+                    raw_size = np.array(model.site_size[site_id], dtype=float).flatten()
+                    if raw_size.size >= 3:
+                        half_extents_zup = raw_size[:3].copy()
+                except Exception as inner_e:
+                    logger.warning(f"Could not read site_size for '{site_name}': {inner_e}")
+
+            if half_extents_zup is None:
+                logger.warning(
+                    f"Could not read half-extents for site '{site_name}'; "
+                    "falling back to center-only path.")
+                return None
+
+            logger.info(
+                f"Found particle_render bounds site '{site_name}': "
+                f"center(Z-up)={center_zup.tolist()}, half_extents(Z-up)={half_extents_zup.tolist()}")
+            return center_zup, half_extents_zup
+
+        except Exception as e:
+            logger.error(f"Error finding particle_render bounds site: {e}", exc_info=True)
+            return None
+
     def generate_complete_scene(self, output_path: str = None, 
                                include_fluid_blocks: bool = True,
                                include_wall: bool = True) -> Dict:
@@ -1042,21 +1124,25 @@ class SceneGenerator:
                     wall_translation = wall_config.get('translation', [0, 3.0, 0])
                     wall_scale = wall_config.get('scale', [1.5, 6, 1.5])
                     wall_collision_scale = wall_config.get('collisionObjectScale', [1.5, 6, 1.5])
-                    if fluid_blocks_yup:
-                        world_mins = []
-                        world_maxs = []
-                        for fb in fluid_blocks_yup:
-                            t = np.array(fb["translation_yup"])
-                            world_mins.append(t + np.array(fb["start_yup"]))
-                            world_maxs.append(t + np.array(fb["end_yup"]))
-                        world_min = np.minimum.reduce(world_mins)
-                        world_max = np.maximum.reduce(world_maxs)
-                        fluid_size = world_max - world_min
-                        wall_center = ((world_min + world_max) / 2).tolist()
-                        wall_scale = [4.0 * fluid_size[0], 6.0 * fluid_size[1], 4.0 * fluid_size[2]]
-                        wall_translation = wall_center
+                    # Use ParticleRenderBoundsComponent Box site when available;
+                    # otherwise fall back to the static defaults in wall_rigid_body config.
+                    pr_bounds = self._find_particle_render_bounds()
+                    if pr_bounds is not None:
+                        center_zup, half_zup = pr_bounds
+                        center_yup = np.array(self.convert_local_coord_z_to_y(center_zup))
+                        # Axis permutation for half-extents: Z-up [hx,hy,hz] → Y-up [hx,hz,hy]
+                        half_yup = np.array([half_zup[0], half_zup[2], half_zup[1]], dtype=float)
+                        wall_scale       = (half_yup * 2.0).tolist()
+                        wall_translation = center_yup.tolist()
                         wall_collision_scale = wall_scale
-                        logger.info(f"Wall auto-sized from FluidBlocks: scale={wall_scale}, translation={wall_translation}")
+                        logger.info(
+                            f"Wall sized from ParticleRenderBoundsComponent: "
+                            f"scale={wall_scale}, translation={wall_translation}")
+                    else:
+                        logger.info(
+                            f"No ParticleRenderBoundsComponent found; "
+                            f"using wall_rigid_body config defaults: "
+                            f"scale={wall_scale}, translation={wall_translation}")
                     
                     wall_rigid_body = {
                         "id": current_rb_id,
