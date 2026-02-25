@@ -210,3 +210,6 @@ trained_models_tmp/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# MuJoCo log file
+MUJOCO_LOG.TXT
