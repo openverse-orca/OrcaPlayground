@@ -76,6 +76,9 @@ class SimEnv(OrcaGymLocalEnv):
     def step(self, action) -> tuple:
 
         ctrl = np.zeros(self.nu, dtype=np.float32)
+        if self.nu > 0:
+            ctrl[0] = 30
+        
 
         # print("runmode: ", self._run_mode, "no_scaled_action: ", noscaled_action, "scaled_action: ", scaled_action, "ctrl: ", ctrl)
         

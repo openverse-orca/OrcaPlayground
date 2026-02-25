@@ -111,7 +111,7 @@
       "pd_controller": {
         "enabled": true,
         "auto_tune": true,
-        "natural_frequency_hz": 2.0,
+        "natural_frequency_hz": 1.8,
         "damping_ratio": 1.0,
         "Kp": 5000.0,
         "Kd": 500.0,
