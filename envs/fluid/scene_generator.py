@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass, asdict
 import sys
+import mujoco
 
 # 设置日志
 logger = logging.getLogger(__name__)
@@ -314,12 +315,20 @@ class SceneGenerator:
 
     def identify_fluid_block_geoms(self) -> List[Dict]:
         """
-        识别流体块几何体（命名包含 _SPH_FLUID_BLOCK_GEOM 的 box geom），
-        从 geom 的 Pos（中心）、Size（半轴）重建 start/end。
+        识别流体块几何体（命名包含 _SPH_FLUID_BLOCK_GEOM 的 geom）。
+
+        当 geom 类型为 "box" 时（无 wall mesh asset）：
+          从 geom 的 Pos（中心）、Size（半轴）重建 start/end。
+
+        当 geom 类型为 "mesh" 时（有 wall mesh asset，MjSphFluidBlockComponent 写入）：
+          - start/end 从 _SPH_FLUID_BLOCK_BOUNDS site 中读取（C++ 同步写入）
+          - wall_mesh_file 从 mesh_dict 中查找 ${body_name}_SPH_FLUID_BLOCK_WALL_MESH 获取
+
         全部为 MuJoCo Z-up 原始数据，不做坐标系转换；转换在 generate_complete_scene 写 scene.json 时统一完成。
 
         Returns:
             List[Dict]: 每个元素包含 geom_name, body_name, start, end, position（均为 MuJoCo Z-up）
+                        以及可选字段 wall_mesh_file（str，当有 wall mesh asset 时填入绝对路径）
         """
         fluid_blocks = []
         try:
@@ -327,6 +336,8 @@ class SceneGenerator:
             geom_dict = model.get_geom_dict()
             if not geom_dict:
                 return fluid_blocks
+            mesh_dict = model.get_mesh_dict() if hasattr(model, 'get_mesh_dict') else {}
+            site_dict = model.get_site_dict() if hasattr(model, 'get_site_dict') else {}
             for geom_name, geom_info in geom_dict.items():
                 if '_SPH_FLUID_BLOCK_GEOM' not in geom_name:
                     continue
@@ -334,11 +345,49 @@ class SceneGenerator:
                 if not body_name:
                     logger.warning(f"Fluid block geom '{geom_name}' has no BodyName")
                     continue
-                size_arr = geom_info.get('Size', None)
-                pos_arr = geom_info.get('Pos', None)
-                if size_arr is None or pos_arr is None:
-                    logger.warning(f"Fluid block geom '{geom_name}' missing Size or Pos")
-                    continue
+
+                geom_type = geom_info.get('Type', mujoco.mjtGeom.mjGEOM_BOX)
+                wall_mesh_file = None
+
+                if geom_type == mujoco.mjtGeom.mjGEOM_MESH:
+                    logger.info(f"Fluid block geom '{geom_name}' is type=mesh")
+                    # Wall mesh asset was set in MjSphFluidBlockComponent.
+                    # start/end come from the companion _SPH_FLUID_BLOCK_BOUNDS site.
+                    bounds_site_name = body_name + '_SPH_FLUID_BLOCK_BOUNDS'
+                    bounds_info = site_dict.get(bounds_site_name) if site_dict else None
+                    if bounds_info is None:
+                        logger.warning(
+                            f"Fluid block geom '{geom_name}' is type=mesh but bounds site "
+                            f"'{bounds_site_name}' not found; skipping")
+                        continue
+                    size_arr = bounds_info.get('Size', None)
+                    pos_arr = bounds_info.get('Pos', None)
+                    if size_arr is None or pos_arr is None:
+                        logger.warning(
+                            f"Bounds site '{bounds_site_name}' missing Size or Pos; skipping")
+                        continue
+
+                    # Resolve wall mesh file path from mesh_dict
+                    wall_mesh_asset_name = body_name + '_SPH_FLUID_BLOCK_WALL_MESH'
+                    mesh_info = mesh_dict.get(wall_mesh_asset_name) if mesh_dict else None
+                    if mesh_info:
+                        wall_mesh_file = mesh_info.get('File', None)
+                        logger.info(
+                            f"Wall mesh asset for '{body_name}': "
+                            f"name='{wall_mesh_asset_name}', file='{wall_mesh_file}'")
+                    else:
+                        logger.warning(
+                            f"Wall mesh '{wall_mesh_asset_name}' not found in mesh_dict for "
+                            f"fluid block body '{body_name}'")
+                else:
+                    logger.info(f"Fluid block geom '{geom_name}' is type=box")
+                    # type="box" (no wall mesh asset): read size/pos directly from geom
+                    size_arr = geom_info.get('Size', None)
+                    pos_arr = geom_info.get('Pos', None)
+                    if size_arr is None or pos_arr is None:
+                        logger.warning(f"Fluid block geom '{geom_name}' missing Size or Pos")
+                        continue
+
                 half = np.array(size_arr[:3], dtype=float)
                 center = np.array(pos_arr[:3], dtype=float)
                 start = (center - half).tolist()
@@ -350,14 +399,19 @@ class SceneGenerator:
                 else:
                     logger.warning(f"Could not get position for body '{body_name}', using zero")
                     position = np.zeros(3)
-                fluid_blocks.append({
+                entry = {
                     'geom_name': geom_name,
                     'body_name': body_name,
                     'start': start,
                     'end': end,
                     'position': position,
-                })
-                logger.info(f"Fluid block (Z-up): body={body_name}, start={start}, end={end}, position={position}")
+                }
+                if wall_mesh_file:
+                    entry['wall_mesh_file'] = wall_mesh_file
+                fluid_blocks.append(entry)
+                logger.info(
+                    f"Fluid block (Z-up): body={body_name}, start={start}, end={end}, "
+                    f"position={position}, wall_mesh_file={wall_mesh_file}")
         except Exception as e:
             logger.error(f"Error identifying fluid block geoms: {e}", exc_info=True)
         return fluid_blocks
@@ -1254,11 +1308,14 @@ class SceneGenerator:
                     start_yup = np.minimum(start_yup_raw, end_yup_raw).tolist()
                     end_yup = np.maximum(start_yup_raw, end_yup_raw).tolist()
                     translation_yup = self.convert_local_coord_z_to_y(np.array(b["position"]))
-                    fluid_blocks_yup.append({
+                    fb_entry = {
                         "start_yup": start_yup,
                         "end_yup": end_yup,
                         "translation_yup": translation_yup,
-                    })
+                    }
+                    if b.get('wall_mesh_file'):
+                        fb_entry['wall_mesh_file'] = b['wall_mesh_file']
+                    fluid_blocks_yup.append(fb_entry)
             
             # 准备收集所有刚体
             all_rigid_bodies = []
@@ -1270,9 +1327,22 @@ class SceneGenerator:
             if include_wall:
                 wall_config = self.config.get('wall_rigid_body', {})
                 if wall_config:
-                    # 转换 geometryFile 为绝对路径
-                    geometry_file = wall_config.get('geometryFile', "../models/UnitBox.obj")
-                    geometry_file = self._resolve_geometry_path(geometry_file)
+                    # 优先从 fluid block 的 wall_mesh_file 读取 geometryFile
+                    # （由 MjSphFluidBlockComponent 写入 MJCF，通过资产系统管理）
+                    wall_geometry_file_from_mjcf = None
+                    for fb in fluid_blocks_yup:
+                        if fb.get('wall_mesh_file'):
+                            wall_geometry_file_from_mjcf = fb['wall_mesh_file']
+                            logger.info(
+                                f"Wall geometryFile from MJCF mesh asset: '{wall_geometry_file_from_mjcf}'")
+                            break
+
+                    if wall_geometry_file_from_mjcf:
+                        geometry_file = wall_geometry_file_from_mjcf
+                    else:
+                        # 回退：转换 scene_config.json 中的 geometryFile 为绝对路径
+                        geometry_file = wall_config.get('geometryFile', "../models/UnitBox.obj")
+                        geometry_file = self._resolve_geometry_path(geometry_file)
                     
                     wall_translation = wall_config.get('translation', [0, 3.0, 0])
                     wall_scale = wall_config.get('scale', [1.5, 6, 1.5])
