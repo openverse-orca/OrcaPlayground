@@ -106,6 +106,19 @@ python examples/legged_gym/run_legged_sim.py \
 - `--remote`：OrcaStudio 远程地址（可选，默认：localhost:50051）
 - `--visualize`：可视化训练过程（可选）
 
+### Windows 与 Linux 差异说明（简述）
+
+- **进程启动机制差异**：Linux 通常使用 `fork`，Windows 使用 `spawn`。`spawn` 会让每个子进程重新导入一次 Python 模块，启动开销和内存占用更高。
+- **并发训练体验差异**：在同样配置下，Windows 对高并发 `subenv_num` 和 `--visualize` 更敏感，初始化更慢、卡住概率更高；Linux 通常能承受更高并发。
+- **推荐运行方式**：Windows 训练优先使用较小并发（例如 `subenv_num` 从 `1~8` 起步），训练时尽量不加 `--visualize`，可视化建议放到 `--test` 或 `--play`。
+
+### 代码层面的兼容改动思路（简述）
+
+- **跨平台文件锁**：高度图加载流程中，Linux 使用 `fcntl`，Windows 使用 `msvcrt`，避免因锁机制不同导致异常。
+- **按需导入键盘模块**：仅在 `play/nav` 模式导入键盘输入依赖，减少 Windows 训练子进程的额外导入负担。
+- **运行层保护**：在 Windows + 训练场景下，增加并发限流保护逻辑，避免高并发配置直接触发 `spawn` 风暴。
+- **编码与资源容错**：统一配置文件 UTF-8 读写，并对 Ray 资源探测做容错处理，减少跨平台环境差异导致的启动失败。
+
 ## 📋 配置文件说明
 
 配置文件采用 YAML 格式，主要包含以下部分：

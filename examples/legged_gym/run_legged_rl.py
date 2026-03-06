@@ -15,6 +15,36 @@ project_root = os.path.dirname(os.path.dirname(current_file_dir))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+def patch_orca_logger_for_windows():
+    """Patch orca_gym logger caller-inspection for Windows spawn subprocesses."""
+    if os.name != "nt":
+        return
+    try:
+        from orca_gym.log.orca_log import OrcaLog
+    except Exception:
+        return
+
+    if getattr(OrcaLog, "_windows_safe_patch", False):
+        return
+
+    original_log_with_caller = OrcaLog._log_with_caller
+
+    def _safe_log_with_caller(self, level: int, message: str):
+        try:
+            original_log_with_caller(self, level, message)
+        except Exception:
+            # In Windows spawn subprocesses, inspect/getmodule may fail with pathlib internals.
+            # Fall back to plain logger call so training can proceed.
+            try:
+                self.logger.log(level, message)
+            except Exception:
+                pass
+
+    OrcaLog._log_with_caller = _safe_log_with_caller
+    OrcaLog._windows_safe_patch = True
+
+patch_orca_logger_for_windows()
+
 
 from envs.legged_gym.legged_config import LeggedEnvConfig, LeggedRobotConfig
 from orca_gym.utils.dir_utils import create_tmp_dir
@@ -32,8 +62,8 @@ def export_config(config: dict, model_dir: str):
     config['agent_config'] = agent_config
 
     # 输出到 json 文件
-    with open(os.path.join(model_dir, 'config.json'), 'w') as f:
-        json.dump(config, f, indent=4)
+    with open(os.path.join(model_dir, 'config.json'), 'w', encoding='utf-8') as f:
+        json.dump(config, f, indent=4, ensure_ascii=False)
 
 def process_scene(
     orcagym_addresses: list[str],
@@ -95,7 +125,7 @@ def process_model_dir(
         model_dir = os.path.dirname(model_file)
     elif run_mode == "training":
         formatted_now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        model_dir = f"./trained_models_tmp/{agent_name}_{task}_{formatted_now}"
+        model_dir = os.path.join(project_root, "trained_models_tmp", f"{agent_name}_{task}_{formatted_now}")
         os.makedirs(model_dir, exist_ok=True)
         model_file = os.path.join(model_dir, f"{agent_name}_{task}.zip")
         export_config(config, model_dir)
@@ -129,6 +159,15 @@ def run_sb3_ppo_rl(
         render_mode = "human"
     else:
         render_mode = run_mode_config['render_mode']
+
+    if os.name == "nt" and run_mode == "training":
+        windows_subenv_cap = int(os.environ.get("ORCA_WINDOWS_SB3_SUBENV_MAX", "8"))
+        if subenv_num > windows_subenv_cap:
+            print(f"[Windows] subenv_num={subenv_num} is high for spawn mode, cap to {windows_subenv_cap}.")
+            subenv_num = windows_subenv_cap
+        if visualize and subenv_num > 1:
+            print("[Windows] visualize mode with multi-subenv is expensive, forcing subenv_num=1.")
+            subenv_num = 1
 
     terrain_asset_paths = run_mode_config['terrain_asset_paths'][task]
     entry_point = 'envs.legged_gym.legged_gym_env:LeggedGymEnv'
@@ -256,7 +295,13 @@ def run_rllib_appo_rl(
             print(f"GPU {i}: {torch.cuda.get_device_name(i)}")
     
     # 检测Ray集群中的CPU资源
-    num_cpus_available = int(ray.available_resources()['CPU'])
+    available_resources = ray.available_resources()
+    num_cpus_available = int(available_resources.get('CPU', 0))
+    if num_cpus_available <= 0:
+        cluster_resources = ray.cluster_resources()
+        num_cpus_available = int(cluster_resources.get('CPU', 0))
+    if num_cpus_available <= 0:
+        raise RuntimeError(f"Ray did not report usable CPU resources. available={available_resources}, cluster={ray.cluster_resources()}")
     print(f"Ray集群检测到的CPU数量: {num_cpus_available}")
 
     # 检测每个节点的CPU资源
@@ -426,7 +471,7 @@ if __name__ == "__main__":
     if args.config is None:
         raise ValueError("Config file is required")
     
-    with open(args.config, 'r') as f:
+    with open(args.config, 'r', encoding='utf-8') as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
     assert args.train or args.test or args.play, "Please specify one of --train, --test, or --play"
