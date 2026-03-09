@@ -342,11 +342,14 @@ def config_appo_tuner(
         model_dir: str = None,
     ) -> tune.Tuner:
         
-    # 设置 NCCL 环境变量来避免 GPU 冲突
-    os.environ["NCCL_DEBUG"] = "WARN"
-    os.environ["NCCL_IB_DISABLE"] = "1"
-    os.environ["NCCL_P2P_DISABLE"] = "1"
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # 只使用第一个GPU
+    is_windows = os.name == "nt"
+
+    # Linux 多卡训练常见 NCCL 冲突规避；Windows 下通常不需要这组变量。
+    if not is_windows:
+        os.environ["NCCL_DEBUG"] = "WARN"
+        os.environ["NCCL_IB_DISABLE"] = "1"
+        os.environ["NCCL_P2P_DISABLE"] = "1"
+        os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # 只使用第一个GPU
     
     config = get_config(
         agent_config=agent_config,
@@ -375,22 +378,30 @@ def config_appo_tuner(
 
     # 设置存储路径 - 使用NFS共享目录，确保head和worker节点都可以访问
     # 支持通过软链接方式共享 ./trained_models_tmp 目录
-    nfs_base_path = os.environ.get('ORCA_NFS_BASE_PATH', '/mnt/nfs')
+    if is_windows:
+        nfs_base_path = os.environ.get(
+            'ORCA_NFS_BASE_PATH',
+            os.path.join(os.path.expanduser("~"), ".orcagym", "ray_storage")
+        )
+    else:
+        nfs_base_path = os.environ.get('ORCA_NFS_BASE_PATH', '/mnt/nfs')
     
     if model_dir:
         # 如果提供了model_dir，检查是否为NFS路径
-        if model_dir.startswith('/mnt/nfs') or model_dir.startswith('/shared'):
+        normalized_model_dir = os.path.normpath(model_dir)
+        if (not is_windows) and (model_dir.startswith('/mnt/nfs') or model_dir.startswith('/shared')):
             # 已经是NFS路径，直接使用
             storage_path = os.path.abspath(model_dir)
-        elif model_dir.startswith('./trained_models_tmp') or 'trained_models_tmp' in model_dir:
+        elif normalized_model_dir.startswith(os.path.normpath('./trained_models_tmp')) or 'trained_models_tmp' in normalized_model_dir:
             # 如果是trained_models_tmp相关路径，转换为NFS路径
             # 获取相对于trained_models_tmp的路径部分
-            if model_dir.startswith('./trained_models_tmp/'):
-                relative_path = model_dir[len('./trained_models_tmp/'):]
-            elif 'trained_models_tmp/' in model_dir:
-                relative_path = model_dir.split('trained_models_tmp/')[-1]
+            path_parts = normalized_model_dir.split(os.sep)
+            if 'trained_models_tmp' in path_parts:
+                trained_models_index = path_parts.index('trained_models_tmp')
+                relative_parts = path_parts[trained_models_index + 1:]
+                relative_path = os.path.join(*relative_parts) if relative_parts else os.path.basename(normalized_model_dir)
             else:
-                relative_path = os.path.basename(model_dir)
+                relative_path = os.path.basename(normalized_model_dir)
             
             # 构建NFS路径
             storage_path = os.path.join(nfs_base_path, 'trained_models_tmp', relative_path)
@@ -407,9 +418,9 @@ def config_appo_tuner(
     # 确保NFS目录存在
     try:
         os.makedirs(storage_path, exist_ok=True)
-        print(f"使用NFS共享存储路径: {storage_path}")
+        print(f"使用训练存储路径: {storage_path}")
         # 验证软链接是否正常工作
-        if os.path.islink(os.path.join(nfs_base_path, 'trained_models_tmp')):
+        if (not is_windows) and os.path.islink(os.path.join(nfs_base_path, 'trained_models_tmp')):
             link_target = os.readlink(os.path.join(nfs_base_path, 'trained_models_tmp'))
             print(f"检测到软链接: {nfs_base_path}/trained_models_tmp -> {link_target}")
     except PermissionError:
@@ -540,9 +551,23 @@ def setup_cuda_environment():
         print("警告: 未检测到 Conda 环境")
         return False
     
-    # 设置环境变量
+    is_windows = os.name == "nt"
+
+    # 设置环境变量（区分 Linux/Windows）
     os.environ["CUDA_HOME"] = conda_prefix
-    os.environ["LD_LIBRARY_PATH"] = f"{conda_prefix}/lib:{os.environ.get('LD_LIBRARY_PATH', '')}"
+    if is_windows:
+        cuda_path = os.environ.get("CUDA_PATH", conda_prefix)
+        os.environ["CUDA_PATH"] = cuda_path
+        extra_paths = [
+            os.path.join(conda_prefix, "Library", "bin"),
+            os.path.join(conda_prefix, "DLLs"),
+            os.path.join(conda_prefix, "Scripts"),
+        ]
+        current_path = os.environ.get("PATH", "")
+        merged_path = os.pathsep.join(extra_paths + [current_path])
+        os.environ["PATH"] = merged_path
+    else:
+        os.environ["LD_LIBRARY_PATH"] = f"{conda_prefix}/lib:{os.environ.get('LD_LIBRARY_PATH', '')}"
     
     # 验证 CUDA 和 cuDNN
     cuda_available = torch.cuda.is_available()
@@ -659,7 +684,15 @@ def worker_env_check():
     # 确保使用正确的库路径
     conda_prefix = os.environ.get("CONDA_PREFIX", "")
     if conda_prefix:
-        os.environ["LD_LIBRARY_PATH"] = f"{conda_prefix}/lib:{os.environ.get('LD_LIBRARY_PATH', '')}"
+        if os.name == "nt":
+            extra_paths = [
+                os.path.join(conda_prefix, "Library", "bin"),
+                os.path.join(conda_prefix, "DLLs"),
+                os.path.join(conda_prefix, "Scripts"),
+            ]
+            os.environ["PATH"] = os.pathsep.join(extra_paths + [os.environ.get("PATH", "")])
+        else:
+            os.environ["LD_LIBRARY_PATH"] = f"{conda_prefix}/lib:{os.environ.get('LD_LIBRARY_PATH', '')}"
     
     # 尝试初始化 CUDA
     try:
