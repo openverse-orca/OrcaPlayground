@@ -50,6 +50,29 @@ REALTIME_STEP = TIME_STEP * FRAME_SKIP
 CONTROL_FREQ = 1 / REALTIME_STEP
 
 
+def sceneinfo(
+    scene,
+    stage: str,
+    orcagym_address: str,
+):
+    toclose = False
+    if scene is None:
+        toclose = True
+        import importlib
+        OrcaGymScene = importlib.import_module("orca_gym.scene.orca_gym_scene").OrcaGymScene
+        scene = OrcaGymScene(orcagym_address)
+    try:
+        script_name = os.path.basename(sys.argv[0]) if sys.argv else os.path.basename(__file__)
+        scene.get_rundata(script_name, stage)
+        if stage == "beginscene":
+            mess = f"开始运行"
+            scene.set_ui_text(actor_name=1, message=mess, showtime=5, color="0xff0000", size=32)
+        elif stage == "loadscene":
+            mess = f"加载模型"
+            scene.set_ui_text(actor_name=1, message=mess, showtime=15, color="0xff0000", size=32)
+    finally:
+        if toclose:
+            scene.close()
 
 def register_env(
     orcagym_addr: str,
@@ -132,7 +155,7 @@ def run_simulation(
     
     try:
         _logger.info(f"开始仿真... OrcaGym地址: {orcagym_addr}")
-        
+        sceneinfo(None, "loadscene", orcagym_addr)
         # 通过 spawn（replicator）自动创建场景，无需手动拖拽
         publish_g1_scene(orcagym_addr, agent_name)
         
@@ -154,7 +177,7 @@ def run_simulation(
         env.unwrapped.set_share_state(share_state)
         # 重置环境
         obs, info = env.reset()
-
+        sceneinfo(None, "beginscene", orcagym_addr)
         
         policy_thread = threading.Thread(target=policy_thread_func, args=(config, loco_model_path, mimic_model_path, share_state))
         policy_thread.start()
@@ -187,7 +210,7 @@ def run_simulation(
 def main():
     """主函数"""
     # OrcaGym 服务地址
-    orcagym_addr = "0.0.0.0:50051"
+    orcagym_addr = "127.0.0.1:50051"
     
     # 机器人名称
     agent_name = "g1"
