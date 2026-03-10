@@ -336,7 +336,7 @@ def run_simulation(
 def main():
     """主函数"""
     # OrcaGym 服务地址
-    orcagym_addr = "0.0.0.0:50051"
+    orcagym_addr = "127.0.0.1:50051"
     
     # 机器人名称
     agent_name = "zq_sa01"
