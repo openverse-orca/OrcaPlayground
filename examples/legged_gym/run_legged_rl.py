@@ -127,11 +127,11 @@ def sceneinfo(
         script_name = os.path.basename(sys.argv[0]) if sys.argv else os.path.basename(__file__)
         scene.get_rundata(script_name, stage)
         if stage == "beginscene":
-            mess = f"开始运行: {framework}-{run_mode},可操作鼠标镜头移动镜头查看训练目标"
-            scene.set_ui_text(actor_name=1, message=mess, showtime=30, color="0xff0000", size=32)
+            mess = f"开始仿真程序运行，可操作鼠标键盘控制镜头观察机器人训练"
+            scene.set_ui_text(actor_name=1, message=mess, showtime=15, color="0xffff00", size=32)
         elif stage == "preparescene":
-            mess = f"准备运行: {framework}-{run_mode},加载模型数据"
-            scene.set_ui_text(actor_name=1, message=mess, showtime=30, color="0xff0000", size=32)
+            mess = f"加载模型数据中"
+            scene.set_ui_text(actor_name=1, message=mess, showtime=30, color="0xffff00", blinkfreq =5, size=32)
         elif stage == "endscene":
             mess = f"运行结束: {framework}-{run_mode}"
             scene.set_ui_text(actor_name=1, message=mess, showtime=30, color="0xff0000", size=32)
@@ -139,6 +139,7 @@ def sceneinfo(
     finally:
         if toclose:
             scene.close()
+
 
 def process_model_dir(
     config: dict, 
