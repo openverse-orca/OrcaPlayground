@@ -41,7 +41,29 @@ def register_env(orcagym_addr : str,
     )
     return env_id, kwargs
 
-
+def sceneinfo(
+    scene,
+    stage: str,
+    orcagym_addresses: list[str],
+):
+    toclose = False
+    if scene is None:
+        toclose = True
+        import importlib
+        OrcaGymScene = importlib.import_module("orca_gym.scene.orca_gym_scene").OrcaGymScene
+        scene = OrcaGymScene(orcagym_addresses[0])
+    try:
+        script_name = os.path.basename(sys.argv[0]) if sys.argv else os.path.basename(__file__)
+        scene.get_rundata(script_name, stage)
+        if stage == "beginscene":
+            mess = f"按W/A/S/D控制角色移动，按1切换路径点控制，按2切换键盘控制"
+            scene.set_ui_text(actor_name=1, message=mess, showtime=20, color="0xff0000", size=32)
+        elif stage == "endscene":
+            mess = f"运行结束"
+            scene.set_ui_text(actor_name=1, message=mess, showtime=30, color="0xff0000", size=32)
+    finally:
+        if toclose:
+            scene.close()
 
 def run_simulation(orcagym_addr : str, 
                 agent_name : str,
@@ -76,6 +98,7 @@ def run_simulation(orcagym_addr : str,
                     _logger.warning(f"Scene runtime is not set. env_unwarpped:  {env_unwarpped}")
         else:
             _logger.warning("scene_runtime is None, animation may not work!")
+        sceneinfo(scene, "beginscene", orcagym_addr)
 
         obs = env.reset()
         while True:

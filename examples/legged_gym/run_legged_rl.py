@@ -109,6 +109,36 @@ def process_scene(
 
     return height_map_file
 
+
+def sceneinfo(
+    scene,
+    stage: str,
+    framework: str,
+    run_mode: str,
+    orcagym_addresses: list[str],
+):
+    toclose = False
+    if scene is None:
+        toclose = True
+        import importlib
+        OrcaGymScene = importlib.import_module("orca_gym.scene.orca_gym_scene").OrcaGymScene
+        scene = OrcaGymScene(orcagym_addresses[0])
+    try:
+        script_name = os.path.basename(sys.argv[0]) if sys.argv else os.path.basename(__file__)
+        scene.get_rundata(script_name, stage)
+        if stage == "beginscene":
+            mess = f"开始运行: {framework}-{run_mode},可操作鼠标镜头移动镜头查看训练目标"
+            scene.set_ui_text(actor_name=1, message=mess, showtime=30, color="0xff0000", size=32)
+        elif stage == "preparescene":
+            mess = f"准备运行: {framework}-{run_mode},加载模型数据"
+            scene.set_ui_text(actor_name=1, message=mess, showtime=30, color="0xff0000", size=32)
+        elif stage == "endscene":
+            mess = f"运行结束: {framework}-{run_mode}"
+            scene.set_ui_text(actor_name=1, message=mess, showtime=30, color="0xff0000", size=32)
+    finally:
+        if toclose:
+            scene.close()
+
 def process_model_dir(
     config: dict, 
     run_mode: str, 
@@ -178,6 +208,13 @@ def run_sb3_ppo_rl(
         raise ValueError("Invalid task")
 
     total_steps = training_episode * subenv_num * agent_num * max_episode_steps
+    sceneinfo(
+        scene=None,
+        stage="preparescene",
+        framework="sb3",
+        run_mode=run_mode,
+        orcagym_addresses=orcagym_addresses,
+    )
 
     model_dir, model_file = process_model_dir(
         config=config, 
@@ -198,6 +235,13 @@ def run_sb3_ppo_rl(
         agent_num=agent_num,
         terrain_asset_paths=terrain_asset_paths,
         skip_terrain=skip_terrain,
+    )
+    sceneinfo(
+        scene=None,
+        stage="beginscene",
+        framework="sb3",
+        run_mode=run_mode,
+        orcagym_addresses=orcagym_addresses,
     )
 
     import examples.legged_gym.scripts.sb3_ppo_vecenv_rl as sb3_rl
@@ -245,6 +289,14 @@ def run_sb3_ppo_rl(
   
     else:
         raise ValueError("Invalid run mode")
+
+    sceneinfo(
+        scene=None,
+        stage="endscene",
+        framework="sb3",
+        run_mode=run_mode,
+        orcagym_addresses=orcagym_addresses,
+    )
 
 
 def run_rllib_appo_rl(
@@ -362,6 +414,13 @@ def run_rllib_appo_rl(
         render_mode = run_mode_config['render_mode']
 
     terrain_asset_paths = run_mode_config['terrain_asset_paths'][task]
+    sceneinfo(
+        scene=None,
+        stage="preparescene",
+        framework="rllib",
+        run_mode=run_mode,
+        orcagym_addresses=orcagym_addresses,
+    )
 
     model_dir, model_file = process_model_dir(
         config=config, 
@@ -382,6 +441,13 @@ def run_rllib_appo_rl(
         agent_num=32,   # 一个Mujoco Instance支持 32 个agent是最合理的，这是默认配置
         terrain_asset_paths=terrain_asset_paths,
         skip_terrain=skip_terrain,
+    )
+    sceneinfo(
+        scene=None,
+        stage="beginscene",
+        framework="rllib",
+        run_mode=run_mode,
+        orcagym_addresses=orcagym_addresses,
     )
 
     import examples.legged_gym.scripts.rllib_appo_rl as rllib_appo_rl
@@ -443,7 +509,15 @@ def run_rllib_appo_rl(
         )
     else:
         raise ValueError("Invalid run mode. Use 'training' or 'testing'.")
-    
+
+    sceneinfo(
+        scene=None,
+        stage="endscene",
+        framework="rllib",
+        run_mode=run_mode,
+        orcagym_addresses=orcagym_addresses,
+    )
+
     # 训练完成后关闭Ray
     if ray.is_initialized():
         ray.shutdown()

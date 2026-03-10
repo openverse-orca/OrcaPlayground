@@ -99,6 +99,33 @@ def publish_zqsa01_scene(orcagym_addr: str, agent_name: str) -> None:
     _logger.info("=============> 发布 ZQ SA01 场景完成.")
 
 
+def sceneinfo(
+    scene,
+    stage: str,
+    orcagym_address: str,
+):
+    toclose = False
+    if scene is None:
+        toclose = True
+        import importlib
+        OrcaGymScene = importlib.import_module("orca_gym.scene.orca_gym_scene").OrcaGymScene
+        scene = OrcaGymScene(orcagym_address)
+    try:
+        script_name = os.path.basename(sys.argv[0]) if sys.argv else os.path.basename(__file__)
+        scene.get_rundata(script_name, stage)
+        if stage == "beginscene":
+            mess = f"开始运行"
+            scene.set_ui_text(actor_name=1, message=mess, showtime=5, color="0xff0000", size=32)
+        elif stage == "loadscene":
+            mess = f"加载策略模型"
+            scene.set_ui_text(actor_name=1, message=mess, showtime=5, color="0xff0000", size=32)
+        elif stage == "loadscenemodel":
+            mess = f"加载模型"
+            scene.set_ui_text(actor_name=1, message=mess, showtime=5, color="0xff0000", size=32)
+    finally:
+        if toclose:
+            scene.close()
+
 def load_policy(logdir):
     """加载 ONNX 策略"""
     policy_path = os.path.join(logdir, "zqsa01_policy.onnx")
@@ -158,8 +185,10 @@ def run_simulation(
         _logger.info(f"开始仿真... OrcaGym地址: {orcagym_addr}")
         
         # 通过 spawn（replicator）自动创建场景，无需手动拖拽
+        sceneinfo(None, "loadscenemodel", orcagym_addr)
         publish_zqsa01_scene(orcagym_addr, agent_name)
-        
+        sceneinfo(None, "loadscene", orcagym_addr)
+
         # 注册并创建环境
         env_index = 0
         env_id, kwargs = register_env(
@@ -180,7 +209,7 @@ def run_simulation(
                 env.set_scene_runtime(scene_runtime)
             elif hasattr(env.unwrapped, "set_scene_runtime"):
                 env.unwrapped.set_scene_runtime(scene_runtime)
-        
+        sceneinfo(None, "loadscene", orcagym_addr)
         # 加载策略
         policy = load_policy(policy_dir)
         
@@ -230,7 +259,7 @@ def run_simulation(
         
         # 主循环
         action = None  # 初始化动作
-        
+        sceneinfo(None, "beginscene", orcagym_addr)
         while True:
             start_time = datetime.now()
             

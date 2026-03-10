@@ -157,6 +157,30 @@ def load_xbot_policy(policy_path: str, device: str = "cpu"):
         raise RuntimeError(f"Failed to load policy from {policy_path}: {e}")
 
 
+def sceneinfo(
+    scene,
+    stage: str,
+    orcagym_address: str,
+):
+    toclose = False
+    if scene is None:
+        toclose = True
+        import importlib
+        OrcaGymScene = importlib.import_module("orca_gym.scene.orca_gym_scene").OrcaGymScene
+        scene = OrcaGymScene(orcagym_address)
+    try:
+        script_name = os.path.basename(sys.argv[0]) if sys.argv else os.path.basename(__file__)
+        scene.get_rundata(script_name, stage)
+        if stage == "beginscene":
+            mess = f"开始运行"
+            scene.set_ui_text(actor_name=1, message=mess, showtime=3, color="0xff0000", size=32)
+        elif stage == "loadscene":
+            mess = f"加载模型"
+            scene.set_ui_text(actor_name=1, message=mess, showtime=3, color="0xff0000", size=32)
+    finally:
+        if toclose:
+            scene.close()
+
 def main(device: str = "cpu"):
     _logger.info("="*80)
     _logger.info("🚀 XBot运行测试 - OrcaGym框架（增强诊断版）")
@@ -237,7 +261,8 @@ def main(device: str = "cpu"):
     _logger.info("  - 参考standaloneMujoco: Pitch±1.5°，速度0.4m/s\n")
     
     obs, info = env.reset()
-    
+    print(f"orcagym_addr:  {config['orcagym_addr']}")
+    sceneinfo(None, "beginscene", config["orcagym_addr"])
     episode_reward = 0.0
     episode_steps = 0
     max_steps = 2000  # 测试2000步

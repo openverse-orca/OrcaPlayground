@@ -4,6 +4,7 @@ from orca_gym.utils.rotations import euler2quat
 import time
 import gymnasium as gym
 import sys
+import os
 from datetime import datetime
 from typing import Optional
 
@@ -13,6 +14,29 @@ _logger = get_orca_logger()
 # Ackerman 场景 spawn 用资产路径（与机器狗方式一致，脚本自动创建场景）
 ACKERMAN_AGENT_ASSET_PATH = "assets/e071469a36d3c8aa/default_project/prefabs/hummer_h2_usda"
 
+def sceneinfo(
+    scene,
+    stage: str,
+    orcagym_address: str,
+):
+    toclose = False
+    if scene is None:
+        toclose = True
+        import importlib
+        OrcaGymScene = importlib.import_module("orca_gym.scene.orca_gym_scene").OrcaGymScene
+        scene = OrcaGymScene(orcagym_address)
+    try:
+        script_name = os.path.basename(sys.argv[0]) if sys.argv else os.path.basename(__file__)
+        scene.get_rundata(script_name, stage)
+        if stage == "beginscene":
+            mess = f"按W/A/S/D控制汽车移动"
+            scene.set_ui_text(actor_name=1, message=mess, showtime=20, color="0xff0000", size=32)
+        elif stage == "loadscene":
+            mess = f"加载模型"
+            scene.set_ui_text(actor_name=1, message=mess, showtime=30, color="0xff0000", size=32)
+    finally:
+        if toclose:
+            scene.close()
 
 def publish_ackerman_scene(orcagym_addr: str, agent_name: str) -> None:
     """仿照机器狗方式，通过 spawn（replicator）自动创建场景，无需手动拖拽到布局。"""
@@ -94,6 +118,7 @@ def run_simulation(orcagym_addr : str,
         _logger.info("Starting simulation...")
 
         obs = env.reset()
+        sceneinfo(None, "beginscene", orcagym_addr)
         while True:
             start_time = datetime.now()
 

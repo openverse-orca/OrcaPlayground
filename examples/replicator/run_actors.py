@@ -12,6 +12,29 @@ from examples.replicator import run_simulation as sim
 from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()
 
+def sceneinfo(
+    scene,
+    stage: str,
+    orcagym_address: str,
+):
+    toclose = False
+    if scene is None:
+        toclose = True
+        import importlib
+        OrcaGymScene = importlib.import_module("orca_gym.scene.orca_gym_scene").OrcaGymScene
+        scene = OrcaGymScene(orcagym_address)
+    try:
+        script_name = os.path.basename(sys.argv[0]) if sys.argv else os.path.basename(__file__)
+        scene.get_rundata(script_name, stage)
+        if stage == "beginscene":
+            mess = f"加载场景"
+            scene.set_ui_text(actor_name=1, message=mess, showtime=10, color="0xff0000", size=32)
+        elif stage == "endscene":
+            mess = f"加载完成"
+            scene.set_ui_text(actor_name=1, message=mess, showtime=10, color="0xff0000", size=32)
+    finally:
+        if toclose:
+            scene.close()
 
 def create_scene() -> OrcaGymScene:
     """
@@ -105,12 +128,16 @@ def destroy_scene(scene: OrcaGymScene):
 
 
 if __name__ == "__main__":
+    sceneinfo(None, "beginscene", "localhost:50051")
     scene = create_scene()
 
     orcagym_addr = "localhost:50051"
     agent_name = "NoRobot"
     env_name = "Actors"
+ 
+    sceneinfo(None, "endscene", orcagym_addr)
     sim.run_simulation(orcagym_addr, agent_name, env_name)
+
 
     # time.sleep(3)
 
