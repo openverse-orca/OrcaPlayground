@@ -2,6 +2,7 @@ from orca_gym.scene.orca_gym_scene_runtime import OrcaGymSceneRuntime
 import time
 import gymnasium as gym
 import sys
+import os
 from datetime import datetime
 from typing import Optional
 from orca_gym.scene.orca_gym_scene import OrcaGymScene
