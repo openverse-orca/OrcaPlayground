@@ -32,6 +32,7 @@ def sceneinfo(
         elif stage == "endscene":
             mess = f"加载完成"
             scene.set_ui_text(actor_name=1, message=mess, showtime=10, color="0xff0000", size=32)
+        scene.set_image_enabled(1,True)
     finally:
         if toclose:
             scene.close()
