@@ -114,14 +114,15 @@ def sceneinfo(
         script_name = os.path.basename(sys.argv[0]) if sys.argv else os.path.basename(__file__)
         scene.get_rundata(script_name, stage)
         if stage == "beginscene":
-            mess = f"开始运行"
-            scene.set_ui_text(actor_name=1, message=mess, showtime=5, color="0xff0000", size=32)
+            mess = f"开始仿真程序运行"
+            scene.set_ui_text(actor_name=1, message=mess, showtime=5, color="0xffff00", size=32)
         elif stage == "loadscene":
             mess = f"加载策略模型"
-            scene.set_ui_text(actor_name=1, message=mess, showtime=5, color="0xff0000", size=32)
+            scene.set_ui_text(actor_name=1, message=mess, showtime=5, color="0xffff00", blinkfreq =5, size=32)
         elif stage == "loadscenemodel":
-            mess = f"加载模型"
-            scene.set_ui_text(actor_name=1, message=mess, showtime=5, color="0xff0000", size=32)
+            mess = f"加载策略模型"
+            scene.set_ui_text(actor_name=1, message=mess, showtime=5, color="0xffff00", blinkfreq =5, size=32)
+        scene.set_image_enabled(1,True)
     finally:
         if toclose:
             scene.close()
@@ -187,7 +188,7 @@ def run_simulation(
         # 通过 spawn（replicator）自动创建场景，无需手动拖拽
         sceneinfo(None, "loadscenemodel", orcagym_addr)
         publish_zqsa01_scene(orcagym_addr, agent_name)
-        sceneinfo(None, "loadscene", orcagym_addr)
+       # sceneinfo(None, "loadscene", orcagym_addr)
 
         # 注册并创建环境
         env_index = 0
@@ -209,7 +210,7 @@ def run_simulation(
                 env.set_scene_runtime(scene_runtime)
             elif hasattr(env.unwrapped, "set_scene_runtime"):
                 env.unwrapped.set_scene_runtime(scene_runtime)
-        sceneinfo(None, "loadscene", orcagym_addr)
+ 
         # 加载策略
         policy = load_policy(policy_dir)
         

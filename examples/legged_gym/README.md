@@ -104,7 +104,7 @@ python examples/legged_gym/run_legged_sim.py \
 - `--play`：交互式运行模式
 - `--ckpt`：模型检查点路径（测试/运行模式必需）
 - `--remote`：OrcaStudio 远程地址（可选，默认：localhost:50051）
-- `--visualize`：可视化训练过程（可选）
+- `--visualize`：可视化训练过程（可选）train模式下建议关掉 visualize，把GPU让出来给模型，减少渲染开销
 
 ### Windows 与 Linux 差异说明（简述）
 

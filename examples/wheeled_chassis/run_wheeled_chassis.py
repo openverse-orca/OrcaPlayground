@@ -66,11 +66,12 @@ def sceneinfo(
         script_name = os.path.basename(sys.argv[0]) if sys.argv else os.path.basename(__file__)
         scene.get_rundata(script_name, stage)
         if stage == "beginscene":
-            mess = f"开始运行"
-            scene.set_ui_text(actor_name=1, message=mess, showtime=5, color="0xff0000", size=32)
+            mess = f"开始仿真程序运行，按A/W/S/D控制机器人移动"
+            scene.set_ui_text(actor_name=1, message=mess, showtime=5, color="0xffff00", size=32)
         elif stage == "loadscene":
-            mess = f"加载模型"
-            scene.set_ui_text(actor_name=1, message=mess, showtime=10, color="0xff0000", size=32)
+            mess = f"加载模型中"
+            scene.set_ui_text(actor_name=1, message=mess, showtime=10, color="0xffff00", blinkfreq =5, size=32)
+        scene.set_image_enabled(1,True)
     finally:
         if toclose:
             scene.close()

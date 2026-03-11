@@ -173,10 +173,11 @@ def sceneinfo(
         scene.get_rundata(script_name, stage)
         if stage == "beginscene":
             mess = f"开始运行"
-            scene.set_ui_text(actor_name=1, message=mess, showtime=3, color="0xff0000", size=32)
+            scene.set_ui_text(actor_name=1, message=mess, showtime=3, color="0xffff00", size=32)
         elif stage == "loadscene":
             mess = f"加载模型"
-            scene.set_ui_text(actor_name=1, message=mess, showtime=3, color="0xff0000", size=32)
+            scene.set_ui_text(actor_name=1, message=mess, showtime=5, color="0xffff00", blinkfreq =5, size=32)
+        scene.set_image_enabled(1,True)
     finally:
         if toclose:
             scene.close()
@@ -220,6 +221,7 @@ def main(device: str = "cpu"):
     _logger.info(f"  - dyaw: {CMD_DYAW} rad/s")
     
     # 通过 spawn（replicator）自动创建场景，无需手动拖拽
+    sceneinfo(None, "loadscene", config["orcagym_addr"])
     publish_xbot_scene(config["orcagym_addr"])
     
     # 创建环境
