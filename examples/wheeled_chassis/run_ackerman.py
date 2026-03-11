@@ -34,6 +34,7 @@ def sceneinfo(
         elif stage == "loadscene":
             mess = f"加载模型中"
             scene.set_ui_text(actor_name=1, message=mess, showtime=10, color="0xffff00", blinkfreq =5, size=32)
+        scene.set_image_enabled(1,True)
     finally:
         if toclose:
             scene.close()
