@@ -40,6 +40,10 @@ python examples/legged_gym/run_legged_rl.py \
     --visualize
 ```
 
+当前示例为了便于直接观察训练状态，默认开启了 `--visualize`。渲染会带来较大开销，因此这里配套使用了较小的训练参数：`subenv_num: 1`、`agent_num: 8`。
+
+如果希望更高效地训练，建议关闭 `--visualize` 并放大并发配置。Linux 下通常建议至少使用 `subenv_num: 8`、`agent_num: 32`，硬件资源充足时还可以继续提高。
+
 训练完成后，模型会保存在 `trained_models_tmp/` 目录下，目录名格式为：`{agent_name}_{task}_{timestamp}/`
 
 ### 测试/运行模式
@@ -104,7 +108,7 @@ python examples/legged_gym/run_legged_sim.py \
 - `--play`：交互式运行模式
 - `--ckpt`：模型检查点路径（测试/运行模式必需）
 - `--remote`：OrcaStudio 远程地址（可选，默认：localhost:50051）
-- `--visualize`：可视化训练过程（可选）train模式下建议关掉 visualize，把GPU让出来给模型，减少渲染开销
+- `--visualize`：可视化训练过程（可选）
 
 ### Windows 与 Linux 差异说明（简述）
 
