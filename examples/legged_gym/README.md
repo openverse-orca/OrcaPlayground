@@ -6,6 +6,8 @@
 
 > **📦 相关资产**：https://simassets.orca3d.cn/ **OrcaPlaygroundAssets资产包**
 > 
+> **🔧 是否需要手动拖动到布局中**：**是**
+>
 > **启动前必须先把机器人摆进场景**
 >
 > **脚本会在运行前扫描场景中的 joint / actuator 后缀是否与模板一一对应**
@@ -15,6 +17,20 @@
 > **`run_legged_rl.py`**：按 `config.agent_name` 选择模板，`SB3 training/test/play` 都不再 `spawn`
 >
 > **`run_legged_sim.py`**：当前只支持 `Lite3`、`go2`、`g1`
+
+## 🔧 手动拖入资产进行调试
+
+为了增添多场景物理交互，请先在 OrcaStudio / OrcaLab 的布局中手动拖入对应 actor，再启动脚本。推荐操作如下：
+
+1. 在资产面板里搜索中文名称，例如Lite3或对应型号。
+2. 将 actor 拖入布局，并先摆好初始位置、朝向和与地形/障碍物的相对关系。
+3. 选中该 actor，打开“资产详情”，确认路径与下面的模板路径一致。
+4. 启动脚本；脚本只会扫描并绑定场景里的完整匹配实例，不再主动 `spawn` 机器人。
+
+说明：
+- `run_legged_rl.py` 会根据 `config.agent_name` 选择模板，但真实绑定对象仍以场景扫描结果为准。
+- `run_legged_sim.py` 当前只支持 `Lite3`、`go2`、`g1`，请确保拖入的 actor 与配置中的型号一致。
+- 若你的资产包版本不同，请以 UI 中“资产详情”显示的实际路径为准，但必须保证模型类型和关节后缀模板一致。
 
 ## 🚀 基本使用
 
@@ -60,16 +76,21 @@ python examples/legged_gym/run_legged_rl.py \
 
 ### 测试/运行模式
 
-使用已训练的模型进行测试或交互式运行。
+使用已训练的模型进行策略回放或交互式运行。
 
 #### 使用自己的训练模型
 
 在 `--test` / `--play` 之前，请先把目标型号机器人放到场景里，并调整好初始位置。脚本会启动后自动扫描场景中的机器人名字，再绑定对应的关节和驱动器。
 
+说明：
+- `--test`：按 checkpoint 做策略回放，不启用键盘控制。
+- `--play`：仍然使用 `run_legged_rl.py` / `LeggedGymEnv.play` 这条链路，启用场景内单机器人键盘控制。
+- 训练、测试、运行阶段的扫描结果、绑定信息和失败原因，都会打印到终端；请点击左下角**终端按钮**查看输出。
+
 训练完成后，使用训练生成的配置文件进行测试：
 
 ```bash
-# 测试模式（多智能体测试）
+# 测试模式（策略回放，无键盘控制）
 python examples/legged_gym/run_legged_rl.py \
     --config trained_models_tmp/Lite3_flat_terrain_YYYY-MM-DD_HH-MM-SS/config.json \
     --test \
@@ -95,13 +116,18 @@ python examples/legged_gym/run_legged_rl.py \
 
 ### 交互式仿真运行
 
-使用 `run_legged_sim.py` 进行交互式仿真，支持键盘控制。
+使用 `run_legged_sim.py` 进行交互式仿真，支持 `sb3` / `onnx` / `grpc` 三种推理后端。
 
 启动前要求：
 - 场景里已经摆好目标型号机器人
 - 机器人实例名不需要和配置里的 `agent_name` 一样，但 joint / actuator 后缀必须完整匹配
 - 机器人位置由用户提前摆放，脚本不会再把机器人出生到原点
 - 如果关节或驱动器没有全部匹配，脚本会打印缺失项并直接退出
+- 所有启动提示、键盘状态和报错信息都输出到终端，不再显示在场景 UI 上
+
+当前仓库中的仿真配置：
+- `configs/lite3_sim_config.yaml`：当前只保留 `sb3` 样例，并固定使用仓库内保留的 Lite3 checkpoint
+- `configs/go2_sim_config.yaml`：仍可作为 go2 模板入口
 
 ```bash
 python examples/legged_gym/run_legged_sim.py \
@@ -110,6 +136,15 @@ python examples/legged_gym/run_legged_sim.py \
 ```
 
 **键盘控制说明**：
+
+`run_legged_rl.py --play`
+- `W/S`：前进 / 后退
+- `Q/E`：左移 / 右移
+- `A/D`：左转 / 右转
+- `LShift`：加速
+- `Space`：重置
+
+`run_legged_sim.py`
 - `W/S`：前进 / 后退
 - `Q/E`：左移 / 右移
 - `A/D`：左转 / 右转（按住时持续改变目标朝向）
@@ -117,6 +152,11 @@ python examples/legged_gym/run_legged_sim.py \
 - `Space`：重置
 - `Up`：切换地形类型
 - `M`：切换模型类型
+
+`run_legged_sim.py` 还会在终端持续打印：
+- 场景扫描与模型绑定结果
+- `Keyboard command updated` 键盘命令变化
+- `Sim heartbeat` 心跳信息（当前地形、模型类型、动作范数等）
 
 ### 命令行参数说明
 
@@ -151,7 +191,6 @@ python examples/legged_gym/run_legged_sim.py \
 framework: "sb3"  # 当前仅保留 sb3
 orcagym_addresses: ["localhost:50051"]  # OrcaStudio 地址
 agent_name: "Lite3"  # 机器人模板类型
-agent_asset_path: "assets/..."  # 机器人资产路径
 training_episode: 100  # 训练回合数
 task: "flat_terrain"  # 任务类型
 
@@ -182,7 +221,7 @@ play:  # 交互式运行模式配置（运行时会用扫描结果覆盖 agent_n
 
 说明：
 - `configs/go2_sim_config.yaml` 仍可作为 `run_legged_sim.py` 的 go2 模板入口
-- `agent_asset_path` 现在只保留为兼容字段，运行时不会再用于 `spawn`
+- `agent_asset_path` 已可完全省略，当前主线配置文件中不再需要它
 - `SB3` 链路会在运行前扫描场景中的完整匹配实例，并动态决定 `agent_num`
 
 ---

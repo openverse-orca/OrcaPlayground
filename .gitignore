@@ -222,3 +222,7 @@ __marimo__/
 
 # MuJoCo log file
 MUJOCO_LOG.TXT
+
+#logs
+logs/*
+log/*

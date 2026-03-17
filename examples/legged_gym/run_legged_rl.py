@@ -70,7 +70,7 @@ def export_config(config: dict, model_dir: str):
 def process_scene(
     orcagym_addresses: list[str],
     agent_name: str,
-    agent_asset_path: str,
+    agent_asset_path: str | None,
     run_mode: str,
 ):
     if agent_asset_path:
@@ -93,7 +93,7 @@ def process_scene(
 def process_training_scene(
     orcagym_addresses: list[str],
     agent_name: str,
-    agent_asset_path: str,
+    agent_asset_path: str | None,
     agent_num: int,
     terrain_asset_paths: list[str],
     run_mode: str,
@@ -152,14 +152,11 @@ def sceneinfo(
         script_name = os.path.basename(sys.argv[0]) if sys.argv else os.path.basename(__file__)
         scene.get_rundata(script_name, stage)
         if stage == "beginscene":
-            mess = f"开始仿真程序运行，可操作鼠标键盘控制镜头观察机器人训练"
-            scene.set_ui_text(actor_name=1, message=mess, showtime=15, color="0xffff00", size=32)
+            print("开始仿真程序运行，可操作鼠标键盘控制镜头观察机器人训练")
         elif stage == "preparescene":
-            mess = f"加载模型数据中"
-            scene.set_ui_text(actor_name=1, message=mess, showtime=30, color="0xffff00", blinkfreq =5, size=32)
+            print("加载模型数据中")
         elif stage == "endscene":
-            mess = f"运行结束: {framework}-{run_mode}"
-            scene.set_ui_text(actor_name=1, message=mess, showtime=30, color="0xff0000", size=32)
+            print(f"运行结束: {framework}-{run_mode}")
         scene.set_image_enabled(1,True)
     finally:
         if toclose:
@@ -204,7 +201,7 @@ def run_sb3_ppo_rl(
         orcagym_addresses = config['orcagym_addresses']
 
     agent_name = config['agent_name']
-    agent_asset_path = config['agent_asset_path']
+    agent_asset_path = config.get('agent_asset_path')
     training_episode = config['training_episode']
     task = config['task']
 

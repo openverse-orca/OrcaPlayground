@@ -75,6 +75,7 @@ def locate_scene_robot(
         min_count=min_count,
         max_count=max_count,
         allow_empty_prefix=False,
+        orcagym_addr=orcagym_addr,
     )
 
     matched_prefixes = [match.prefix for match in complete_matches]

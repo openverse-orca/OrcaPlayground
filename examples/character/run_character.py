@@ -44,6 +44,7 @@ def resolve_character_scene_agent_name(orcagym_addr: str) -> str:
         min_count=1,
         max_count=1,
         allow_empty_prefix=False,
+        orcagym_addr=orcagym_addr,
     )[0].agent_name
 
 def register_env(orcagym_addr : str, 
@@ -81,11 +82,9 @@ def sceneinfo(
         script_name = os.path.basename(sys.argv[0]) if sys.argv else os.path.basename(__file__)
         scene.get_rundata(script_name, stage)
         if stage == "beginscene":
-            mess = f"按1切换路径点控制，按2切换键盘控制，W/A/S/D控制角色移动，"
-            scene.set_ui_text(actor_name=1, message=mess, showtime=20, color="0xffff00", size=32)
+            _logger.info("按1切换路径点控制，按2切换键盘控制，W/A/S/D控制角色移动")
         elif stage == "endscene":
-            mess = f"运行结束"
-            scene.set_ui_text(actor_name=1, message=mess, showtime=30, color="0xffff00", size=32)
+            _logger.info("运行结束")
         scene.set_image_enabled(1,True)
     finally:
         if toclose:

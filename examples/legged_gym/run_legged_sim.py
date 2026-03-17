@@ -606,7 +606,7 @@ def main(
                     if isinstance(terrain_list, list) and len(terrain_list) > 0:
                         terrain_asset_paths = [terrain_list[0]]  # 使用第一个地形
         
-        agent_asset_path = config['agent_asset_path']
+        agent_asset_path = config.get('agent_asset_path')
         
         # 获取可用的地形类型（从 model_file 中提取）
         available_terrain_types = list(model_file.get(model_type, {}).keys())

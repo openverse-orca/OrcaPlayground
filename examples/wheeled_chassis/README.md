@@ -6,11 +6,12 @@
 
 > **📦 相关资产**：https://simassets.orca3d.cn/ **OrcaPlaygroundAssets资产包**
 > 
-> **🔧 是否需要手动拖动到布局中**：**否**（脚本会自动创建场景，仿照机器狗 spawn/replicator 方式）
+> **🔧 是否需要手动拖动到布局中**：**是**
 > 
 > **📝 run_wheeled_chassis.py 对应模型**：`openloong_gripper_2f85_mobile_base_usda`
 > 
 > **📝 run_ackerman.py 对应模型**：`hummer_h2_usda`
+>
 >
 > **运行方式**：脚本会在启动前扫描场景中的 actuator / body 后缀，自动识别实际实例名
 >
@@ -118,7 +119,9 @@ env_name = "Ackerman"
 
 ## 🔧 手动拖入资产进行调试
 
-手动拖动资产的操作方式、命名建议及「资产名与 replicator 不一致」的说明见**项目根目录 [README - 手动拖动资产（调试时）](../../README.md#-手动拖动资产调试时)**。
+手动拖动资产的操作方式见**项目根目录 [README - 手动拖动资产（运行前必做）](../../README.md#-手动拖动资产运行前必做)**。
+
+为了增添多场景物理交互，请先把对应底盘 actor 拖进布局，再根据场景道路、坡道、障碍物调整其初始位置。拖入后建议打开“资产详情”确认路径，再启动脚本。
 
 **本示例修改前样例代码（手动拖入时，不调用 spawn）**：
 

@@ -1,10 +1,9 @@
 # `run_legged_sim.py` 会在运行前扫描场景中的 Lite3，并绑定完整匹配的实例。
 orcagym_addresses: ["localhost:50051"]
 agent_name: "Lite3"
-agent_asset_path: "assets/prefabs/lite3_usda"
 model_type: "sb3"
 
-# 只保留 SB3 推理路径。
+
 # 当前显式指向最新 iteration checkpoint；脚本也会优先自动选择最新 iteration。
 model_file:
   "sb3":
@@ -13,18 +12,8 @@ model_file:
 ctrl_device: "keyboard"
 # `manual`: 保留场景里手动摆放的初始位姿。
 # `training_like`: 仅用于诊断，切回更接近训练时的 reset 分布。
-player_control_reset_mode: "training_like"
+player_control_reset_mode: "manual"
 
-command_model:
-  "flat_terrain":
-    "forward_speed" : [-0.5, 0.5]      # move forward or backward
-    "left_speed" : [-0.3, 0.3]         # move left or right
-    "turbo_scale" : 3.0        # turbo mode scale
-  "rough_terrain":
-    "forward_speed" : [-0.5, 0.5]      # move forward or backward
-    "left_speed" : [-0.3, 0.3]         # move left or right
-    "turbo_scale" : 2.0        # turbo mode scale
-
-terrain_asset_paths: ["assets/prefabs/terrain_test_usda"]
+terrain_asset_paths: []
 
 friction_scale: 1.0

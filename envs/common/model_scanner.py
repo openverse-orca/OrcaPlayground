@@ -11,6 +11,52 @@ _logger = get_orca_logger()
 
 
 @dataclass(frozen=True)
+class AssetUiHint:
+    display_name: str
+    asset_search_name: str
+
+
+ASSET_UI_HINTS: dict[str, AssetUiHint] = {
+    "Lite3": AssetUiHint(
+        display_name="Lite3 四足机器人",
+        asset_search_name="lite3",
+    ),
+    "go2": AssetUiHint(
+        display_name="Go2 四足机器人",
+        asset_search_name="go2",
+    ),
+    "g1": AssetUiHint(
+        display_name="G1 人形机器人",
+        asset_search_name="g1",
+    ),
+    "G1": AssetUiHint(
+        display_name="G1 人形机器人",
+        asset_search_name="g1",
+    ),
+    "ZQSA01": AssetUiHint(
+        display_name="ZQ SA01 人形机器人",
+        asset_search_name="zq_sa01",
+    ),
+    "Character": AssetUiHint(
+        display_name="Remy 角色",
+        asset_search_name="Remy",
+    ),
+    "Ackerman": AssetUiHint(
+        display_name="阿克曼底盘",
+        asset_search_name="hummer",
+    ),
+    "WheeledChassis": AssetUiHint(
+        display_name="差速底盘",
+        asset_search_name="openloong",
+    ),
+    "XBot": AssetUiHint(
+        display_name="XBot 机器人",
+        asset_search_name="xbot",
+    ),
+}
+
+
+@dataclass(frozen=True)
 class SceneModelNames:
     bodies: set[str]
     joints: set[str]
@@ -224,12 +270,44 @@ def log_scene_scan_report(report: SceneScanReport) -> None:
             )
 
 
+def _build_ui_hint_message(
+    report: SceneScanReport,
+    *,
+    problem_message: str,
+    min_count: int,
+    max_count: int | None,
+) -> str:
+    hint = ASSET_UI_HINTS.get(report.model_name)
+    message_parts = [problem_message]
+    if hint is not None:
+        message_parts.append(
+            f"缺少资产：{hint.asset_search_name}，请在资产搜索框内搜索并拖动到布局中。"
+        )
+        message_parts.append("如果搜索不到，请检查对应资产包是否已订阅。")
+
+    if max_count == 1:
+        message_parts.append("同一布局中仅允许保留 1 台该模型。")
+    elif max_count is not None:
+        message_parts.append(f"同一布局中最多允许保留 {max_count} 台该模型。")
+    elif min_count > 1:
+        message_parts.append(f"当前布局中至少需要 {min_count} 台完整匹配实例。")
+    else:
+        message_parts.append("请确认场景中至少存在 1 台完整匹配实例。")
+
+    return " ".join(message_parts)
+
+
+def _emit_terminal_hint(message: str) -> None:
+    _logger.error(f"[场景绑定提示] {message}")
+
+
 def require_complete_matches(
     report: SceneScanReport,
     *,
     min_count: int = 1,
     max_count: int | None = None,
     allow_empty_prefix: bool = False,
+    orcagym_addr: str | None = None,
 ) -> list[InstanceMatch]:
     log_scene_scan_report(report)
 
@@ -240,32 +318,81 @@ def require_complete_matches(
             for category, missing_suffixes in first_partial.missing_suffixes.items():
                 if missing_suffixes:
                     detail.append(f"{category} 缺失 {missing_suffixes[:8]}")
-            raise ValueError(
+            error_message = (
                 f"当前模型 {report.model_name} 未完全匹配，{' ; '.join(detail)}，正在退出运行。"
             )
+            _emit_terminal_hint(
+                _build_ui_hint_message(
+                    report,
+                    problem_message=f"{report.model_name} 关节或驱动器不匹配。",
+                    min_count=min_count,
+                    max_count=max_count,
+                ),
+            )
+            raise ValueError(error_message)
 
-        raise ValueError(f"找不到对应的机器人型号：{report.model_name}，正在退出运行。")
+        error_message = f"找不到对应的机器人型号：{report.model_name}，正在退出运行。"
+        _emit_terminal_hint(
+            _build_ui_hint_message(
+                report,
+                problem_message=f"当前布局中未找到 {report.model_name} 的完整匹配实例。",
+                min_count=min_count,
+                max_count=max_count,
+            ),
+        )
+        raise ValueError(error_message)
 
     if len(report.complete_matches) < min_count:
-        raise ValueError(
+        error_message = (
             f"当前模型 {report.model_name} 完整匹配数量不足，"
             f"需要至少 {min_count} 台，实际找到 {len(report.complete_matches)} 台，正在退出运行。"
         )
+        _emit_terminal_hint(
+            _build_ui_hint_message(
+                report,
+                problem_message=(
+                    f"{report.model_name} 数量不足，当前只找到 {len(report.complete_matches)} 台。"
+                ),
+                min_count=min_count,
+                max_count=max_count,
+            ),
+        )
+        raise ValueError(error_message)
 
     if max_count is not None and len(report.complete_matches) > max_count:
-        raise ValueError(
+        error_message = (
             f"当前模型 {report.model_name} 完整匹配数量过多，"
             f"允许最多 {max_count} 台，实际找到 {len(report.complete_matches)} 台："
             f"{[match.agent_name for match in report.complete_matches]}，正在退出运行。"
         )
+        _emit_terminal_hint(
+            _build_ui_hint_message(
+                report,
+                problem_message=(
+                    f"{report.model_name} 数量过多，当前布局中找到 {len(report.complete_matches)} 台。"
+                ),
+                min_count=min_count,
+                max_count=max_count,
+            ),
+        )
+        raise ValueError(error_message)
 
     if not allow_empty_prefix:
         unnamed_matches = [match for match in report.complete_matches if not match.prefix]
         if unnamed_matches:
-            raise ValueError(
+            error_message = (
                 f"当前模型 {report.model_name} 检测到未命名空间化实例，"
                 "脚本无法将其映射到运行时 agent_names，正在退出运行。"
             )
+            _emit_terminal_hint(
+                _build_ui_hint_message(
+                    report,
+                    problem_message=f"{report.model_name} 实例名称异常，无法绑定到运行时 agent。",
+                    min_count=min_count,
+                    max_count=max_count,
+                ),
+            )
+            raise ValueError(error_message)
 
     return report.complete_matches
 

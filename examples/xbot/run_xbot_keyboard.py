@@ -50,6 +50,7 @@ def resolve_xbot_scene_binding(orcagym_addr: str, time_step: float) -> tuple[str
         min_count=1,
         max_count=1,
         allow_empty_prefix=False,
+        orcagym_addr=orcagym_addr,
     )[0]
     return match.agent_name, {
         "joint_names": ordered_match_names(match, "joints", XBOT_JOINT_SUFFIXES),
