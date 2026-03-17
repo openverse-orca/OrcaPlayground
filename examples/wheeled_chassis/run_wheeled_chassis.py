@@ -9,6 +9,11 @@ import os
 from datetime import datetime
 from typing import Optional
 
+from envs.common.model_scanner import (
+    build_suffix_template,
+    require_complete_matches,
+    scan_scene_for_template,
+)
 from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()
 
@@ -50,6 +55,26 @@ TIME_STEP = 0.001
 FRAME_SKIP = 20
 REALTIME_STEP = TIME_STEP * FRAME_SKIP
 CONTROL_FREQ = 1 / REALTIME_STEP
+WHEELED_CHASSIS_ACTUATORS = ["M_wheel_r", "M_wheel_l"]
+
+
+def resolve_wheeled_scene_agent_name(orcagym_addr: str) -> str:
+    template = build_suffix_template(
+        model_name="WheeledChassis",
+        actuators=WHEELED_CHASSIS_ACTUATORS,
+        bodies=["base_link"],
+    )
+    report = scan_scene_for_template(
+        orcagym_addr=orcagym_addr,
+        time_step=TIME_STEP,
+        template=template,
+    )
+    return require_complete_matches(
+        report,
+        min_count=1,
+        max_count=1,
+        allow_empty_prefix=False,
+    )[0].agent_name
 
 def sceneinfo(
     scene,
@@ -79,11 +104,10 @@ def sceneinfo(
 def register_env(orcagym_addr : str, 
                  env_name : str, 
                  env_index : int, 
-                 agent_name : str, 
+                 agent_names : list[str], 
                  max_episode_steps : int) -> tuple[ str, dict ]:
     orcagym_addr_str = orcagym_addr.replace(":", "-")
     env_id = env_name + "-OrcaGym-" + orcagym_addr_str + f"-{env_index:03d}"
-    agent_names = [f"{agent_name}"]
     kwargs = {'frame_skip': FRAME_SKIP,   
                 'orcagym_addr': orcagym_addr, 
                 'agent_names': agent_names, 
@@ -106,15 +130,16 @@ def run_simulation(orcagym_addr : str,
     env = None  # Initialize env to None
     try:
         _logger.info(f"simulation running... , orcagym_addr:  {orcagym_addr}")
-        sceneinfo(None, "loadscene", orcagym_addr)
-        # 通过 spawn（replicator）自动创建场景，无需手动拖拽
-        publish_wheeled_chassis_scene(orcagym_addr, agent_name, WHEELED_CHASSIS_AGENT_ASSET_PATH)
+        if agent_name:
+            _logger.info("agent_name 参数仅作兼容保留；运行时会自动扫描场景中的实际底盘实例名。")
 
+        resolved_agent_name = resolve_wheeled_scene_agent_name(orcagym_addr)
+        _logger.info(f"检测到场景中的 WheeledChassis 实例: {resolved_agent_name}")
         env_index = 0
         env_id, kwargs = register_env(orcagym_addr, 
                                       env_name, 
                                       env_index, 
-                                      agent_name, 
+                                      [resolved_agent_name], 
                                       sys.maxsize)
         _logger.info(f"Registered environment:  {env_id}")
 

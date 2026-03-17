@@ -6,8 +6,6 @@ ZQ SA01 人形机器人运行脚本
 from datetime import datetime
 import time
 from orca_gym.scene.orca_gym_scene_runtime import OrcaGymSceneRuntime
-from orca_gym.scene.orca_gym_scene import OrcaGymScene, Actor
-from orca_gym.utils.rotations import euler2quat
 import numpy as np
 import gymnasium as gym
 import sys
@@ -15,9 +13,11 @@ import os
 from typing import Optional
 from collections import deque
 
-ZQSA01_AGENT_ASSET_PATH = "assets/e071469a36d3c8aa/default_project/prefabs/zq_sa01_usda"
-
-
+from envs.common.model_scanner import (
+    build_suffix_template,
+    require_complete_matches,
+    scan_scene_for_template,
+)
 
 try:
     import onnxruntime as ort
@@ -40,6 +40,31 @@ FRAME_SKIP = 10
 REAL_TIME = TIME_STEP * FRAME_SKIP
 REALTIME_STEP = TIME_STEP * FRAME_SKIP
 CONTROL_FREQ = 1 / REALTIME_STEP
+ZQ_JOINT_SUFFIXES = [
+    'leg_l1_joint', 'leg_l2_joint', 'leg_l3_joint',
+    'leg_l4_joint', 'leg_l5_joint', 'leg_l6_joint',
+    'leg_r1_joint', 'leg_r2_joint', 'leg_r3_joint',
+    'leg_r4_joint', 'leg_r5_joint', 'leg_r6_joint'
+]
+
+
+def resolve_zq_scene_agent_name(orcagym_addr: str) -> str:
+    template = build_suffix_template(
+        model_name="ZQSA01",
+        joints=ZQ_JOINT_SUFFIXES,
+        actuators=ZQ_JOINT_SUFFIXES,
+    )
+    report = scan_scene_for_template(
+        orcagym_addr=orcagym_addr,
+        time_step=TIME_STEP,
+        template=template,
+    )
+    return require_complete_matches(
+        report,
+        min_count=1,
+        max_count=1,
+        allow_empty_prefix=False,
+    )[0].agent_name
 
 
 
@@ -47,14 +72,12 @@ def register_env(
     orcagym_addr: str,
     env_name: str,
     env_index: int,
-    agent_name: str,
+    agent_names: list[str],
     max_episode_steps: int
 ) -> tuple[str, dict]:
     """注册环境到 gymnasium"""
     orcagym_addr_str = orcagym_addr.replace(":", "-")
     env_id = env_name + "-OrcaGym-" + orcagym_addr_str + f"-{env_index:03d}"
-    agent_names = [f"{agent_name}"]
-    
     kwargs = {
         'frame_skip': FRAME_SKIP,
         'orcagym_addr': orcagym_addr,
@@ -71,33 +94,6 @@ def register_env(
     )
     
     return env_id, kwargs
-
-
-def publish_zqsa01_scene(orcagym_addr: str, agent_name: str) -> None:
-    """通过 spawn（replicator）自动创建场景，无需手动拖拽。"""
-    _logger.info("=============> 发布 ZQ SA01 场景 (spawn)...")
-    temp_scene = OrcaGymScene(orcagym_addr)
-    temp_scene.publish_scene()
-    time.sleep(1)
-    temp_scene.close()
-    time.sleep(1)
-    scene = OrcaGymScene(orcagym_addr)
-    agent_path = ZQSA01_AGENT_ASSET_PATH.replace("//", "/")
-    agent = Actor(
-        name=agent_name,
-        asset_path=agent_path,
-        position=[0, 0, 0],
-        rotation=euler2quat([0, 0, 0]),
-        scale=1.0,
-    )
-    scene.add_actor(agent)
-    _logger.info(f"    =============> Add agent {agent_name} with path {agent_path} ...")
-    scene.publish_scene()
-    time.sleep(3)
-    scene.close()
-    time.sleep(1)
-    _logger.info("=============> 发布 ZQ SA01 场景完成.")
-
 
 def sceneinfo(
     scene,
@@ -184,19 +180,20 @@ def run_simulation(
     
     try:
         _logger.info(f"开始仿真... OrcaGym地址: {orcagym_addr}")
-        
-        # 通过 spawn（replicator）自动创建场景，无需手动拖拽
         sceneinfo(None, "loadscenemodel", orcagym_addr)
-        publish_zqsa01_scene(orcagym_addr, agent_name)
-       # sceneinfo(None, "loadscene", orcagym_addr)
+        if agent_name:
+            _logger.info("agent_name 参数仅作兼容保留；运行时会自动扫描场景中的实际机器人实例名。")
 
         # 注册并创建环境
         env_index = 0
+        resolved_agent_name = resolve_zq_scene_agent_name(orcagym_addr)
+        _logger.info(f"检测到场景中的 ZQSA01 实例: {resolved_agent_name}")
+
         env_id, kwargs = register_env(
             orcagym_addr,
             env_name,
             env_index,
-            agent_name,
+            [resolved_agent_name],
             sys.maxsize
         )
         

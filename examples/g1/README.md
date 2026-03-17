@@ -4,18 +4,26 @@
 ## ⚠️ 资产准备
 
 - **资产**：位于 **OrcaPlaygroundAssets**，导入后预制体为 `g1_29dof_old_usda`（源文件在 `robots/g1/`）。策略 ONNX 与运行配置仍从本示例目录加载。
-- **是否需要手动拖动到布局中**：**否**（脚本会通过 spawn/replicator 自动创建场景）。
+- **是否需要手动拖动到布局中**：**是**，运行前需要先把 G1 摆进场景。
 
 ## 🔧 手动拖入资产进行调试
 
 手动拖动资产的操作方式与命名建议见**项目根目录 [README - 手动拖动资产（调试时）](../../README.md#-手动拖动资产调试时)**。
 
-**本示例修改前样例代码（手动拖入时，不调用 spawn）**：
+脚本启动时会扫描场景中的关节、执行器和传感器后缀，自动识别完整匹配的 G1 实例；如果匹配不完整或场景里不是目标型号，会直接报错退出。
+
+## 运行前准备
+
+- 场景中需要且只能有 1 台完整匹配的 G1
+- 机器人实例名不需要固定，脚本会自动绑定真实名称
+- `agent_name` 现在仅作兼容保留，不再决定实际绑定对象
+
+**运行前后的核心逻辑**：
 
 ```python
-# 不调用 publish_g1_scene(...)，依赖场景中已存在对应名称的 actor
-agent_name = "g1"
-env_id, kwargs = register_env(orcagym_addr, env_name, 0, agent_name, sys.maxsize)
+# 不再调用 publish_g1_scene(...)，依赖场景中已存在对应名称的 actor
+resolved_agent_name = resolve_g1_scene_agent_name(orcagym_addr)
+env_id, kwargs = register_env(orcagym_addr, env_name, 0, [resolved_agent_name], sys.maxsize)
 env = gym.make(env_id)
 ```
 

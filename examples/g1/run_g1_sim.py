@@ -17,16 +17,17 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from orca_gym.scene.orca_gym_scene import OrcaGymScene, Actor
-from orca_gym.utils.rotations import euler2quat
+from envs.common.model_scanner import (
+    build_suffix_template,
+    require_complete_matches,
+    scan_scene_for_template,
+)
 
 try:
     import onnxruntime as ort
     ONNX_AVAILABLE = True
 except ImportError:
     ONNX_AVAILABLE = False
-
-G1_AGENT_ASSET_PATH = "assets/e071469a36d3c8aa/default_project/prefabs/g1_29dof_old_usda"
 
 
 from envs.g1.rl_policy.deepmimic_dec_loco_height import MotionTrackingDecLocoHeightPolicy
@@ -48,6 +49,73 @@ FRAME_SKIP = 20
 REAL_TIME = TIME_STEP * FRAME_SKIP
 REALTIME_STEP = TIME_STEP * FRAME_SKIP
 CONTROL_FREQ = 1 / REALTIME_STEP
+G1_JOINT_SUFFIXES = [
+    "left_hip_pitch_joint",
+    "left_hip_roll_joint",
+    "left_hip_yaw_joint",
+    "left_knee_joint",
+    "left_ankle_pitch_joint",
+    "left_ankle_roll_joint",
+    "right_hip_pitch_joint",
+    "right_hip_roll_joint",
+    "right_hip_yaw_joint",
+    "right_knee_joint",
+    "right_ankle_pitch_joint",
+    "right_ankle_roll_joint",
+    "waist_yaw_joint",
+    "waist_roll_joint",
+    "waist_pitch_joint",
+    "left_shoulder_pitch_joint",
+    "left_shoulder_roll_joint",
+    "left_shoulder_yaw_joint",
+    "left_elbow_joint",
+    "left_wrist_roll_joint",
+    "left_wrist_pitch_joint",
+    "left_wrist_yaw_joint",
+    "right_shoulder_pitch_joint",
+    "right_shoulder_roll_joint",
+    "right_shoulder_yaw_joint",
+    "right_elbow_joint",
+    "right_wrist_roll_joint",
+    "right_wrist_pitch_joint",
+    "right_wrist_yaw_joint",
+    "floating_base_joint",
+]
+G1_ACTUATOR_SUFFIXES = [
+    "left_hip_pitch",
+    "left_hip_roll",
+    "left_hip_yaw",
+    "left_knee",
+    "left_ankle_pitch",
+    "left_ankle_roll",
+    "right_hip_pitch",
+    "right_hip_roll",
+    "right_hip_yaw",
+    "right_knee",
+    "right_ankle_pitch",
+    "right_ankle_roll",
+    "waist_yaw",
+    "waist_roll",
+    "waist_pitch",
+    "left_shoulder_pitch",
+    "left_shoulder_roll",
+    "left_shoulder_yaw",
+    "left_elbow",
+    "left_wrist_roll",
+    "left_wrist_pitch",
+    "left_wrist_yaw",
+    "right_shoulder_pitch",
+    "right_shoulder_roll",
+    "right_shoulder_yaw",
+    "right_elbow",
+    "right_wrist_roll",
+    "right_wrist_pitch",
+    "right_wrist_yaw",
+]
+G1_SENSOR_SUFFIXES = [
+    "imu_quat",
+    "imu_gyro",
+]
 
 
 def sceneinfo(
@@ -78,13 +146,12 @@ def register_env(
     orcagym_addr: str,
     env_name: str,
     env_index: int,
-    agent_name: str,
+    agent_names: list[str],
     max_episode_steps: int
 ) -> tuple[str, dict]:
     """注册环境到 gymnasium"""
     orcagym_addr_str = orcagym_addr.replace(":", "-")
     env_id = env_name + "-OrcaGym-" + orcagym_addr_str + f"-{env_index:03d}"
-    agent_names = [f"{agent_name}"]
     
     kwargs = {
         'frame_skip': FRAME_SKIP,
@@ -104,30 +171,24 @@ def register_env(
     return env_id, kwargs
 
 
-def publish_g1_scene(orcagym_addr: str, agent_name: str) -> None:
-    """通过 spawn（replicator）自动创建场景，无需手动拖拽。"""
-    _logger.info("=============> 发布 G1 场景 (spawn)...")
-    temp_scene = OrcaGymScene(orcagym_addr)
-    temp_scene.publish_scene()
-    time.sleep(1)
-    temp_scene.close()
-    time.sleep(1)
-    scene = OrcaGymScene(orcagym_addr)
-    agent_path = G1_AGENT_ASSET_PATH.replace("//", "/")
-    agent = Actor(
-        name=agent_name,
-        asset_path=agent_path,
-        position=[0, 0, 0],
-        rotation=euler2quat([0, 0, 0]),
-        scale=1.0,
+def resolve_g1_scene_agent_name(orcagym_addr: str) -> str:
+    template = build_suffix_template(
+        model_name="G1",
+        joints=G1_JOINT_SUFFIXES,
+        actuators=G1_ACTUATOR_SUFFIXES,
+        sensors=G1_SENSOR_SUFFIXES,
     )
-    scene.add_actor(agent)
-    _logger.info(f"    =============> Add agent {agent_name} with path {agent_path} ...")
-    scene.publish_scene()
-    time.sleep(3)
-    scene.close()
-    time.sleep(1)
-    _logger.info("=============> 发布 G1 场景完成.")
+    report = scan_scene_for_template(
+        orcagym_addr=orcagym_addr,
+        time_step=TIME_STEP,
+        template=template,
+    )
+    return require_complete_matches(
+        report,
+        min_count=1,
+        max_count=1,
+        allow_empty_prefix=False,
+    )[0].agent_name
 
 
 def policy_thread_func(config, loco_model_path, mimic_model_path, share_state):
@@ -156,16 +217,18 @@ def run_simulation(
     try:
         _logger.info(f"开始仿真... OrcaGym地址: {orcagym_addr}")
         sceneinfo(None, "loadscene", orcagym_addr)
-        # 通过 spawn（replicator）自动创建场景，无需手动拖拽
-        publish_g1_scene(orcagym_addr, agent_name)
+        if agent_name:
+            _logger.info("agent_name 参数仅作兼容保留；运行时会自动扫描场景中的实际机器人实例名。")
         
         # 注册并创建环境
         env_index = 0
+        resolved_agent_name = resolve_g1_scene_agent_name(orcagym_addr)
+        _logger.info(f"检测到场景中的 G1 实例: {resolved_agent_name}")
         env_id, kwargs = register_env(
             orcagym_addr,
             env_name,
             env_index,
-            agent_name,
+            [resolved_agent_name],
             sys.maxsize
         )
         

@@ -147,6 +147,12 @@ class LeggedRobot(OrcaGymAsyncAgent):
         else:
             self._is_playable = False
         self._player_control = False
+        self._player_control_reset_mode = robot_config.get("player_control_reset_mode", "manual")
+        if self._player_control_reset_mode not in {"manual", "training_like"}:
+            raise ValueError(
+                "player_control_reset_mode must be 'manual' or 'training_like', "
+                f"got {self._player_control_reset_mode!r}"
+            )
 
         self._compute_body_height = robot_config["compute_body_height"]
         self._observe_body_height = robot_config["observe_body_height"]
@@ -378,14 +384,24 @@ class LeggedRobot(OrcaGymAsyncAgent):
         else:
             level_offset = np.zeros(3)
             
-        # Randomize the initial position x,y offset
-        pos_noise = self._np_random.uniform(-self._pos_random_range, self._pos_random_range, 3)
-        pos_noise[2] = 0.0
-        pos_offset = pos_noise + level_offset
+        use_manual_player_reset = (
+            self.player_control and self._player_control_reset_mode == "manual"
+        )
 
-        # Rotate the base body around the Z axis
-        z_rotation_angle = self._np_random.uniform(-np.pi, np.pi)
-        z_rotation_quat = rotations.euler2quat([0, 0, z_rotation_angle])
+        if use_manual_player_reset:
+            # 在 run_legged_sim 的手动摆放模式下，保留场景中的初始位置和朝向。
+            pos_offset = np.zeros(3)
+            z_rotation_angle = 0.0
+            z_rotation_quat = rotations.euler2quat([0, 0, 0])
+        else:
+            # Randomize the initial position x,y offset
+            pos_noise = self._np_random.uniform(-self._pos_random_range, self._pos_random_range, 3)
+            pos_noise[2] = 0.0
+            pos_offset = pos_noise + level_offset
+
+            # Rotate the base body around the Z axis
+            z_rotation_angle = self._np_random.uniform(-np.pi, np.pi)
+            z_rotation_quat = rotations.euler2quat([0, 0, z_rotation_angle])
 
         # Get cached default joint values
         joint_neutral_qpos = self.get_joint_neutral()
@@ -413,7 +429,14 @@ class LeggedRobot(OrcaGymAsyncAgent):
             self._move_way_points.clear()
             self._move_way_points.append(self._base_neutral_qpos[self._base_joint_name][:3])
 
-        self._command = self._genarate_command(z_rotation_angle)
+        if self.player_control:
+            self._command = {
+                "lin_vel": np.zeros(3),
+                "ang_vel": 0.0,
+                "heading_angle": 0.0,
+            }
+        else:
+            self._command = self._genarate_command(z_rotation_angle)
         self._command_values = np.concatenate([self._command["lin_vel"], [self._command["ang_vel"]]]).flatten()
         self._command_resample_duration = 0
         # print("Command: ", self._command)

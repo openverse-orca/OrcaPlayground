@@ -1,34 +1,28 @@
+# `run_legged_sim.py` 会在运行前扫描场景中的 Lite3，并绑定完整匹配的实例。
 orcagym_addresses: ["localhost:50051"]
 agent_name: "Lite3"
 agent_asset_path: "assets/prefabs/lite3_usda"
 model_type: "sb3"
 
-model_file: 
+# 只保留 SB3 推理路径。
+# 当前显式指向最新 iteration checkpoint；脚本也会优先自动选择最新 iteration。
+model_file:
   "sb3":
-    "flat_terrain": "test/Lite3_flat_terrain.zip"
-    "rough_terrain": "test/Lite3_rough_terrain.zip"
-  "onnx":
-    "flat_terrain": "test/Lite3_flat_terrain.onnx"
-    "rough_terrain": "test/Lite3_rough_terrain.onnx"
-  "grpc":
-    "flat_terrain": "localhost:50151"  # 远程服务器地址
-    "rough_terrain": "localhost:50151"
-  "rllib":
-    "flat_terrain": "test/checkpoint_Lite3_flat_terrain"
-    "rough_terrain": "test/checkpoint_Lite3_rough_terrain"
+    "flat_terrain": "trained_models_tmp/Lite3_flat_terrain_2026-03-16_16-01-39/Lite3_flat_terrain.zip_iteration_300.zip"
 
 ctrl_device: "keyboard"
+# `manual`: 保留场景里手动摆放的初始位姿。
+# `training_like`: 仅用于诊断，切回更接近训练时的 reset 分布。
+player_control_reset_mode: "training_like"
 
 command_model:
   "flat_terrain":
     "forward_speed" : [-0.5, 0.5]      # move forward or backward
     "left_speed" : [-0.3, 0.3]         # move left or right
-    "turn_speed" : 0.7853975   # pi / 4
     "turbo_scale" : 3.0        # turbo mode scale
   "rough_terrain":
     "forward_speed" : [-0.5, 0.5]      # move forward or backward
     "left_speed" : [-0.3, 0.3]         # move left or right
-    "turn_speed" : 0.7853975   # pi / 4
     "turbo_scale" : 2.0        # turbo mode scale
 
 terrain_asset_paths: ["assets/prefabs/terrain_test_usda"]

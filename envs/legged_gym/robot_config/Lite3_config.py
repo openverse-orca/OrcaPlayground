@@ -185,7 +185,7 @@ Lite3Config = {
         "push_robots" :             True,
         "push_interval_s" :         15,
         "max_push_vel_xy" :         1.0,
-        "pos_random_range" :        0.5,    # randomize the x,y position of the robot in each episode
+        "pos_random_range" :        0.1,    # reduce x/y spawn randomization to avoid over-high resets on uneven ground
         
         # Config for ccurriculum learning
         "curriculum_learning" :     True,

@@ -202,9 +202,18 @@ cython_debug/
 .cursorindexingignore
 
 # legged_gym 训练产物
-ppo_tensorboard/
-reward_history/
-trained_models_tmp/
+ppo_tensorboard/*
+!ppo_tensorboard/.gitignore
+
+reward_history/*
+!reward_history/.gitignore
+
+trained_models_tmp/*
+!trained_models_tmp/.gitignore
+!trained_models_tmp/Lite3_flat_terrain_2026-03-16_16-01-39/
+trained_models_tmp/Lite3_flat_terrain_2026-03-16_16-01-39/*
+!trained_models_tmp/Lite3_flat_terrain_2026-03-16_16-01-39/.gitignore
+!trained_models_tmp/Lite3_flat_terrain_2026-03-16_16-01-39/Lite3_flat_terrain.zip_iteration_300.zip
 
 # Marimo
 marimo/_static/

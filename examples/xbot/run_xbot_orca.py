@@ -13,8 +13,12 @@ import argparse
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 
 from envs.xbot_gym.xbot_simple_env import XBotSimpleEnv
-from orca_gym.scene.orca_gym_scene import OrcaGymScene, Actor
-from orca_gym.utils.rotations import euler2quat
+from envs.common.model_scanner import (
+    build_suffix_template,
+    ordered_match_names,
+    require_complete_matches,
+    scan_scene_for_template,
+)
 import torch
 import numpy as np
 import math
@@ -22,34 +26,37 @@ import math
 from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()
 
-# XBot 场景 spawn 用资产路径（与机器狗方式一致，脚本自动创建场景）
-XBOT_AGENT_ASSET_PATH = "assets/e071469a36d3c8aa/default_project/prefabs/xbot_usda"
+XBOT_JOINT_SUFFIXES = [
+    "left_leg_roll_joint", "left_leg_yaw_joint", "left_leg_pitch_joint",
+    "left_knee_joint", "left_ankle_pitch_joint", "left_ankle_roll_joint",
+    "right_leg_roll_joint", "right_leg_yaw_joint", "right_leg_pitch_joint",
+    "right_knee_joint", "right_ankle_pitch_joint", "right_ankle_roll_joint",
+]
 
 
-
-def publish_xbot_scene(orcagym_addr: str) -> None:
-    """仿照机器狗方式，通过 spawn（replicator）自动创建场景，无需手动拖拽到布局。"""
-    _logger.info("=============> 发布 XBot 场景 (spawn)...")
-    temp_scene = OrcaGymScene(orcagym_addr)
-    temp_scene.publish_scene()
-    time.sleep(1)
-    temp_scene.close()
-    time.sleep(1)
-    scene = OrcaGymScene(orcagym_addr)
-    agent = Actor(
-        name="XBot-L",
-        asset_path=XBOT_AGENT_ASSET_PATH.replace("//", "/"),
-        position=[0, 0, 0],
-        rotation=euler2quat([0, 0, 0]),
-        scale=1.0,
+def resolve_xbot_scene_binding(orcagym_addr: str, time_step: float) -> tuple[str, dict]:
+    template = build_suffix_template(
+        model_name="XBot",
+        joints=XBOT_JOINT_SUFFIXES,
+        actuators=XBOT_JOINT_SUFFIXES,
+        bodies=["base_link"],
     )
-    scene.add_actor(agent)
-    _logger.info(f"    =============> Add agent XBot-L with path {XBOT_AGENT_ASSET_PATH} ...")
-    scene.publish_scene()
-    time.sleep(3)
-    scene.close()
-    time.sleep(1)
-    _logger.info("=============> 发布 XBot 场景完成.")
+    report = scan_scene_for_template(
+        orcagym_addr=orcagym_addr,
+        time_step=time_step,
+        template=template,
+    )
+    match = require_complete_matches(
+        report,
+        min_count=1,
+        max_count=1,
+        allow_empty_prefix=False,
+    )[0]
+    return match.agent_name, {
+        "joint_names": ordered_match_names(match, "joints", XBOT_JOINT_SUFFIXES),
+        "actuator_names": ordered_match_names(match, "actuators", XBOT_JOINT_SUFFIXES),
+        "base_body_name": match.matched_names.get("bodies", {}).get("base_link"),
+    }
 
 
 def print_detailed_diagnostics(step, obs, action, env):
@@ -191,7 +198,7 @@ def main(device: str = "cpu"):
     config = {
         "frame_skip": 10,              # 单次物理步
         "orcagym_addr": "localhost:50051",
-        "agent_names": ["XBot-L"],
+        "agent_names": [],
         "time_step": 0.001,           # ⚠️ 1ms物理步长
         "max_episode_steps": 10000,
         "render_mode": "human",       # 可视化
@@ -220,10 +227,13 @@ def main(device: str = "cpu"):
     _logger.info(f"  - vy: {CMD_VY} m/s")
     _logger.info(f"  - dyaw: {CMD_DYAW} rad/s")
     
-    # 通过 spawn（replicator）自动创建场景，无需手动拖拽
-    sceneinfo(None, "loadscene", config["orcagym_addr"])
-    publish_xbot_scene(config["orcagym_addr"])
-    
+    resolved_agent_name, scene_binding = resolve_xbot_scene_binding(
+        orcagym_addr=config["orcagym_addr"],
+        time_step=config["time_step"],
+    )
+    config["agent_names"] = [resolved_agent_name]
+    config["scene_binding"] = scene_binding
+    _logger.info(f"\n🔎 扫描到场景中的 XBot 实例: {resolved_agent_name}")
     # 创建环境
     _logger.info("\n📦 创建环境...")
     env = XBotSimpleEnv(**config)
