@@ -1,5 +1,6 @@
 import numpy as np
 from typing import Optional
+from gymnasium import spaces
 from orca_gym.environment.orca_gym_local_env import OrcaGymLocalEnv
 
 
@@ -41,7 +42,13 @@ class ActorsEnv(OrcaGymLocalEnv):
         self.observation_space = self.generate_observation_space(self._get_obs().copy())
 
     def _set_action_space(self):
-        self.action_space = self.generate_action_space(np.ones(self.nu, dtype=np.float32))
+        # Replicator 示例不依赖外部动作控制，使用固定 Box 以兼容场景中出现的额外 actuator。
+        self.action_space = spaces.Box(
+            low=-1.0,
+            high=1.0,
+            shape=(max(1, self.nu),),
+            dtype=np.float32,
+        )
 
     
     def render_callback(self, mode='human') -> None:

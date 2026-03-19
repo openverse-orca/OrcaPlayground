@@ -11,6 +11,11 @@
 > **📝 run_wheeled_chassis.py 对应模型**：`openloong_gripper_2f85_mobile_base_usda`
 > 
 > **📝 run_ackerman.py 对应模型**：`hummer_h2_usda`
+>
+>
+> **运行方式**：脚本会在启动前扫描场景中的 actuator / body 后缀，自动识别实际实例名
+>
+> **失败行为**：如果找不到完整匹配的底盘，或找到多台完整匹配实例，会直接退出
 ## 🚀 基本使用
 
 ### 方式 1：使用 OrcaLab 启动（推荐）
@@ -35,7 +40,7 @@ description = "启动轮式底盘仿真"
 从项目根目录运行：
 
 ```bash
-# 使用默认参数（localhost:50051, agent_name=openloong_gripper_2f85_mobile_base_usda_1）
+# 使用默认参数（脚本会自动扫描场景中的实际实例名）
 python examples/wheeled_chassis/run_wheeled_chassis.py
 
 # 或使用模块方式
@@ -44,7 +49,6 @@ python -m examples.wheeled_chassis.run_wheeled_chassis
 # 带参数运行
 python examples/wheeled_chassis/run_wheeled_chassis.py \
     --orcagym_addr localhost:50051 \
-    --agent_name openloong_gripper_2f85_mobile_base_usda_1 \
     --env_name WheeledChassis
 ```
 
@@ -53,7 +57,6 @@ python examples/wheeled_chassis/run_wheeled_chassis.py \
 `run_wheeled_chassis.py` 参数：
 
 - `--orcagym_addr`：OrcaStudio 远程地址（可选，默认：`localhost:50051`）
-- `--agent_name`：机器人名称（可选，默认：`openloong_gripper_2f85_mobile_base_usda_1`）
 - `--env_name`：环境名称（可选，默认：`WheeledChassis`）
 
 ## 📋 支持的底盘类型
@@ -67,7 +70,7 @@ python examples/wheeled_chassis/run_wheeled_chassis.py \
 - 通过左右轮速度差实现转向
 - 适用于移动机器人、AGV 等
 
-**默认机器人**：`openloong_gripper_2f85_mobile_base_usda_1`
+**识别方式**：根据 `M_wheel_r` / `M_wheel_l` 和 `base_link` 后缀自动匹配
 
 ### 2. Ackerman（阿克曼转向底盘）
 
@@ -78,7 +81,7 @@ python examples/wheeled_chassis/run_wheeled_chassis.py \
 - 符合汽车转向原理
 - 适用于车辆仿真
 
-**默认机器人**：`hummer_h2_usda_1`
+**识别方式**：根据轮、弹簧、转向 actuator 和 `base_link` 后缀自动匹配
 
 **注意**：`run_ackerman.py` 目前使用硬编码参数，如需修改请直接编辑文件中的参数：
 
@@ -110,8 +113,29 @@ env_name = "Ackerman"
 
 1. **确保 OrcaStudio 正在运行**：默认地址为 `localhost:50051`
 2. **在场景中添加机器人**：确保场景中存在对应的机器人预制体
-3. **修改机器人名称**：如果场景中的机器人名称与默认值不同，请使用 `--agent_name` 参数指定
-4. **键盘控制**：环境支持键盘输入控制（通过 OrcaStudio）
+3. **不需要手动传实例名**：`--agent_name` 仅作兼容保留，脚本会自动扫描场景里的完整匹配实例
+4. **匹配不全直接退出**：如果 actuator 或 body 后缀没有全部对应上，脚本会打印诊断并退出
+5. **键盘控制**：环境支持键盘输入控制（通过 OrcaStudio）
+
+## 🔧 手动拖入资产进行调试
+
+手动拖动资产的操作方式见**项目根目录 [README - 手动拖动资产（运行前必做）](../../README.md#-手动拖动资产运行前必做)**。
+
+为了增添多场景物理交互，请先把对应底盘 actor 拖进布局，再根据场景道路、坡道、障碍物调整其初始位置。拖入后建议打开“资产详情”确认路径，再启动脚本。
+
+**本示例修改前样例代码（手动拖入时，不调用 spawn）**：
+
+```python
+# 不调用 publish_ackerman_scene(...)，依赖场景中已存在对应名称的 actor
+orcagym_addr = "localhost:50051"
+agent_name = "hummer_h2_usda_1"   # 与大纲中的英文资产名一致；若拖入后为其他名称，请自行修改资产名或此处
+env_name = "Ackerman"
+# run_simulation 内不要调用 publish_ackerman_scene(orcagym_addr, agent_name)
+env_id, kwargs = register_env(orcagym_addr, env_name, 0, agent_name, sys.maxsize)
+env = gym.make(env_id)
+```
+
+差速底盘同理：若不调用 `publish_wheeled_chassis_scene(...)`，需保证场景中已有名为 `agent_name`（默认 `openloong_gripper_2f85_mobile_base_usda_1`）的机器人。
 
 ## 🔍 代码结构
 

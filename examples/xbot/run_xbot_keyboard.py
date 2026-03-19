@@ -10,6 +10,12 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 
 from envs.xbot_gym.xbot_simple_env import XBotSimpleEnv
+from envs.common.model_scanner import (
+    build_suffix_template,
+    ordered_match_names,
+    require_complete_matches,
+    scan_scene_for_template,
+)
 from orca_gym.devices.keyboard import KeyboardInput, KeyboardInputSourceType
 import torch
 import numpy as np
@@ -18,6 +24,39 @@ import time
 
 from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()
+
+XBOT_JOINT_SUFFIXES = [
+    "left_leg_roll_joint", "left_leg_yaw_joint", "left_leg_pitch_joint",
+    "left_knee_joint", "left_ankle_pitch_joint", "left_ankle_roll_joint",
+    "right_leg_roll_joint", "right_leg_yaw_joint", "right_leg_pitch_joint",
+    "right_knee_joint", "right_ankle_pitch_joint", "right_ankle_roll_joint",
+]
+
+
+def resolve_xbot_scene_binding(orcagym_addr: str, time_step: float) -> tuple[str, dict]:
+    template = build_suffix_template(
+        model_name="XBot",
+        joints=XBOT_JOINT_SUFFIXES,
+        actuators=XBOT_JOINT_SUFFIXES,
+        bodies=["base_link"],
+    )
+    report = scan_scene_for_template(
+        orcagym_addr=orcagym_addr,
+        time_step=time_step,
+        template=template,
+    )
+    match = require_complete_matches(
+        report,
+        min_count=1,
+        max_count=1,
+        allow_empty_prefix=False,
+        orcagym_addr=orcagym_addr,
+    )[0]
+    return match.agent_name, {
+        "joint_names": ordered_match_names(match, "joints", XBOT_JOINT_SUFFIXES),
+        "actuator_names": ordered_match_names(match, "actuators", XBOT_JOINT_SUFFIXES),
+        "base_body_name": match.matched_names.get("bodies", {}).get("base_link"),
+    }
 
 
 
@@ -138,7 +177,7 @@ def main(device: str = "cpu"):
     config = {
         "frame_skip": 10,
         "orcagym_addr": orcagym_addr,
-        "agent_names": ["XBot-L"],
+        "agent_names": [],
         "time_step": 0.001,
         "max_episode_steps": 10000,
         "render_mode": "human",
@@ -152,7 +191,15 @@ def main(device: str = "cpu"):
     _logger.info(f"  - OrcaGym地址: {orcagym_addr}")
     _logger.performance(f"  - 物理步长: {config['time_step']}s (1000Hz)")
     _logger.info(f"  - 策略频率: 100Hz")
-    
+
+    resolved_agent_name, scene_binding = resolve_xbot_scene_binding(
+        orcagym_addr=orcagym_addr,
+        time_step=config["time_step"],
+    )
+    config["agent_names"] = [resolved_agent_name]
+    config["scene_binding"] = scene_binding
+    _logger.info(f"  - 扫描到的机器人实例: {resolved_agent_name}")
+
     # 创建环境
     _logger.info("\n📦 创建环境...")
     env = XBotSimpleEnv(**config)

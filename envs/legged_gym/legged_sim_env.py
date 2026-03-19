@@ -82,14 +82,22 @@ class LeggedSimEnv(OrcaGymLocalEnv):
         self.ctrl = np.zeros(self.nu)
         self.mj_forward()   # Do this before initializing the controller, joints, sites, bodies, to avoid NaN error.
 
+        agent_cls_map = {
+            "go2": Go2Agent,
+            "Lite3": Lite3Agent,
+            "g1": G1Agent,
+        }
+        model_name = self._robot_config.get("model_name")
+        if model_name not in agent_cls_map:
+            raise ValueError(
+                f"LeggedSimEnv 当前不支持模型 {model_name}。"
+                f" 支持的模型: {list(agent_cls_map.keys())}"
+            )
+
+        agent_cls = agent_cls_map[model_name]
         self._agents : dict[str, AgentBase] = {}
         for id, agent_name in enumerate(self._agent_names):
-            if agent_name.startswith("go2"):
-                self._agents[agent_name] = Go2Agent(self, id=id, name=agent_name)
-            elif agent_name.startswith("Lite3"):
-                self._agents[agent_name] = Lite3Agent(self, id=id, name=agent_name)
-            elif agent_name.startswith("g1"):
-                self._agents[agent_name] = G1Agent(self, id=id, name=agent_name)
+            self._agents[agent_name] = agent_cls(self, id=id, name=agent_name)
         
         assert len(self._agents) > 0, "At least one agent should be created."
         self._set_init_state()
@@ -163,6 +171,8 @@ class LeggedSimEnv(OrcaGymLocalEnv):
         
         # print("runmode: ", self._run_mode, "no_scaled_action: ", noscaled_action, "scaled_action: ", scaled_action, "ctrl: ", ctrl)
         agent_action = self._split_agent_action(action)
+        for agent in self._agents.values():
+            agent.agent.update_command(self.data.qpos)
         [agent.on_step(self, agent_action[agent.name]) for agent in self._agents.values()]
         
         for _ in range(self._action_skip):

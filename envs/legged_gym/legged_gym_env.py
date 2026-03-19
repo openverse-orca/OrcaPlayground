@@ -1,15 +1,18 @@
 import numpy as np
 from orca_gym.environment.async_env import OrcaGymAsyncEnv
 from typing import SupportsFloat
-from orca_gym.devices.keyboard import KeyboardInput, KeyboardInputSourceType
 import gymnasium as gym
 import time
 from collections import defaultdict
 import requests
 from .legged_robot import LeggedRobot
 import os
-import fcntl
 import shutil
+
+if os.name == "nt":
+    import msvcrt
+else:
+    import fcntl
 
 from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()
@@ -319,7 +322,7 @@ class LeggedGymEnv(OrcaGymAsyncEnv):
                     
                     try:
                         # 获取独占锁
-                        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+                        self._acquire_file_lock(lock_file)
                         
                         # 再次检查文件是否存在（在锁保护下）
                         if not os.path.exists(height_map_file_local_path):
@@ -347,7 +350,7 @@ class LeggedGymEnv(OrcaGymAsyncEnv):
                             
                     finally:
                         # 释放锁
-                        fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+                        self._release_file_lock(lock_file)
                         # 清理锁文件
                         try:
                             os.remove(lock_file_path)
@@ -376,6 +379,24 @@ class LeggedGymEnv(OrcaGymAsyncEnv):
             return True
         except Exception:
             return False
+
+    def _acquire_file_lock(self, file_obj) -> None:
+        """Acquire a cross-platform exclusive lock for lock files."""
+        if os.name == "nt":
+            # msvcrt.locking uses byte-range locks from the current pointer.
+            # Always lock the first byte to emulate a mutex lock file.
+            file_obj.seek(0)
+            msvcrt.locking(file_obj.fileno(), msvcrt.LK_LOCK, 1)
+        else:
+            fcntl.flock(file_obj.fileno(), fcntl.LOCK_EX)
+
+    def _release_file_lock(self, file_obj) -> None:
+        """Release cross-platform lock acquired by _acquire_file_lock."""
+        if os.name == "nt":
+            file_obj.seek(0)
+            msvcrt.locking(file_obj.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            fcntl.flock(file_obj.fileno(), fcntl.LOCK_UN)
 
     def _reset_agent_joint_qpos(self, agents: list[LeggedRobot]) -> None:
         joint_qpos = {}
@@ -407,7 +428,11 @@ class LeggedGymEnv(OrcaGymAsyncEnv):
     def _init_playable(self, orcagym_addr) -> None:
         if self._run_mode != "play" and self._run_mode != "nav":
             return
-        
+
+        # Delay keyboard backend import so training subprocesses on Windows
+        # do not eagerly import pygame/pkg_resources.
+        from orca_gym.devices.keyboard import KeyboardInput, KeyboardInputSourceType
+
         self._keyboard_controller = KeyboardInput(KeyboardInputSourceType.ORCASTUDIO, orcagym_addr)
         self._key_status = {"W": 0, "A": 0, "S": 0, "D": 0, "Space": 0, "Up": 0, "Down": 0, "LShift": 0, "RShift": 0}   
         

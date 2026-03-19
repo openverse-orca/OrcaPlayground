@@ -21,6 +21,24 @@ FRAME_SKIP = 4
 REALTIME_STEP = TIME_STEP * FRAME_SKIP
 CONTROL_FREQ = 1 / REALTIME_STEP
 
+
+def _print_replicator_error_hint(env_name: str, error: Exception) -> None:
+    error_text = str(error)
+    if env_name in {"Actors", "Lights"}:
+        if "too many values to unpack" in error_text:
+            mess = (
+                "场景中可能存在干扰物体或额外可动物体，请清理后重试；"
+                "如果仍失败，请检查当前布局是否混入了不相关 actor。"
+            )
+        else:
+            mess = (
+                "Replicator 运行失败，请检查当前布局中是否存在干扰物体，"
+                "建议只保留本示例需要的 actor 后重试。"
+            )
+    else:
+        mess = f"{env_name} 运行失败，请检查当前布局和资源配置。"
+    _logger.error(f"[终端提示] {mess}")
+
 def register_env(orcagym_addr : str, 
                  env_name : str, 
                  env_index : int, 
@@ -90,3 +108,8 @@ def run_simulation(orcagym_addr : str,
         print("Simulation stopped")        
         if env is not None:
             env.close()
+    except Exception as exc:
+        _print_replicator_error_hint(env_name, exc)
+        if env is not None:
+            env.close()
+        raise

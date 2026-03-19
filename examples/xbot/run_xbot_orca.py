@@ -13,12 +13,51 @@ import argparse
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 
 from envs.xbot_gym.xbot_simple_env import XBotSimpleEnv
+from envs.common.model_scanner import (
+    build_suffix_template,
+    ordered_match_names,
+    require_complete_matches,
+    scan_scene_for_template,
+)
 import torch
 import numpy as np
 import math
 
 from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()
+
+XBOT_JOINT_SUFFIXES = [
+    "left_leg_roll_joint", "left_leg_yaw_joint", "left_leg_pitch_joint",
+    "left_knee_joint", "left_ankle_pitch_joint", "left_ankle_roll_joint",
+    "right_leg_roll_joint", "right_leg_yaw_joint", "right_leg_pitch_joint",
+    "right_knee_joint", "right_ankle_pitch_joint", "right_ankle_roll_joint",
+]
+
+
+def resolve_xbot_scene_binding(orcagym_addr: str, time_step: float) -> tuple[str, dict]:
+    template = build_suffix_template(
+        model_name="XBot",
+        joints=XBOT_JOINT_SUFFIXES,
+        actuators=XBOT_JOINT_SUFFIXES,
+        bodies=["base_link"],
+    )
+    report = scan_scene_for_template(
+        orcagym_addr=orcagym_addr,
+        time_step=time_step,
+        template=template,
+    )
+    match = require_complete_matches(
+        report,
+        min_count=1,
+        max_count=1,
+        allow_empty_prefix=False,
+        orcagym_addr=orcagym_addr,
+    )[0]
+    return match.agent_name, {
+        "joint_names": ordered_match_names(match, "joints", XBOT_JOINT_SUFFIXES),
+        "actuator_names": ordered_match_names(match, "actuators", XBOT_JOINT_SUFFIXES),
+        "base_body_name": match.matched_names.get("bodies", {}).get("base_link"),
+    }
 
 
 def print_detailed_diagnostics(step, obs, action, env):
@@ -126,6 +165,29 @@ def load_xbot_policy(policy_path: str, device: str = "cpu"):
         raise RuntimeError(f"Failed to load policy from {policy_path}: {e}")
 
 
+def sceneinfo(
+    scene,
+    stage: str,
+    orcagym_address: str,
+):
+    toclose = False
+    if scene is None:
+        toclose = True
+        import importlib
+        OrcaGymScene = importlib.import_module("orca_gym.scene.orca_gym_scene").OrcaGymScene
+        scene = OrcaGymScene(orcagym_address)
+    try:
+        script_name = os.path.basename(sys.argv[0]) if sys.argv else os.path.basename(__file__)
+        scene.get_rundata(script_name, stage)
+        if stage == "beginscene":
+            _logger.info("开始运行")
+        elif stage == "loadscene":
+            _logger.info("加载模型")
+        scene.set_image_enabled(1,True)
+    finally:
+        if toclose:
+            scene.close()
+
 def main(device: str = "cpu"):
     _logger.info("="*80)
     _logger.info("🚀 XBot运行测试 - OrcaGym框架（增强诊断版）")
@@ -135,7 +197,7 @@ def main(device: str = "cpu"):
     config = {
         "frame_skip": 10,              # 单次物理步
         "orcagym_addr": "localhost:50051",
-        "agent_names": ["XBot-L"],
+        "agent_names": [],
         "time_step": 0.001,           # ⚠️ 1ms物理步长
         "max_episode_steps": 10000,
         "render_mode": "human",       # 可视化
@@ -164,6 +226,13 @@ def main(device: str = "cpu"):
     _logger.info(f"  - vy: {CMD_VY} m/s")
     _logger.info(f"  - dyaw: {CMD_DYAW} rad/s")
     
+    resolved_agent_name, scene_binding = resolve_xbot_scene_binding(
+        orcagym_addr=config["orcagym_addr"],
+        time_step=config["time_step"],
+    )
+    config["agent_names"] = [resolved_agent_name]
+    config["scene_binding"] = scene_binding
+    _logger.info(f"\n🔎 扫描到场景中的 XBot 实例: {resolved_agent_name}")
     # 创建环境
     _logger.info("\n📦 创建环境...")
     env = XBotSimpleEnv(**config)
@@ -203,7 +272,8 @@ def main(device: str = "cpu"):
     _logger.info("  - 参考standaloneMujoco: Pitch±1.5°，速度0.4m/s\n")
     
     obs, info = env.reset()
-    
+    print(f"orcagym_addr:  {config['orcagym_addr']}")
+    sceneinfo(None, "beginscene", config["orcagym_addr"])
     episode_reward = 0.0
     episode_steps = 0
     max_steps = 2000  # 测试2000步

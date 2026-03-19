@@ -3,11 +3,37 @@ import numpy as np
 import orca_gym.utils.rotations as rotations
 import time
 import random
-from . import run_simulation as sim
+import sys
+import os
+# 添加项目根目录到路径，以支持直接运行脚本
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from examples.replicator import run_simulation as sim
 
 from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()
 
+def sceneinfo(
+    scene,
+    stage: str,
+    orcagym_address: str,
+):
+    toclose = False
+    if scene is None:
+        toclose = True
+        import importlib
+        OrcaGymScene = importlib.import_module("orca_gym.scene.orca_gym_scene").OrcaGymScene
+        scene = OrcaGymScene(orcagym_address)
+    try:
+        script_name = os.path.basename(sys.argv[0]) if sys.argv else os.path.basename(__file__)
+        scene.get_rundata(script_name, stage)
+        if stage == "beginscene":
+            _logger.info("加载场景中")
+        elif stage == "endscene":
+            _logger.info("加载完成")
+        scene.set_image_enabled(1,True)
+    finally:
+        if toclose:
+            scene.close()
 
 def create_scene() -> OrcaGymScene:
     """
@@ -28,7 +54,7 @@ def create_scene() -> OrcaGymScene:
 
     actor = Actor(
         name=f"original_red_cup",
-        asset_path="assets/e071469a36d3c8aa/default_project/v20260101/prefabs/cup_of_coffee_usda",
+        asset_path="assets/e071469a36d3c8aa/default_project/prefabs/cup_of_coffee_usda",
         position=np.array([np.random.uniform(0.0, 0.5), 
                            np.random.uniform(0.0, 0.5), 
                            np.random.uniform(1.0, 2.0)]),
@@ -42,7 +68,7 @@ def create_scene() -> OrcaGymScene:
     for i in range(10):
         actor = Actor(
             name=f"cup_with_random_color_and_scale_{i}",
-            asset_path="assets/e071469a36d3c8aa/default_project/v20260101/prefabs/cup_of_coffee_usda",
+            asset_path="assets/e071469a36d3c8aa/default_project/prefabs/cup_of_coffee_usda",
             position=np.array([np.random.uniform(-1.2, 1.2), 
                             np.random.uniform(-1.2, 1.2), 
                             np.random.uniform(1.0, 2.0)]),
@@ -56,7 +82,7 @@ def create_scene() -> OrcaGymScene:
 
     actor = Actor(
         name="cart_basket",
-        asset_path="assets/e071469a36d3c8aa/default_project/v20260101/prefabs/cart_basket_usda",
+        asset_path="assets/e071469a36d3c8aa/default_project/prefabs/cart_basket_usda",
         position=np.array([0, 0, 0.0]),
         rotation=rotations.euler2quat(np.array([0.0, 0.0, 0.0])),
         scale=1.0,
@@ -65,7 +91,7 @@ def create_scene() -> OrcaGymScene:
 
     actor = Actor(
         name="office_desk",
-        asset_path="assets/e071469a36d3c8aa/default_project/v20260101/prefabs/office_desk_7_mb_usda",
+        asset_path="assets/e071469a36d3c8aa/default_project/prefabs/office_desk_7_mb_usda",
         position=np.array([0, 0, 0.0]),
         rotation=rotations.euler2quat(np.array([0.0, 0.0, 0])),
         scale=1.0,
@@ -101,12 +127,16 @@ def destroy_scene(scene: OrcaGymScene):
 
 
 if __name__ == "__main__":
+    sceneinfo(None, "beginscene", "localhost:50051")
     scene = create_scene()
 
     orcagym_addr = "localhost:50051"
     agent_name = "NoRobot"
     env_name = "Actors"
+ 
+    sceneinfo(None, "endscene", orcagym_addr)
     sim.run_simulation(orcagym_addr, agent_name, env_name)
+
 
     # time.sleep(3)
 

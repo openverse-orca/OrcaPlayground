@@ -3,11 +3,17 @@
 
 ## ⚠️ 重要：资产准备
 
-> **📦 相关资产**：https://simassets.orca3d.cn/ **Xbot资产包**
+> **📦 相关资产**：https://simassets.orca3d.cn/ **OrcaPlayGroundAssets资产包**
 > 
 > **🔧 是否需要手动拖动到布局中**：**是**
 > 
-> **📝 对应模型**：`Xbot_usda`
+> **📝 对应模型模板**：`Xbot_usda` / `XBot-L_usda`
+>
+> **🧭 UI 资产详情**：请在资产面板中找到 XBot 对应 actor，拖入布局后点击“资产详情”，以实际显示路径为准；常见名称为 `XBot-L_usda`
+>
+> **运行方式**：脚本会在启动前扫描场景中的 joint / actuator 后缀，自动识别实际机器人名称
+>
+> **失败行为**：如果关节或驱动器没有完全匹配，会直接报错退出
 
 ## ✅ 当前状态
 **`run_xbot_orca.py`已经可以在OrcaGym中稳定运行！**
@@ -144,12 +150,34 @@ frame_stack = 15   # 观察堆叠
 ## ⚠️ 注意事项
 
 1. **OrcaStudio 必须先启动**：默认地址为 `localhost:50051`
-2. **场景中需要添加机器人**：确保场景中存在名为 `XBot-L` 的机器人预制体
-3. **初始高度约 0.88m**：OrcaStudio 默认 spawn 高度
-4. **设备选择**：
+2. **场景中需要添加机器人**：确保场景中存在 1 台完整匹配的 XBot 机器人
+3. **名称不需要固定**：机器人实例名不必叫 `XBot-L`，脚本会自动扫描并绑定真实名称
+4. **初始高度约 0.88m**：请在场景中手动摆好位置和姿态
+5. **设备选择**：
    - 默认使用 GPU（CUDA）进行推理，性能更好
    - 如果没有 GPU 或遇到 CUDA 问题，使用 `--device cpu` 参数
-5. **策略文件**：预训练策略文件位于 `examples/xbot/config/policy_example.pt`，已集成在项目内
+6. **策略文件**：预训练策略文件位于 `examples/xbot/config/policy_example.pt`，已集成在项目内
+
+## 🔧 手动拖入资产进行调试
+
+手动拖动资产的操作方式与通用说明见**项目根目录 [README - 手动拖动资产（运行前必做）](../../README.md#-手动拖动资产运行前必做)**。
+
+为了增添多场景物理交互，建议先把 XBot actor 手动拖到布局中，再围绕障碍物、坡面或其他场景元素调整初始站位。若你的资产包中显示路径不是本文写法，请以 UI 的“资产详情”为准，但应保证拖入的是 XBot 对应 actor。
+
+**本示例修改前样例代码（手动拖入时，不调用 spawn）**：
+
+```python
+# 不调用 publish_xbot_scene(orcagym_addr)，依赖场景中已存在对应名称的 actor
+config = {
+    "frame_skip": 10,
+    "orcagym_addr": "localhost:50051",
+    "agent_names": ["XBot-L"],   # 与大纲中的英文资产名一致；若拖入后为其他名称，请自行修改资产名或此处
+    "time_step": 0.001,
+    "max_episode_steps": 10000,
+    "render_mode": "human",
+}
+env = XBotSimpleEnv(**config)
+```
 
 ## 🎯 下一步
 

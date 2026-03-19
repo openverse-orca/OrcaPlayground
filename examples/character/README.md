@@ -6,9 +6,14 @@
 
 > **📦 相关资产**：https://simassets.orca3d.cn/ **RemyLevel资产包**
 > 
-> **🔧 是否需要手动拖动到布局中**：**否**
+> ** 您可以订阅RemyLevel资产包后加载RemyLevel或者在已经打开的布局拖动Remy进去进行使用 **
 > 
-> **📝 run_character.py 对应模型**：`remy`
+> **🔧 是否需要手动拖动到布局中**：**可选**
+> 
+> **📝 run_character.py 对应模型模板**：`remy`
+>
+> **运行方式**：脚本会在启动前扫描场景中的 `Animation` body 和控制关节后缀，自动识别角色实例名
+
 ## 🚀 基本使用
 
 ### 方式 1：使用 OrcaLab 启动（推荐）
@@ -33,7 +38,7 @@ description = "启动动画仿真"
 从项目根目录运行：
 
 ```bash
-# 使用默认参数（localhost:50051, agent_name=Remy）
+# 使用默认参数（脚本会自动扫描场景中的角色实例名）
 python examples/character/run_character.py
 
 # 或使用模块方式
@@ -42,14 +47,12 @@ python -m examples.character.run_character
 # 带参数运行
 python examples/character/run_character.py \
     --orcagym_addr localhost:50051 \
-    --agent_name Remy \
     --env_name Character
 ```
 
 ### 命令行参数说明
 
 - `--orcagym_addr`：OrcaStudio 远程地址（可选，默认：`localhost:50051`）
-- `--agent_name`：角色名称（可选，默认：`Remy`）
 - `--env_name`：环境名称（可选，默认：`Character`）
 
 ### 前置准备
@@ -58,7 +61,7 @@ python examples/character/run_character.py \
 
 1. 引擎已经内置，在实例化预制体菜单项，直接联想就可以找到
 2. 拖动 Remy 到需要的位置
-3. 如果更改了 Remy 的名称，需要修改 `run_character.py` 中的 `agent_name` 参数，或在命令行中使用 `--agent_name` 指定
+3. 不需要保持默认名称，脚本会在启动时自动扫描角色实例并绑定
 
 ## 📋 配置说明
 
