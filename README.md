@@ -1,155 +1,274 @@
-# Fluid-MuJoCo 耦合仿真示例
+# OrcaPlayground
 
-SPH 流体与 MuJoCo 刚体耦合仿真，使用 OrcaLink 进行通信。
+OrcaGym 示例代码仓库，已集成 OrcaLab 支持。
 
-## 📋 前置要求
+## 🎯 快速开始
 
-### 1. 启动 OrcaStudio 或 OrcaLab
+### 方式 1：使用 OrcaLab 启动（推荐）⭐
 
-在运行仿真前需要先启动 OrcaStudio 或 OrcaLab 并加载流体仿真场景。
+本项目已配置 OrcaLab 集成，可以直接在 OrcaLab 中启动示例。
+
+#### 步骤 1：安装 OrcaLab
 
 ```bash
-# 推荐使用 OrcaLab
+pip install orca-lab
+```
+
+#### 步骤 2：激活 OrcaLab 的 conda 环境并安装依赖
+
+```bash
+# 激活 OrcaLab 的 conda 环境（根据你的环境名称调整）
+conda activate orcalab  # 或你的 OrcaLab 环境名称
+
+# 进入项目目录
+cd /path/to/OrcaPlayground
+
+# 安装项目依赖
+pip install -r requirements.txt
+```
+
+#### 步骤 3：在当前目录启动 OrcaLab
+
+```bash
+# 在项目根目录启动 OrcaLab（会自动加载 .orcalab/config.toml）
+orcalab .
+
+# 或者直接启动（默认使用当前目录作为工作目录）
 orcalab
 ```
 
-### 2. 系统需求
+OrcaLab 会自动加载工作目录下的 `.orcalab/config.toml` 配置文件。
 
-运行本示例前请确认环境满足以下要求：
+#### 步骤 4：在 OrcaLab 中启动示例
 
-- **操作系统**：仅支持 **Ubuntu**，不支持 Windows。
-- **显卡 / CUDA**：需配备支持 **CUDA 12.1 及以上** 的 NVIDIA 显卡及对应驱动。
+1. 在 OrcaLab 界面中选择 **外部程序**（External Programs）
+2. 从列表中选择对应的示例程序：
+   - `run_character` - 角色仿真
+   - `run_legged_rl_train` - 足式机器人 RL 训练
+   - `run_wheeled_chassis` - 轮式底盘仿真
+   - `run_xbot_orca` - XBot 机器人仿真
+   - `run_sim_loop` - 空循环仿真
 
-### 3. 安装依赖
+配置文件位置：`.orcalab/config.toml`
 
-新建 conda 环境并指定 Python 3.12，再安装 orca-sph：
+> **终端输出提醒**
+>
+> 当前仓库启动、扫描、报错和退出信息都会输出到**终端**。
+>
+> 如果程序没有按预期运行，请优先点击界面左下角的**终端按钮**查看输出日志和报错信息。
 
-```bash
-# 新建 conda 环境，Python 3.12
-conda create -n orca-fluid python=3.12 -y
-
-# 激活环境
-conda activate orca-fluid
-
-# 安装 orca-sph
-pip install orca-sph
-```
-
-### 4. 场景加载说明
-
-> **⚠️ 注意**：在 OrcaStudio / OrcaLab 中打开本流体示例场景时，如出现「Dependent Asset 缺失」相关提示，请点击「OK」关闭该对话框即可，不影响场景的加载与仿真正常运行。
+### 方式 2：命令行启动
 
 
-## 🚀 快速开始
-
-### 自动模式（推荐）
-
-一键启动所有服务：
 
 ```bash
-python run_fluid_sim.py
+# 安装依赖
+pip install -r requirements.txt
+
+# 运行示例（参考各示例目录下的 README.md）
+python examples/character/run_character.py
+python examples/xbot/run_xbot_orca.py
+python examples/legged_gym/run_legged_rl.py --config examples/legged_gym/configs/sb3_ppo_config.yaml --train
 ```
 
-### 手动模式
+## 📦 项目结构
 
-分步启动服务（用于调试）：
+```
+OrcaPlayground/
+├── orca_gym/          # OrcaGym 核心模块
+├── envs/              # 环境定义模块
+├── examples/           # 示例代码目录
+│   ├── character/     # 角色仿真（含 README.md）
+│   ├── legged_gym/    # 足式机器人 RL 训练（含 README.md）
+│   ├── wheeled_chassis/ # 轮式底盘（含 README.md）
+│   ├── xbot/          # XBot 机器人（含 README.md）
+│   └── ...            # 更多示例
+├── .orcalab/          # OrcaLab 配置文件
+│   └── config.toml    # 外部程序配置
+└── requirements.txt   # Python 依赖
+```
+
+## 📚 示例说明
+
+所有示例的详细使用说明请查看各目录下的 `README.md`：
+
+- **角色仿真** - [`examples/character/README.md`](examples/character/README.md)
+- **足式机器人 RL 训练** - [`examples/legged_gym/README.md`](examples/legged_gym/README.md)
+- **轮式底盘** - [`examples/wheeled_chassis/README.md`](examples/wheeled_chassis/README.md)
+- **XBot 机器人** - [`examples/xbot/README.md`](examples/xbot/README.md)
+- **ZQ SA01 人形** - [`examples/zq_sa01/README.md`](examples/zq_sa01/README.md)
+- **G1 人形** - [`examples/g1/README.md`](examples/g1/README.md)
+- **场景复制** - [`examples/replicator/README.md`](examples/replicator/README.md)
+
+> **⚠️ 重要提示：资产准备**
+> 
+> 每个示例都需要相应的 3D 资产才能正常运行。**请务必查看各示例目录下的 README.md 文件**，了解：
+> - 📦 所需资产的下载地址
+> - 🔧 需要手动在 OrcaStudio / OrcaLab 中把对应 actor 拖动到布局
+> - 📝 对应的模型名称
+> 
+> 资产下载地址：https://simassets.orca3d.cn/
+
+## 📦 关于资产与扩展开发
+
+OrcaPlayground 依赖 **OrcaPlaygroundAssets** 资产库中的资源。若您需要接入新模型或进行其他扩展开发，请参阅 **OrcaLab** 及资产库的文档与资源。
+
+## 🔧 手动拖动资产（运行前必做）
+
+为了增添多场景物理交互，请在运行前先把对应模型手动拖动到布局中，再启动脚本。当前仓库中的机器人/角色主线示例都按“场景中已有 actor，脚本只做扫描和绑定”的思路组织。
+
+1. **打开资产面板**：在 OrcaStudio / OrcaLab 的资产窗口中搜索资产名称，例如Lite3,Remy，Hummer。
+2. **拖入布局**：将对应 actor 拖入布局或大纲，并调整到你希望的初始位置与朝向。
+3. **查看资产详情**：选中该资产后打开“资产详情”，确认路径与示例 README 中给出的路径一致。
+4. **再启动脚本**：脚本会扫描场景中的 joint / actuator / body 等后缀并自动绑定；如果拖错模型或匹配不完整，会直接报错退出。
+5. **路径不一致时的处理**：若你的资产包版本不同，请以 UI 里的“资产详情”实际路径为准，但 actor 类型必须与示例要求一致。
+6. **观察程序输出**：请点击左下角**终端按钮**查看启动日志、扫描结果和错误原因。
+
+各示例的具体拖入说明见对应 README：
+- XBot：[examples/xbot/README.md](examples/xbot/README.md#-手动拖入资产进行调试)
+- 轮式底盘：[examples/wheeled_chassis/README.md](examples/wheeled_chassis/README.md#-手动拖入资产进行调试)
+- ZQ SA01：[examples/zq_sa01/README.md](examples/zq_sa01/README.md#-手动拖入资产进行调试)
+- G1：[examples/g1/README.md](examples/g1/README.md#-手动拖入资产进行调试)
+
+## 📋 依赖说明
+
+### 基础依赖（必需）
 
 ```bash
-# 终端 1：启动 OrcaLink
-orcalink --port 50351
-
-# 终端 2：启动 OrcaSPH
-orcasph --scene ~/.orcagym/tmp/sph_scene_xxx.json --gui
-
-# 终端 3：运行仿真
-python run_fluid_sim.py --manual-mode
+pip install -r requirements.txt
 ```
 
-## ⚙️ 配置文件
+主要依赖：
+- `orca-gym>=25.12.4` - OrcaGym 核心包（包含 numpy, gymnasium, mujoco, grpcio 等）
+- `torch>=2.0.0` - PyTorch（用于模型推理）
+- `stable-baselines3>=2.3.2` - SB3 RL 训练（可选）
+- `onnxruntime>=1.16.0` - ONNX 模型推理（可选）
 
-### 主配置文件
+详细依赖说明请查看 `requirements.txt`。
 
-- **`fluid_sim_config.json`** - MuJoCo 仿真程序配置
-- **`sph_sim_config.json`** - SPH 配置模板（用于生成 SPH 程序配置）
-- **`scene_config.json`** - SPH 场景配置（流体块、墙体等）
+### 运行要求
 
-详细说明见 [CONFIG_README.md](CONFIG_README.md)
+1. **OrcaStudio**：确保 OrcaStudio 正在运行（默认地址：`localhost:50051`）
+2. **Python 版本**：Python >= 3.9
+3. **场景配置**：运行前请先把对应 actor 手动拖入布局；详细说明见上方 [手动拖动资产（运行前必做）](#-手动拖动资产运行前必做)
 
-### 关键配置项
+## 🔧 OrcaLab 配置
 
-```json
-{
-  "orcalink": {
-    "port": 50351,              // OrcaLink 服务器端口
-    "startup_delay": 2          // 启动等待时间（秒）
-  },
-  "orcasph": {
-    "enabled": true,            // 是否自动启动 SPH
-    "config_template": "sph_sim_config.json"
-  }
-}
+### 配置文件位置
+
+OrcaLab 配置文件位于 `.orcalab/config.toml`，OrcaLab 启动时会自动加载工作目录下的此配置文件。
+
+### 已配置的外部程序
+
+- `run_sim_loop` - 空循环仿真
+- `character` - 角色仿真
+- `legged_train` - 足式机器人训练
+- `wheeled_chassis` - 轮式底盘仿真
+- `xbot_orca` - XBot 仿真
+
+### 添加新程序
+
+如需添加新的外部程序，编辑 `.orcalab/config.toml` 文件，在 `[[external_programs.programs]]` 部分添加新条目。
+
+#### 配置格式
+
+```toml
+[[external_programs.programs]]
+name = "your_program_name"           # ⚠️ 必填：程序唯一标识符
+display_name = "显示名称"             # ⚠️ 必填：在 OrcaLab UI 中显示的名称
+command = "python"                    # ⚠️ 必填：执行命令（通常是 "python"）
+args = ["-m", "examples.your_module.run_script"]  # ⚠️ 必填：命令行参数列表
+description = "程序描述"              # 可选：程序描述信息
 ```
 
-### 使用自定义配置
+#### 参数说明
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `name` | 字符串 | ✅ 是 | **程序唯一标识符**，用于 OrcaLab 内部查找和启动程序。必须与所有已配置程序的 `name` 和 `display_name` 都不重复。建议使用小写字母、数字和下划线，如 `my_program`。 |
+| `display_name` | 字符串 | ✅ 是 | **显示名称**，在 OrcaLab 启动对话框的 UI 中显示给用户。必须与所有已配置程序的 `name` 和 `display_name` 都不重复。可以使用中文、空格等字符，如 `我的程序`。 |
+| `command` | 字符串 | ✅ 是 | **执行命令**，通常是 `"python"`，也可以是其他可执行命令（如 `"python3"`、`"conda"` 等）。 |
+| `args` | 字符串数组 | ✅ 是 | **命令行参数列表**，每个参数作为数组的一个元素。例如：<br>- 模块方式：`["-m", "examples.module.run_script"]`<br>- 脚本方式：`["examples/script.py", "--arg1", "value1"]`<br>- 带参数：`["-m", "examples.module.run", "--config", "config.yaml", "--train"]` |
+| `description` | 字符串 | ❌ 否 | **程序描述**，用于在 OrcaLab UI 的工具提示中显示，帮助用户了解程序功能。 |
+
+#### ⚠️ 重要注意事项
+
+1. **`name` 和 `display_name` 禁止重复**
+   - ❌ **禁止**：两个程序的 `name` 相同
+   - ❌ **禁止**：两个程序的 `display_name` 相同
+   - ❌ **禁止**：一个程序的 `name` 与另一个程序的 `display_name` 相同
+   - ✅ **允许**：同一个程序内部，`name` 和 `display_name` 可以不同（通常建议不同，以便区分）
+
+2. **`name` 的唯一性要求**
+   - `name` 是程序在系统中的唯一标识符，OrcaLab 通过 `name` 来查找和启动程序
+   - 如果 `name` 重复，`get_external_program_config()` 只会返回第一个匹配的程序，导致后续程序无法正确启动
+   - 建议使用有意义的、描述性的名称，如 `legged_train`、`character_sim` 等
+
+3. **`display_name` 的唯一性要求**
+   - `display_name` 在 OrcaLab UI 中显示，如果重复会导致用户无法区分不同的程序
+   - 建议使用清晰、描述性的显示名称，如 `Legged Robot Training`、`Character Simulation` 等
+
+4. **工作目录**
+   - 程序启动时的工作目录是 OrcaLab 的工作目录（通常是 `.orcalab/config.toml` 所在的目录）
+   - 在 `args` 中使用相对路径时，请确保相对于工作目录的路径正确
+
+5. **模块导入路径**
+   - 使用 `-m` 参数以模块方式运行时，确保模块路径正确
+   - 例如：`["-m", "examples.legged_gym.run_legged_rl"]` 表示运行 `examples/legged_gym/run_legged_rl.py`
+
+#### 配置示例
+
+```toml
+# 示例 1：简单模块启动
+[[external_programs.programs]]
+name = "my_simple_program"
+display_name = "简单程序"
+command = "python"
+args = ["-m", "examples.my_module.run_script"]
+description = "这是一个简单的示例程序"
+
+# 示例 2：带命令行参数的程序
+[[external_programs.programs]]
+name = "legged_train"
+display_name = "Legged Robot Training"
+command = "python"
+args = [
+    "-m", 
+    "examples.legged_gym.run_legged_rl",
+    "--config", "examples/legged_gym/configs/sb3_ppo_config.yaml",
+    "--train",
+    "--visualize"
+]
+description = "启动足式机器人强化学习训练"
+
+# 示例 3：使用脚本路径（非模块方式）
+[[external_programs.programs]]
+name = "custom_script"
+display_name = "自定义脚本"
+command = "python"
+args = ["examples/custom/script.py", "--option", "value"]
+description = "直接运行脚本文件"
+```
+
+#### 验证配置
+
+添加新程序后，建议：
+
+1. **检查重复**：确认新程序的 `name` 和 `display_name` 与所有已配置程序都不重复
+2. **测试启动**：在 OrcaLab 中尝试启动新程序，确认命令和参数正确
+3. **查看日志**：如果启动失败，查看 OrcaLab 的日志输出，检查命令、参数或模块路径是否正确
+
+### 初始化配置（可选）
+
+如果当前目录没有 `.orcalab/config.toml`，可以使用 OrcaLab 生成基本配置：
 
 ```bash
-python run_fluid_sim.py --config my_config.json
+orcalab --init-config
 ```
 
-## 📖 常用命令
+然后手动添加本项目的外部程序配置。
 
-### 快速测试
-```bash
-python run_fluid_sim.py
-```
+## 📖 更多信息
 
-### 调试模式
-```bash
-# 手动启动各服务，便于查看日志
-orcalink --port 50351  # 终端 1
-orcasph --scene scene.json --gui  # 终端 2
-python run_fluid_sim.py --manual-mode  # 终端 3
-```
-
-### 生成 SPH 场景
-```bash
-python -m envs.fluid.tools.generate_scene_cli \
-    model.xml \
-    output_scene.json \
-    --config scene_config.json
-```
-
-### 禁用 SPH 集成
-在配置文件中设置：
-```json
-{
-  "orcasph": {
-    "enabled": false
-  }
-}
-```
-
-## 🛠️ 资源文件路径
-
-支持三种格式：
-
-1. **包资源路径**（推荐）：
-   ```json
-   "geometryFile": "package://orcasph/data/models/UnitBox.obj"
-   ```
-
-2. **绝对路径**：
-   ```json
-   "geometryFile": "/absolute/path/to/UnitBox.obj"
-   ```
-
-3. **相对路径**：
-   ```json
-   "geometryFile": "../../../data/models/UnitBox.obj"
-   ```
-
-## 📞 获取帮助
-
-- 配置文件说明：[CONFIG_README.md](CONFIG_README.md)
-- 核心模块文档：`envs/fluid/README.md`
-- 提交 Issue：https://github.com/openverse-orca/OrcaGym/issues
+- OrcaGym 主仓库：https://github.com/openverse-orca/OrcaGym
+- 各示例详细说明：查看 `examples/*/README.md`
