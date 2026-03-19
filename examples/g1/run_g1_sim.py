@@ -190,14 +190,15 @@ def resolve_g1_scene_agent_name(orcagym_addr: str) -> str:
     )[0].agent_name
 
 
-def policy_thread_func(config, loco_model_path, mimic_model_path, share_state):
+def policy_thread_func(config, loco_model_path, mimic_model_path, share_state, orcagym_addr):
     policy = MotionTrackingDecLocoHeightPolicy(
         config=config,
         loco_model_path=loco_model_path,
         mimic_model_paths=mimic_model_path,
         share_state=share_state,
         decimation=4,
-        use_mocap=False
+        use_mocap=False,
+        orcagym_addr=orcagym_addr,
     )
     policy.run()
 
@@ -241,14 +242,24 @@ def run_simulation(
         obs, info = env.reset()
         sceneinfo(None, "beginscene", orcagym_addr)
         
-        policy_thread = threading.Thread(target=policy_thread_func, args=(config, loco_model_path, mimic_model_path, share_state))
+        policy_thread = threading.Thread(
+            target=policy_thread_func,
+            args=(config, loco_model_path, mimic_model_path, share_state, orcagym_addr),
+        )
         policy_thread.start()
         
         while True:
             start_time = datetime.now()
             share_state.low_command_semaphore.acquire()
 
-            obs, _, _, _, _ = env.step(None)
+            if share_state.reset_requested:
+                share_state.reset_requested = False
+                obs, info = env.reset()
+                env.unwrapped.update_share_low_state(obs)
+                share_state.low_state_semaphore.release()
+                _logger.info("收到重置按键，已执行仿真重置")
+            else:
+                obs, _, _, _, _ = env.step(None)
             env.render()
             end_time = datetime.now()
             elapsed_time = end_time - start_time

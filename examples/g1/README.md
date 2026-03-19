@@ -20,16 +20,6 @@
 - 场景中需要且只能有 1 台完整匹配的 G1
 - 机器人实例名不需要固定，脚本会自动绑定真实名称
 - `agent_name` 现在仅作兼容保留，不再决定实际绑定对象
-
-**运行前后的核心逻辑**：
-
-```python
-# 不再调用 publish_g1_scene(...)，依赖场景中已存在对应名称的 actor
-resolved_agent_name = resolve_g1_scene_agent_name(orcagym_addr)
-env_id, kwargs = register_env(orcagym_addr, env_name, 0, [resolved_agent_name], sys.maxsize)
-env = gym.make(env_id)
-```
-
 ---
 
 相关操作说明如下：
@@ -40,22 +30,27 @@ env = gym.make(env_id)
 python examples/g1/run_g1_sim.py
 ```
 
+说明：
+- 当前已改为 **OrcaStudio 场景键盘输入**，不再依赖终端焦点。
+- 所有启动、扫描和异常信息请查看左下角**终端按钮**中的输出。
+
 ## 键盘控制
 
 ### 策略控制
 | 按键 | 功能 |
 |------|------|
-| `]` | 启用策略控制（站立） |
+| `F1` | 启用策略控制（站立） |
 | `o` | 停止策略控制 |
 | `i` | 重置到初始状态 |
-| `=` | 切换站立/行走模式 |
+| `r` | 重置整段仿真 |
+| `F2` | 切换站立/行走模式 |
 
 ### Mimic 动作
 | 按键 | 功能 |
 |------|------|
-| `[` | 执行/取消 Mimic 动作 |
-| `;` | 切换到下一个 Mimic 动作 |
-| `'` | 切换到上一个 Mimic 动作 |
+| `F3` | 执行/取消 Mimic 动作 |
+| `F4` | 切换到下一个 Mimic 动作 |
+| `F5` | 切换到上一个 Mimic 动作 |
 
 ### 移动控制（行走模式下）
 | 按键 | 功能 |
