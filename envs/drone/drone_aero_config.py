@@ -66,6 +66,8 @@ class VerticalZOnlyConfig:
     thrust_ramp_duration_s: float = 25.0
     # 固定 T/(mg)（>=0 时启用，且与 thrust_ramp 互斥；用于二分搜索临界推力）
     fixed_thrust_over_hover: float = -1.0
+    # 无固定、无 ramp 时：推力 = keyboard_baseline_thrust_over_hover·mg + (R−F 杆量)·scale；用于在二分结果附近手调
+    keyboard_baseline_thrust_over_hover: float = 1.0022
     # 首次 vz 过阈（易与弹跳混淆）；False 时仅依赖下方「持续起飞」判据
     takeoff_log_first_vz_spike: bool = False
     takeoff_vz_threshold: float = 0.08

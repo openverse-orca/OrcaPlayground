@@ -56,6 +56,7 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         vertical_ramp_duration_s: float = 25.0,
         vertical_lock_quat_world_up: bool = True,
         vertical_fixed_thrust_over_hover: float = -1.0,
+        vertical_keyboard_baseline_tmg: float = 1.0022,
         **kwargs,
     ):
         super().__init__(
@@ -112,6 +113,7 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
             thrust_ramp_duration_s=float(vertical_ramp_duration_s),
             lock_quat_world_up=bool(vertical_lock_quat_world_up),
             fixed_thrust_over_hover=fixed_r if use_fixed_thrust else -1.0,
+            keyboard_baseline_thrust_over_hover=float(vertical_keyboard_baseline_tmg),
         )
         self._aero = replace(DEFAULT_DRONE_AERO_CONFIG, vertical_z_only=vz_cfg)
 
@@ -152,6 +154,7 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         self._takeoff_z_ref = 0.0
         self._takeoff_sustain_accum_s = 0.0
         self._takeoff_sustained_logged = False
+        self._vertical_quiet_diag_logs = False
 
         mjm = self.gym._mjModel
         self._v_dof_labels: list[str] = []
@@ -218,7 +221,7 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
             elif float(vz0.fixed_thrust_over_hover) >= 0.0:
                 thrust_mode = f"固定 T/(mg)={vz0.fixed_thrust_over_hover}"
             else:
-                thrust_mode = "键盘 R/F 微调推力"
+                thrust_mode = f"键盘 R/F 微调推力（杆量零时 T/(mg)={vz0.keyboard_baseline_thrust_over_hover}）"
             _logger.warning(
                 "[DroneOrcaEnv] 已启用 vertical_z_only：仅世界 +Z 推力与 vz 阻尼；"
                 f"{thrust_mode}；"
@@ -314,7 +317,11 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
                 f"/ {vz_cfg.thrust_ramp_duration_s}s，每 {vz_cfg.ramp_progress_log_interval_s}s 一条进度；"
                 "满足持续起飞判据时打「持续起飞临界(精估)」。"
             )
-        elif vz_cfg.enabled and float(vz_cfg.fixed_thrust_over_hover) >= 0.0:
+        elif (
+            vz_cfg.enabled
+            and float(vz_cfg.fixed_thrust_over_hover) >= 0.0
+            and not self._vertical_quiet_diag_logs
+        ):
             _logger.warning(
                 f"[DroneOrcaEnv] 固定推力试验 T/(mg)={vz_cfg.fixed_thrust_over_hover}，"
                 f"z_ref(frame)={self._takeoff_z_ref:.4f}m"
@@ -445,9 +452,10 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
             thrust = float(np.clip(thrust, self._thrust_min, self._thrust_max))
         else:
             _f, _l, vertical_cmd, _y = [float(np.clip(v, -1.0, 1.0)) for v in command]
+            base = float(vz_cfg.keyboard_baseline_thrust_over_hover) * self._hover_thrust
             thrust = float(
                 np.clip(
-                    self._hover_thrust + vertical_cmd * self._thrust_cmd_scale,
+                    base + vertical_cmd * self._thrust_cmd_scale,
                     self._thrust_min,
                     self._thrust_max,
                 )
@@ -497,6 +505,8 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         self.mj_forward()
 
     def _maybe_log_takeoff_first_vz_spike(self) -> None:
+        if self._vertical_quiet_diag_logs:
+            return
         vz_cfg = self._aero.vertical_z_only
         if not vz_cfg.takeoff_log_first_vz_spike or self._takeoff_crossing_logged:
             return
@@ -519,6 +529,8 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
             )
 
     def _update_takeoff_sustain_detector(self) -> None:
+        if self._vertical_quiet_diag_logs:
+            return
         vz_cfg = self._aero.vertical_z_only
         if self._takeoff_sustained_logged:
             return
@@ -551,6 +563,10 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
 
     def get_vertical_takeoff_z_reference(self) -> float:
         return float(self._takeoff_z_ref)
+
+    def set_vertical_quiet_diag_logs(self, quiet: bool) -> None:
+        """关闭竖直模式 reset/持续起飞等诊断 WARNING（供脚本二分等批量试验）。"""
+        self._vertical_quiet_diag_logs = bool(quiet)
 
     def set_vertical_fixed_thrust_over_hover(self, ratio: float) -> None:
         """运行时切换固定 T/(mg)；ratio<0 关闭固定推力并恢复由键盘竖直通道控制（爬升 ramp 需重新建 env）。"""

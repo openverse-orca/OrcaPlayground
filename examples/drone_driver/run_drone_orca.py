@@ -25,6 +25,8 @@ ENV_ENTRY_POINT = {
 
 DEFAULT_TIME_STEP = 1.0 / 120.0
 DEFAULT_FRAME_SKIP = 1
+# 默认与当前竖直标定一致：无参运行时 world-Z 推力 + 姿态锁；杆量零时 T/mg≈二分临界
+DEFAULT_VERTICAL_KEYBOARD_BASE_TMG = 1.0022
 
 DRONE_JOINT_SUFFIXES = [
     "drone_free",
@@ -84,8 +86,8 @@ def sceneinfo(scene, stage: str, orcagym_address: str):
         script_name = os.path.basename(sys.argv[0]) if sys.argv else os.path.basename(__file__)
         scene.get_rundata(script_name, stage)
         if stage == "beginscene":
-            _logger.info("开始仿真程序运行，当前为无人机推力物理版（自由关节 + 机体系力/力矩）")
-            _logger.info("W/S: 前后  A/D: 左右平移  R/F: 升降  Q/E: 偏航  Space: 重置")
+            _logger.info("开始仿真：默认竖直 Z-only（drone_frame 推力、世界朝上锁姿）；R/F 升降，Space 重置")
+            _logger.info("W/S A/D Q/E 仍驱动桨叶动画；完整六自由度推力请用 --full-6dof-thrust")
         elif stage == "loadscene":
             _logger.info("加载模型中")
         scene.set_image_enabled(1, True)
@@ -111,6 +113,7 @@ def register_env(
     vertical_ramp_duration_s: float = 25.0,
     vertical_lock_quat_world_up: bool = True,
     vertical_fixed_thrust_over_hover: float = -1.0,
+    vertical_keyboard_baseline_tmg: float = DEFAULT_VERTICAL_KEYBOARD_BASE_TMG,
 ) -> tuple[str, dict]:
     orcagym_addr_str = orcagym_addr.replace(":", "-")
     env_id = env_name + "-OrcaGym-" + orcagym_addr_str + f"-{env_index:03d}"
@@ -128,6 +131,7 @@ def register_env(
         "vertical_ramp_duration_s": vertical_ramp_duration_s,
         "vertical_lock_quat_world_up": vertical_lock_quat_world_up,
         "vertical_fixed_thrust_over_hover": vertical_fixed_thrust_over_hover,
+        "vertical_keyboard_baseline_tmg": vertical_keyboard_baseline_tmg,
     }
     gym.register(
         id=env_id,
@@ -152,6 +156,7 @@ def run_simulation(
     vertical_ramp_duration_s: float = 25.0,
     vertical_lock_quat_world_up: bool = True,
     vertical_fixed_thrust_over_hover: float = -1.0,
+    vertical_keyboard_baseline_tmg: float = DEFAULT_VERTICAL_KEYBOARD_BASE_TMG,
 ) -> None:
     env = None
     try:
@@ -179,6 +184,7 @@ def run_simulation(
             vertical_ramp_duration_s=vertical_ramp_duration_s,
             vertical_lock_quat_world_up=vertical_lock_quat_world_up,
             vertical_fixed_thrust_over_hover=vertical_fixed_thrust_over_hover,
+            vertical_keyboard_baseline_tmg=vertical_keyboard_baseline_tmg,
         )
         env = gym.make(env_id)
         obs, info = env.reset()
@@ -192,6 +198,11 @@ def run_simulation(
                 + (
                     " 推力爬升：约每秒 ramp 进度；满足 Δz∧vz 持续时间则打「持续起飞临界(精估)」。"
                     if vertical_thrust_ramp
+                    else ""
+                )
+                + (
+                    " 未开 ramp/固定推力时可用 R/F 调升降；可用 --vertical-keyboard-base-tmg 设杆量零时的 T/mg。"
+                    if not vertical_thrust_ramp and vertical_fixed_thrust_over_hover < 0
                     else ""
                 )
             )
@@ -251,6 +262,7 @@ def run_takeoff_bisection(
         )
         env = gym.make(env_id)
         raw = env.unwrapped
+        raw.set_vertical_quiet_diag_logs(True)
         dummy_action = np.zeros(env.action_space.shape, dtype=np.float32)
 
         def climbed_at(ratio: float) -> bool:
@@ -281,25 +293,38 @@ def run_takeoff_bisection(
                 lo = mid
             _logger.warning(f"[run_drone_orca] bisect it={it} mid={mid:.6f} → 区间[{lo:.6f},{hi:.6f}]")
         est = 0.5 * (lo + hi)
-        _logger.warning(f"[run_drone_orca] 起飞临界 T/(mg) 二分估计 ≈ {est:.6f}（区间 [{lo:.6f},{hi:.6f}]）")
+        _logger.warning(
+            f"[run_drone_orca] 起飞临界 T/(mg) 二分估计 ≈ {est:.6f}（区间 [{lo:.6f},{hi:.6f}]）；"
+            f"判据为 hold={bisect_hold_s}s 内 Δz≥{bisect_dz_m}m（与 env 内「持续起飞」vz+Δz+时间判据可略有差异）"
+        )
     except KeyboardInterrupt:
         print("Bisection stopped")
     finally:
         if env is not None:
+            try:
+                env.unwrapped.set_vertical_quiet_diag_logs(False)
+            except Exception:
+                pass
             env.close()
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser("Run drone orca communication demo")
+    parser = argparse.ArgumentParser(
+        "Run drone orca communication demo",
+        description=(
+            f"默认：竖直 Z-only + 键盘基准 T/mg≈{DEFAULT_VERTICAL_KEYBOARD_BASE_TMG}（R/F 微调）。"
+            "完整六自由度推力加 --full-6dof-thrust。"
+        ),
+    )
     parser.add_argument("--orcagym_addr", type=str, default="localhost:50051")
     parser.add_argument("--env_name", type=str, default="DroneOrca")
     parser.add_argument("--time_step", type=float, default=DEFAULT_TIME_STEP)
     parser.add_argument("--frame_skip", type=int, default=DEFAULT_FRAME_SKIP)
     parser.add_argument("--autoplay", action="store_true")
     parser.add_argument(
-        "--vertical-z-only",
+        "--full-6dof-thrust",
         action="store_true",
-        help="仅竖直物理：世界 Z 推力 + vz 阻尼，每步锁定姿态与水平速度",
+        help="关闭默认的竖直 Z-only，启用完整机体系力/力矩与 XY 阻尼等",
     )
     parser.add_argument(
         "--vertical-thrust-ramp",
@@ -318,7 +343,13 @@ if __name__ == "__main__":
         "--vertical-fixed-tmg",
         type=float,
         default=-1.0,
-        help="竖直模式固定 T/(mg)（>=0 时启用，与 --vertical-thrust-ramp 互斥）",
+        help="竖直模式固定 T/(mg)（>=0 时启用，与 ramp/键盘基准互斥，键盘 R/F 无效）",
+    )
+    parser.add_argument(
+        "--vertical-keyboard-base-tmg",
+        type=float,
+        default=DEFAULT_VERTICAL_KEYBOARD_BASE_TMG,
+        help=f"竖直模式且无固定、无 ramp 时杆量零对应的 T/(mg)，默认 {DEFAULT_VERTICAL_KEYBOARD_BASE_TMG}",
     )
     parser.add_argument(
         "--vertical-takeoff-bisect",
@@ -334,8 +365,8 @@ if __name__ == "__main__":
     lock_world_up = not bool(args.vertical_use_scene_quat)
     fix_tmg = float(args.vertical_fixed_tmg)
     use_fixed = fix_tmg >= 0.0
-    vz_only = bool(
-        args.vertical_z_only or args.vertical_thrust_ramp or args.vertical_takeoff_bisect or use_fixed
+    vz_only = (not args.full_6dof_thrust) or bool(
+        args.vertical_thrust_ramp or args.vertical_takeoff_bisect or use_fixed
     )
     if args.vertical_takeoff_bisect:
         run_takeoff_bisection(
@@ -364,4 +395,5 @@ if __name__ == "__main__":
             vertical_ramp_duration_s=float(args.vertical_ramp_duration),
             vertical_lock_quat_world_up=lock_world_up,
             vertical_fixed_thrust_over_hover=fix_tmg if use_fixed else -1.0,
+            vertical_keyboard_baseline_tmg=float(args.vertical_keyboard_base_tmg),
         )
