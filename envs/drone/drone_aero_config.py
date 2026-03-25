@@ -16,10 +16,10 @@ class BodyDragConfig:
     linear_z: float = 0.14
     quadratic_xy: float = 0.05
     quadratic_z: float = 0.08
-    angular_xy: float = 0.060
-    angular_z: float = 0.050
+    angular_xy: float = 0.030
+    angular_z: float = 0.028
     # 世界系水平线速度阻尼 (N/(m/s))；不宜过大，高速时与二次阻力叠加会失控
-    world_xy_velocity_damping: float = 0.18
+    world_xy_velocity_damping: float = 0.10
     # 计算阻力/阻尼时用的线速度裁剪 (m/s)，避免 v≫10 时 0.05*v² 量级达数百牛
     aero_model_velocity_clip: float = 6.0
     # 角阻尼用力矩分量上限 (N·m)；用真实角速度算 -k*ω，再裁剪，避免 ω≫25 时等效阻尼过弱而翻飞
@@ -31,10 +31,14 @@ class BodyDragConfig:
     max_body_torque_norm: float = 1.20
     # 世界系线合力上限 = 系数 × hover_thrust，防止数值/接触偶发巨大外力
     max_total_linear_force_over_hover: float = 8.0
+    # 全量四旋翼：以倾转为主，叠加少量世界系水平助推，避免视觉有倾斜但平移过肉
+    quad_world_xy_stick_force_factor: float = 0.012
+    # 全量模式推力目标一阶低通时间常数 (s)，兼顾 R/F 平顺与跟手
+    full_mode_thrust_lpf_tau_s: float = 0.10
     # 杆量接近零时：用真实线速度做世界系阻尼（带力上限），耗散机械臂等扰动，避免只靠裁剪速度导致“飘走”
     zero_cmd_hold_deadband: float = 0.05
-    zero_cmd_xy_hold_k: float = 0.30  # N/(m/s)，与 world_xy_velocity_damping 叠加
-    zero_cmd_xy_hold_force_cap: float = 1.5  # N/轴
+    zero_cmd_xy_hold_k: float = 0.12  # N/(m/s)；过大易与倾转 PD 耦合导致开局水平晃
+    zero_cmd_xy_hold_force_cap: float = 0.85  # N/轴
     zero_cmd_z_hold_k: float = 0.45  # N/(m/s)
     zero_cmd_z_hold_force_cap: float = 1.2  # N
     # free joint 速度安全钳制（数值保险丝，防止耦合导致发散）
@@ -68,6 +72,12 @@ class VerticalZOnlyConfig:
     fixed_thrust_over_hover: float = -1.0
     # 无固定、无 ramp 时：推力 = keyboard_baseline_thrust_over_hover·mg + (R−F 杆量)·scale；用于在二分结果附近手调
     keyboard_baseline_thrust_over_hover: float = 1.0022
+    # 世界系水平探索：f_x=lateral_cmd·factor·mg, f_y=forward_cmd·factor·mg（与键盘 W/S A/D 一致）；0 则保持纯 Z 并每步清零 vx,vy
+    keyboard_world_xy_force_factor: float = 0.055
+    # 世界系水平速度阻尼 (N/(m/s))；过小时接触/积分泄漏的水平速度易累积导致「横飞」
+    keyboard_world_xy_vel_damping: float = 0.38
+    # k_xy>0 时每步对 free 线速度水平分量裁剪 (m/s)；0 表示不裁剪
+    keyboard_world_xy_max_speed: float = 0.75
     # 首次 vz 过阈（易与弹跳混淆）；False 时仅依赖下方「持续起飞」判据
     takeoff_log_first_vz_spike: bool = False
     takeoff_vz_threshold: float = 0.08

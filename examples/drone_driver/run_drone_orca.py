@@ -14,6 +14,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from envs.common.model_scanner import build_suffix_template, require_complete_matches, scan_scene_for_template
+from envs.drone.drone_aero_config import DEFAULT_DRONE_AERO_CONFIG
 from orca_gym.log.orca_log import get_orca_logger
 from orca_gym.scene.orca_gym_scene import OrcaGymScene
 
@@ -27,6 +28,9 @@ DEFAULT_TIME_STEP = 1.0 / 120.0
 DEFAULT_FRAME_SKIP = 1
 # 默认与当前竖直标定一致：无参运行时 world-Z 推力 + 姿态锁；杆量零时 T/mg≈二分临界
 DEFAULT_VERTICAL_KEYBOARD_BASE_TMG = 1.0022
+DEFAULT_VERTICAL_XY_FORCE_FACTOR = float(
+    DEFAULT_DRONE_AERO_CONFIG.vertical_z_only.keyboard_world_xy_force_factor
+)
 
 DRONE_JOINT_SUFFIXES = [
     "drone_free",
@@ -87,7 +91,10 @@ def sceneinfo(scene, stage: str, orcagym_address: str):
         scene.get_rundata(script_name, stage)
         if stage == "beginscene":
             _logger.info("开始仿真：默认竖直 Z-only（drone_frame 推力、世界朝上锁姿）；R/F 升降，Space 重置")
-            _logger.info("W/S A/D Q/E 仍驱动桨叶动画；完整六自由度推力请用 --full-6dof-thrust")
+            _logger.info(
+                "W/S、A/D 在竖直模式下可驱动世界系水平力（见 --vertical-xy-force-factor / --vertical-pure-z）；"
+                "四旋翼杆量（俯仰/滚转力矩 + 机体系升力）请用 --full-6dof-thrust 或 --quad-wasd-torque"
+            )
         elif stage == "loadscene":
             _logger.info("加载模型中")
         scene.set_image_enabled(1, True)
@@ -114,6 +121,7 @@ def register_env(
     vertical_lock_quat_world_up: bool = True,
     vertical_fixed_thrust_over_hover: float = -1.0,
     vertical_keyboard_baseline_tmg: float = DEFAULT_VERTICAL_KEYBOARD_BASE_TMG,
+    vertical_keyboard_xy_force_factor: float = DEFAULT_VERTICAL_XY_FORCE_FACTOR,
 ) -> tuple[str, dict]:
     orcagym_addr_str = orcagym_addr.replace(":", "-")
     env_id = env_name + "-OrcaGym-" + orcagym_addr_str + f"-{env_index:03d}"
@@ -132,6 +140,7 @@ def register_env(
         "vertical_lock_quat_world_up": vertical_lock_quat_world_up,
         "vertical_fixed_thrust_over_hover": vertical_fixed_thrust_over_hover,
         "vertical_keyboard_baseline_tmg": vertical_keyboard_baseline_tmg,
+        "vertical_keyboard_xy_force_factor": float(vertical_keyboard_xy_force_factor),
     }
     gym.register(
         id=env_id,
@@ -157,6 +166,7 @@ def run_simulation(
     vertical_lock_quat_world_up: bool = True,
     vertical_fixed_thrust_over_hover: float = -1.0,
     vertical_keyboard_baseline_tmg: float = DEFAULT_VERTICAL_KEYBOARD_BASE_TMG,
+    vertical_keyboard_xy_force_factor: float = DEFAULT_VERTICAL_XY_FORCE_FACTOR,
 ) -> None:
     env = None
     try:
@@ -185,6 +195,7 @@ def run_simulation(
             vertical_lock_quat_world_up=vertical_lock_quat_world_up,
             vertical_fixed_thrust_over_hover=vertical_fixed_thrust_over_hover,
             vertical_keyboard_baseline_tmg=vertical_keyboard_baseline_tmg,
+            vertical_keyboard_xy_force_factor=vertical_keyboard_xy_force_factor,
         )
         env = gym.make(env_id)
         obs, info = env.reset()
@@ -193,8 +204,14 @@ def run_simulation(
         if autoplay:
             _logger.info("已启用 autoplay：无人机将持续执行前进、横移、升降和偏航扰动，便于反复调试")
         if vertical_z_only_physics:
+            xy_k = float(vertical_keyboard_xy_force_factor)
+            planar = (
+                "姿态每步锁定；WASD 世界系水平力（系数 k_xy>0 时保留 vx,vy）。"
+                if xy_k > 1e-12
+                else "姿态与水平速度每步锁定（纯 Z）。"
+            )
             _logger.info(
-                "竖直 Z 模式：仅世界 +Z 推力与 vz 阻尼；姿态与水平速度每步锁定。"
+                "竖直 Z 模式：世界 +Z 推力与 vz 阻尼；" + planar
                 + (
                     " 推力爬升：约每秒 ramp 进度；满足 Δz∧vz 持续时间则打「持续起飞临界(精估)」。"
                     if vertical_thrust_ramp
@@ -205,6 +222,7 @@ def run_simulation(
                     if not vertical_thrust_ramp and vertical_fixed_thrust_over_hover < 0
                     else ""
                 )
+                + (f" k_xy={xy_k:.4g}。" if xy_k > 1e-12 else "")
             )
 
         dummy_action = np.zeros(env.action_space.shape, dtype=np.float32)
@@ -259,6 +277,7 @@ def run_takeoff_bisection(
             vertical_thrust_ramp=False,
             vertical_fixed_thrust_over_hover=-1.0,
             vertical_lock_quat_world_up=vertical_lock_quat_world_up,
+            vertical_keyboard_xy_force_factor=0.0,
         )
         env = gym.make(env_id)
         raw = env.unwrapped
@@ -313,7 +332,7 @@ if __name__ == "__main__":
         "Run drone orca communication demo",
         description=(
             f"默认：竖直 Z-only + 键盘基准 T/mg≈{DEFAULT_VERTICAL_KEYBOARD_BASE_TMG}（R/F 微调）。"
-            "完整六自由度推力加 --full-6dof-thrust。"
+            "四旋翼式：W/A/S/D→滚转/俯仰力矩 + 机体系升力用 --full-6dof-thrust 或 --quad-wasd-torque。"
         ),
     )
     parser.add_argument("--orcagym_addr", type=str, default="localhost:50051")
@@ -324,7 +343,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--full-6dof-thrust",
         action="store_true",
-        help="关闭默认的竖直 Z-only，启用完整机体系力/力矩与 XY 阻尼等",
+        help="关闭竖直 Z-only：W/S、A/D→俯仰/滚转力矩，R/F→集体升力，推力沿 drone_frame +Z（与 free 同体；倾斜即有水平分力），Q/E 偏航",
+    )
+    parser.add_argument(
+        "--quad-wasd-torque",
+        action="store_true",
+        help="同 --full-6dof-thrust（四旋翼杆量语义别名）",
     )
     parser.add_argument(
         "--vertical-thrust-ramp",
@@ -352,6 +376,20 @@ if __name__ == "__main__":
         help=f"竖直模式且无固定、无 ramp 时杆量零对应的 T/(mg)，默认 {DEFAULT_VERTICAL_KEYBOARD_BASE_TMG}",
     )
     parser.add_argument(
+        "--vertical-xy-force-factor",
+        type=float,
+        default=DEFAULT_VERTICAL_XY_FORCE_FACTOR,
+        help=(
+            "竖直模式下 WASD 世界系水平力系数 k_xy（f∝k_xy·mg·杆量）；"
+            f"默认 {DEFAULT_VERTICAL_XY_FORCE_FACTOR}；与 --vertical-pure-z 互斥"
+        ),
+    )
+    parser.add_argument(
+        "--vertical-pure-z",
+        action="store_true",
+        help="竖直模式关闭水平力（k_xy=0），每步清零 vx,vy，与二分标定一致",
+    )
+    parser.add_argument(
         "--vertical-takeoff-bisect",
         action="store_true",
         help="竖直模式下二分搜索起飞临界 T/(mg)（需 bisect_lo 不能离地、bisect_hi 能离地）",
@@ -365,9 +403,11 @@ if __name__ == "__main__":
     lock_world_up = not bool(args.vertical_use_scene_quat)
     fix_tmg = float(args.vertical_fixed_tmg)
     use_fixed = fix_tmg >= 0.0
-    vz_only = (not args.full_6dof_thrust) or bool(
+    use_quad_flight = bool(args.full_6dof_thrust) or bool(args.quad_wasd_torque)
+    vz_only = (not use_quad_flight) or bool(
         args.vertical_thrust_ramp or args.vertical_takeoff_bisect or use_fixed
     )
+    xy_k = 0.0 if bool(args.vertical_pure_z) else float(args.vertical_xy_force_factor)
     if args.vertical_takeoff_bisect:
         run_takeoff_bisection(
             orcagym_addr=args.orcagym_addr,
@@ -396,4 +436,5 @@ if __name__ == "__main__":
             vertical_lock_quat_world_up=lock_world_up,
             vertical_fixed_thrust_over_hover=fix_tmg if use_fixed else -1.0,
             vertical_keyboard_baseline_tmg=float(args.vertical_keyboard_base_tmg),
+            vertical_keyboard_xy_force_factor=xy_k,
         )

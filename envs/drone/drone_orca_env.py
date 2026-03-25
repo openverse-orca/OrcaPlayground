@@ -39,7 +39,10 @@ class RotorSpec:
 
 
 class DroneOrcaEnv(OrcaGymLocalEnv):
-    """自由飞行刚体：标量推力沿世界 +Z（抗 MuJoCo 默认重力 -Z），换算到 Drone 体后写入 xfrc_applied；力矩在 Drone 体系。旋翼关节仅动画。"""
+    """自由飞行刚体：旋翼关节仅动画。
+
+    - **vertical_z_only**：世界 +Z 标量推力（经体轴换算写入 xfrc），可选 WASD 世界系水平力；姿态可锁。
+    - **全量（非 vertical_z_only）**：集体升力沿 **drone_frame 机体系 +Z**，经 **R 旋到世界系** 写入 `xfrc_applied`（MuJoCo 为世界系）；W/A/S/D 倾转 PD + 可选世界系水平键盘力；Q/E 偏航阻尼。"""
 
     def __init__(
         self,
@@ -57,6 +60,7 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         vertical_lock_quat_world_up: bool = True,
         vertical_fixed_thrust_over_hover: float = -1.0,
         vertical_keyboard_baseline_tmg: float = 1.0022,
+        vertical_keyboard_xy_force_factor: Optional[float] = None,
         **kwargs,
     ):
         super().__init__(
@@ -104,8 +108,11 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         fixed_r = float(vertical_fixed_thrust_over_hover)
         use_fixed_thrust = fixed_r >= 0.0
         ramp_on = bool(vertical_thrust_ramp) and not use_fixed_thrust
+        bvz = DEFAULT_DRONE_AERO_CONFIG.vertical_z_only
+        if vertical_keyboard_xy_force_factor is not None:
+            bvz = replace(bvz, keyboard_world_xy_force_factor=float(vertical_keyboard_xy_force_factor))
         vz_cfg = replace(
-            DEFAULT_DRONE_AERO_CONFIG.vertical_z_only,
+            bvz,
             enabled=bool(vertical_z_only_physics),
             thrust_ramp_enabled=ramp_on,
             thrust_ramp_t0_factor=float(vertical_ramp_t0_factor),
@@ -121,9 +128,8 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         # 与 subtree 重力平衡；略高会持续爬升。接触/地面效应可用键盘垂直通道微调。
         self._hover_thrust = subtree_mass * 9.81
         self._thrust_cmd_scale = 0.55 * self._hover_thrust
-        self._tau_roll = 0.014 * self._hover_thrust
-        self._tau_pitch = 0.014 * self._hover_thrust
-        self._tau_yaw = 0.009 * self._hover_thrust
+        # 全量模式滚转/俯仰改由「目标推力方向」PD（见 _apply_thrust_and_drag）；偏航杆量保守些，避免在 WASD/RF 下被航向环带偏
+        self._tau_yaw = 0.012 * self._hover_thrust
         self._thrust_min = max(0.12 * self._hover_thrust, 0.02)
         self._thrust_max = 2.2 * self._hover_thrust
         if self._aero.vertical_z_only.enabled:
@@ -169,6 +175,9 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         self._last_thrust_scalar = 0.0
         self._last_tau_cmd = np.zeros(3, dtype=np.float64)
         self._last_ground_effect_factor = 1.0
+        # 全量模式：松杆 XY 抱死用滤波速度，削弱 Orca/步进噪声 → 水平来回晃
+        self._full_mode_filt_vxy = np.zeros(2, dtype=np.float64)
+        self._full_mode_thrust_lpf = float(self._hover_thrust)
 
         free_lo, free_hi = _joint_dof_bounds(mjm, self._free_joint)
         self._free_dof_lo = free_lo
@@ -228,6 +237,7 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
                 f"姿态锁={'世界朝上' if vz0.lock_quat_world_up else '场景初值'}；"
                 f"推力作用体={'drone_frame' if vz0.apply_thrust_at_free_frame else 'Drone'}；"
                 f"持续起飞判据 Δz≥{vz0.takeoff_sustain_dz_m}m ∧ vz≥{vz0.takeoff_sustain_vz_threshold}m/s 连续 {vz0.takeoff_sustain_time_s}s；"
+                f"WASD 水平力系数={vz0.keyboard_world_xy_force_factor}（0=仅 Z）；"
                 "已关闭 periodic 动力学长日志。"
             )
 
@@ -292,6 +302,9 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         free_q = self._initial_free_qpos.copy()
         if self._aero.vertical_z_only.enabled and self._aero.vertical_z_only.lock_quat_world_up:
             free_q[3:7] = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float64)
+        elif not self._aero.vertical_z_only.enabled:
+            # 全量四旋翼：frame 世界朝上，集体升力沿 frame +Z ≈ 世界 +Z；否则推力加在歪斜的 Drone 子体会等效「侧向喷气」
+            free_q[3:7] = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float64)
         qpos_update = {self._free_joint: free_q}
         qvel_update = {self._free_joint: np.zeros(6, dtype=np.float64)}
         for spec in self._rotor_specs:
@@ -304,6 +317,9 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         self.set_joint_qvel(qvel_update)
         self.set_ctrl(self._ctrl_align_rotor_position_actuators())
         self.mj_forward()
+        if not self._aero.vertical_z_only.enabled:
+            self._full_mode_filt_vxy[:] = 0.0
+            self._full_mode_thrust_lpf = float(self._hover_thrust)
         # Orca 同步偶发在 mj_forward 后写回非零关节速度，再清一次 free
         self.set_joint_qvel({self._free_joint: np.zeros(6, dtype=np.float64)})
         self.mj_forward()
@@ -440,6 +456,8 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
             self._frame_body_id if vz_cfg.apply_thrust_at_free_frame else self._drone_body_id
         )
 
+        forward_cmd, lateral_cmd, vertical_cmd, _yaw_cmd = [float(np.clip(v, -1.0, 1.0)) for v in command]
+
         if float(vz_cfg.fixed_thrust_over_hover) >= 0.0:
             r = float(vz_cfg.fixed_thrust_over_hover)
             thrust = float(np.clip(r * self._hover_thrust, self._thrust_min, self._thrust_max))
@@ -451,7 +469,6 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
             thrust = self._hover_thrust * (t0 + u * (t1 - t0))
             thrust = float(np.clip(thrust, self._thrust_min, self._thrust_max))
         else:
-            _f, _l, vertical_cmd, _y = [float(np.clip(v, -1.0, 1.0)) for v in command]
             base = float(vz_cfg.keyboard_baseline_thrust_over_hover) * self._hover_thrust
             thrust = float(
                 np.clip(
@@ -470,17 +487,46 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         k_q = float(vz_cfg.vz_quadratic_k)
         fz = thrust - k_l * vz - k_q * abs(vz) * vz
 
-        r_w_b = data.xmat[thrust_bid].reshape(3, 3)
-        f_w = np.array([0.0, 0.0, fz], dtype=np.float64)
-        f_b = r_w_b.T @ f_w
+        mg_h = max(float(self._hover_thrust), 1e-9)
+        kxy = float(vz_cfg.keyboard_world_xy_force_factor)
+        fx = 0.0
+        fy = 0.0
+        if kxy > 1e-12 and hi - lo == 6:
+            # 用推力作用体的 COM 世界系线速度做阻尼/刹停，与全量模式 drag 一致；勿与 qvel 混用以免原点/COM 不一致
+            cvel = data.cvel[thrust_bid]
+            vx_w = float(cvel[3])
+            vy_w = float(cvel[4])
+            kxd = float(vz_cfg.keyboard_world_xy_vel_damping)
+            dead = float(self._aero.drag.zero_cmd_hold_deadband)
+            cap_xy = float(self._aero.drag.zero_cmd_xy_hold_force_cap)
+            planar_idle = abs(forward_cmd) < dead and abs(lateral_cmd) < dead
+            if planar_idle:
+                kxh = kxd + float(self._aero.drag.zero_cmd_xy_hold_k)
+                fx = float(np.clip(-kxh * vx_w, -cap_xy, cap_xy))
+                fy = float(np.clip(-kxh * vy_w, -cap_xy, cap_xy))
+            else:
+                fcx = lateral_cmd * kxy * mg_h
+                fcy = forward_cmd * kxy * mg_h
+                fcap = 1.55 * kxy * mg_h
+                hc = float(math.hypot(fcx, fcy))
+                if hc > fcap and hc > 1e-12:
+                    s = fcap / hc
+                    fcx *= s
+                    fcy *= s
+                fx = fcx - kxd * vx_w
+                fy = fcy - kxd * vy_w
+
+        f_w = np.array([fx, fy, fz], dtype=np.float64)
 
         data.xfrc_applied[self._drone_body_id].fill(0.0)
         if self._frame_body_id != self._drone_body_id:
             data.xfrc_applied[self._frame_body_id].fill(0.0)
-        data.xfrc_applied[thrust_bid, 0:3] = f_b
+        # xfrc_applied 线力为世界系；竖直模式在 lock 姿态下 R≈I，写 f_w 与旧版写 R^T f_w 等价，解锁姿态时亦正确
+        data.xfrc_applied[thrust_bid, 0:3] = f_w
         data.xfrc_applied[thrust_bid, 3:6] = 0.0
 
-        self._last_xfrc_body = np.array(data.xfrc_applied[thrust_bid], dtype=np.float64, copy=True)
+        r_w_b = data.xmat[thrust_bid].reshape(3, 3)
+        self._last_xfrc_body = np.concatenate([r_w_b.T @ f_w, np.zeros(3, dtype=np.float64)])
         self._last_thrust_scalar = thrust
         self._last_tau_cmd[:] = 0.0
         self._last_ground_effect_factor = 1.0
@@ -501,6 +547,17 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         qv = np.asarray(self.gym._mjData.qvel[lo:hi], dtype=np.float64).reshape(6)
         new_v = np.zeros(6, dtype=np.float64)
         new_v[2] = float(qv[2])
+        vz_xy = self._aero.vertical_z_only
+        if float(vz_xy.keyboard_world_xy_force_factor) > 1e-12:
+            new_v[0] = float(qv[0])
+            new_v[1] = float(qv[1])
+            vcap = float(vz_xy.keyboard_world_xy_max_speed)
+            if vcap > 1e-9:
+                hxy = float(math.hypot(new_v[0], new_v[1]))
+                if hxy > vcap and hxy > 1e-12:
+                    s = vcap / hxy
+                    new_v[0] *= s
+                    new_v[1] *= s
         self.set_joint_qvel({self._free_joint: new_v})
         self.mj_forward()
 
@@ -578,65 +635,182 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         self._aero = replace(self._aero, vertical_z_only=vz)
 
     def _apply_thrust_and_drag(self, command: np.ndarray, dt: float) -> None:
-        del dt
+        dt = float(max(dt, 1e-6))
         if self._aero.vertical_z_only.enabled:
             self._apply_thrust_vertical_z_only(command)
             return
 
         data = self.gym._mjData
-        bid = self._drone_body_id
+        # 与竖直模式一致：力/力矩加在 drone_frame（free 关节体），不用 Drone 子体（USD/网格装配角会使子体 +Z 非竖直）
+        bid = self._frame_body_id
+        data.xfrc_applied[self._drone_body_id].fill(0.0)
+        data.xfrc_applied[self._frame_body_id].fill(0.0)
 
         forward_cmd, lateral_cmd, vertical_cmd, yaw_cmd = [float(np.clip(v, -1.0, 1.0)) for v in command]
 
-        thrust = float(
+        planar_mag = min(1.0, float(math.hypot(forward_cmd, lateral_cmd)))
+        max_tilt_rad = math.radians(18.0)
+        tilt_mag = max_tilt_rad * planar_mag
+        # 倾转时按 cos(theta) 轻补集体升力，保留微倾斜视觉同时减少 WASD 触发的掉高/补偿振荡。
+        thrust_hover_comp = 1.0 / max(math.cos(tilt_mag), math.cos(max_tilt_rad))
+        thrust_target = float(
             np.clip(
-                self._hover_thrust + vertical_cmd * self._thrust_cmd_scale,
+                (self._hover_thrust * thrust_hover_comp) + vertical_cmd * self._thrust_cmd_scale,
                 self._thrust_min,
                 self._thrust_max,
             )
         )
-        tau_x = -lateral_cmd * self._tau_roll
-        tau_y = -forward_cmd * self._tau_pitch
-        tau_z = -yaw_cmd * self._tau_yaw
+        tau_t = float(max(self._aero.drag.full_mode_thrust_lpf_tau_s, 0.02))
+        lpf_a = min(1.0, dt / tau_t)
+        self._full_mode_thrust_lpf = float(
+            self._full_mode_thrust_lpf + lpf_a * (thrust_target - self._full_mode_thrust_lpf)
+        )
+        thrust = float(self._full_mode_thrust_lpf)
 
         R_d = data.xmat[bid].reshape(3, 3)
         cvel = data.cvel[bid]
+        omega_w_raw = np.asarray(cvel[0:3], dtype=np.float64).reshape(3)
+        omega_b_raw = R_d.T @ omega_w_raw
         dcfg = self._aero.drag
         v_raw = np.asarray(cvel[3:6], dtype=np.float64).reshape(3)
         vc = float(dcfg.aero_model_velocity_clip)
         v_w = np.clip(v_raw, -vc, vc)
-        ez_w = np.array([0.0, 0.0, 1.0], dtype=np.float64)
         dead = float(dcfg.zero_cmd_hold_deadband)
         planar_idle = abs(forward_cmd) < dead and abs(lateral_cmd) < dead
         vert_idle = abs(vertical_cmd) < dead
+        yaw_idle = abs(yaw_cmd) < dead
+        full_idle = planar_idle and vert_idle and yaw_idle
+        vert_active = not vert_idle
+        planar_active = not planar_idle
         k_xy_base = float(dcfg.world_xy_velocity_damping)
         cap_xy = float(dcfg.zero_cmd_xy_hold_force_cap)
         if planar_idle:
-            kxh = k_xy_base + float(dcfg.zero_cmd_xy_hold_k)
-            f_xy_w = np.array(
-                [
-                    float(np.clip(-kxh * v_raw[0], -cap_xy, cap_xy)),
-                    float(np.clip(-kxh * v_raw[1], -cap_xy, cap_xy)),
-                    0.0,
-                ],
-                dtype=np.float64,
+            ema_a = 0.22
+            self._full_mode_filt_vxy = (1.0 - ema_a) * self._full_mode_filt_vxy + ema_a * np.asarray(
+                v_raw[0:2], dtype=np.float64
             )
+            vxy_h = self._full_mode_filt_vxy.copy()
+            vxy_dead = 0.075
+            if float(np.linalg.norm(vxy_h)) < vxy_dead:
+                vxy_h[:] = 0.0
+            # 键盘全松：不要世界系 XY 抱死，否则小幅 v 噪声 + 倾侧推力分力易形成极限环晃
+            if full_idle:
+                f_xy_w = np.zeros(3, dtype=np.float64)
+            else:
+                kxh = k_xy_base + float(dcfg.zero_cmd_xy_hold_k)
+                f_xy_w = np.array(
+                    [
+                        float(np.clip(-kxh * vxy_h[0], -cap_xy, cap_xy)),
+                        float(np.clip(-kxh * vxy_h[1], -cap_xy, cap_xy)),
+                        0.0,
+                    ],
+                    dtype=np.float64,
+                )
         else:
-            f_xy_w = np.array([-k_xy_base * v_w[0], -k_xy_base * v_w[1], 0.0], dtype=np.float64)
+            self._full_mode_filt_vxy[:] = np.asarray(v_raw[0:2], dtype=np.float64)
+            stick_xy = min(1.0, float(math.hypot(forward_cmd, lateral_cmd)))
+            k_xy_eff = k_xy_base * (1.0 - 0.5 * stick_xy)
+            f_xy_w = np.array([-k_xy_eff * v_w[0], -k_xy_eff * v_w[1], 0.0], dtype=np.float64)
         f_z_hold_w = np.zeros(3, dtype=np.float64)
         if vert_idle:
             kzh = float(dcfg.zero_cmd_z_hold_k)
             cap_z = float(dcfg.zero_cmd_z_hold_force_cap)
             f_z_hold_w[2] = float(np.clip(-kzh * v_raw[2], -cap_z, cap_z))
-        # 世界 +Z 升力 + 世界系 XY 阻尼（零杆量时用真实速度+力上限，避免缓慢漂移）
-        f_thrust_b = R_d.T @ (ez_w * thrust + f_xy_w + f_z_hold_w)
 
-        data.xfrc_applied[bid].fill(0.0)
-        data.xfrc_applied[bid, 0:3] = f_thrust_b
-        data.xfrc_applied[bid, 3:6] = np.array([tau_x, tau_y, tau_z], dtype=np.float64)
+        # 目标推力方向（世界系）：杆量把机体 +Z 从竖直倾向 (lateral, forward)，产生稳定水平分力；松杆拉回竖直并阻尼角速度，减轻晃振
+        ez_w = np.array([0.0, 0.0, 1.0], dtype=np.float64)
+        zb_w = R_d @ np.array([0.0, 0.0, 1.0], dtype=np.float64)
+        h = float(math.hypot(lateral_cmd, forward_cmd))
+        if planar_idle or h < 1e-8:
+            zb_des_w = ez_w.copy()
+        else:
+            ux = lateral_cmd / h
+            uy = forward_cmd / h
+            sm = min(h, 1.0)
+            ang = max_tilt_rad * sm
+            ca, sa = math.cos(ang), math.sin(ang)
+            zb_des_w = np.array([sa * ux, sa * uy, ca], dtype=np.float64)
+        e_w = np.cross(zb_w, zb_des_w)
+        en = float(np.linalg.norm(e_w))
+        if en > 1e-12:
+            e_cap = math.sin(math.radians(20.0))
+            e_w = e_w * (min(en, e_cap) / en)
+        if full_idle:
+            # 全松杆：小姿态误差不进 P，避免与 D 一起顶满 trp；压低 ω 裁剪上限防 D 项单独饱和
+            en_db = math.sin(math.radians(2.5))
+            if en < en_db:
+                e_w[:] = 0.0
+            om_cap_rp = 2.0
+            om_cap_y = 3.2
+            Kp_align = 0.11
+            Kd_rp = 0.035
+            trp_max = 0.08
+            Kd_yaw = 0.03
+        elif planar_idle and vert_idle and not yaw_idle:
+            # 仅 Q/E：full_idle 为假会误走 aggressive，滚仰顶满 trp 与偏航耦合成剧烈抖
+            en_db = math.sin(math.radians(2.2))
+            if en < en_db:
+                e_w[:] = 0.0
+            om_cap_rp = 2.2
+            om_cap_y = 5.0
+            Kp_align = 0.12
+            Kd_rp = 0.04
+            trp_max = 0.09
+            Kd_yaw = 0.05
+        elif vert_active and not planar_active:
+            # 仅 R/F：推力在爬升/下降，硬滚仰 PD 会与 T 突变强耦合 → 与全松杆同级软环
+            en_db = math.sin(math.radians(2.2))
+            if en < en_db:
+                e_w[:] = 0.0
+            om_cap_rp = 2.2
+            om_cap_y = 3.4
+            Kp_align = 0.12
+            Kd_rp = 0.04
+            trp_max = 0.09
+            Kd_yaw = 0.03
+        elif vert_active and planar_active:
+            om_cap_rp = 2.8
+            om_cap_y = 4.0
+            Kp_align = 0.30
+            Kd_rp = 0.05
+            trp_max = 0.14
+            Kd_yaw = 0.04
+        elif planar_active:
+            # 仅有 WASD（可无 Q/E、无 R/F）：原 else aggressive 易与倾转/阻尼打架，按键即抖
+            om_cap_rp = 2.8
+            om_cap_y = 4.0
+            Kp_align = 0.28
+            Kd_rp = 0.05
+            trp_max = 0.14
+            Kd_yaw = 0.04
+        else:
+            om_cap_rp = 2.2
+            om_cap_y = 3.4
+            Kp_align = 0.12
+            Kd_rp = 0.04
+            trp_max = 0.09
+            Kd_yaw = 0.03
+        wxc = float(np.clip(omega_b_raw[0], -om_cap_rp, om_cap_rp))
+        wyc = float(np.clip(omega_b_raw[1], -om_cap_rp, om_cap_rp))
+        wzc = float(np.clip(omega_b_raw[2], -om_cap_y, om_cap_y))
+        tau_b_tilt = Kp_align * (R_d.T @ e_w)
+        tau_x = float(np.clip(tau_b_tilt[0] - Kd_rp * wxc, -trp_max, trp_max))
+        tau_y = float(np.clip(tau_b_tilt[1] - Kd_rp * wyc, -trp_max, trp_max))
+        tau_z = 0.0 if yaw_idle else float(-yaw_cmd * self._tau_yaw - Kd_yaw * wzc)
+        # 额外世界系 ψ 稳定见 tau_w 合成后（避免子体欧拉第三角万向节问题）
 
-        omega_w_raw = np.asarray(cvel[0:3], dtype=np.float64).reshape(3)
-        omega_b_raw = R_d.T @ omega_w_raw
+        # MuJoCo mjData.xfrc_applied 的线力与力矩均为**世界系**（作用在质心）。机体系集体升力须用 R@f_b 再写入，否则 [0,0,T] 会被当成世界 +Z，倾转不产生水平分力，WASD 几乎无法平移。
+        f_collective_b = np.array([0.0, 0.0, thrust], dtype=np.float64)
+        f_stab_w = f_xy_w + f_z_hold_w
+        f_w = R_d @ f_collective_b + f_stab_w
+        kq_xy = float(dcfg.quad_world_xy_stick_force_factor)
+        if kq_xy > 1e-12 and not planar_idle:
+            mg_h = max(float(self._hover_thrust), 1e-9)
+            f_w[0] += lateral_cmd * kq_xy * mg_h
+            f_w[1] += forward_cmd * kq_xy * mg_h
+
+        tau_b_cmd = np.array([tau_x, tau_y, tau_z], dtype=np.float64)
+
         tcap = float(dcfg.angular_drag_torque_axis_max)
         tau_drag_b = np.array(
             [
@@ -646,8 +820,8 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
             ],
             dtype=np.float64,
         )
-        yaw_idle = abs(yaw_cmd) < dead
-        if planar_idle and yaw_idle:
+        # 全松杆时不叠这一层，避免与「软倾转 PD + angular_xy」重复阻尼导致滚仰力矩来回顶格
+        if planar_idle and yaw_idle and not full_idle:
             k_ah = float(dcfg.zero_cmd_angular_hold_k)
             c_ah = float(dcfg.zero_cmd_angular_torque_axis_max)
             tau_drag_b += np.array(
@@ -667,46 +841,60 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
             ],
             dtype=np.float64,
         )
-        f_drag_b = R_d.T @ f_drag_w
+        f_w = f_w + f_drag_w
 
-        data.xfrc_applied[bid, 0:3] += f_drag_b
-        data.xfrc_applied[bid, 3:6] += tau_drag_b
-        tau_tot = np.asarray(data.xfrc_applied[bid, 3:6], dtype=np.float64).reshape(3).copy()
-        tnorm = float(np.linalg.norm(tau_tot))
+        tau_b_tot = tau_b_cmd + tau_drag_b
+        tnorm = float(np.linalg.norm(tau_b_tot))
         tmax = float(dcfg.max_body_torque_norm)
         if tnorm > tmax and tnorm > 1e-12:
-            data.xfrc_applied[bid, 3:6] = tau_tot * (tmax / tnorm)
+            tau_b_tot = tau_b_tot * (tmax / tnorm)
+        tau_w = R_d @ tau_b_tot
+        # 世界系偏航弱稳定：用机头在水平面投影角 + 世界 ωz，避免去掉欧拉回正后航向慢漂带动水平晃
+        if yaw_idle:
+            fwd = R_d @ np.array([1.0, 0.0, 0.0], dtype=np.float64)
+            nxy = float(math.hypot(fwd[0], fwd[1]))
+            if nxy > 1e-8:
+                psi = float(math.atan2(fwd[1], fwd[0]))
+                wz_w = float(omega_w_raw[2])
+                if full_idle or (vert_active and not planar_active):
+                    tau_w[2] += float(np.clip(-0.012 * psi - 0.03 * wz_w, -0.04, 0.04))
+                else:
+                    tau_w[2] += float(np.clip(-0.008 * psi - 0.02 * wz_w, -0.03, 0.03))
+        tnw = float(np.linalg.norm(tau_w))
+        if tnw > tmax and tnw > 1e-12:
+            tau_w = tau_w * (tmax / tnw)
 
         max_fw = float(dcfg.max_total_linear_force_over_hover) * float(self._hover_thrust)
-        f_lin_w = R_d @ data.xfrc_applied[bid, 0:3]
-        fn = float(np.linalg.norm(f_lin_w))
+        fn = float(np.linalg.norm(f_w))
         if fn > max_fw and fn > 1e-12:
-            f_lin_w *= max_fw / fn
-            data.xfrc_applied[bid, 0:3] = R_d.T @ f_lin_w
+            f_w = f_w * (max_fw / fn)
 
         self._last_ground_effect_factor = 1.0
         if self._aero.ground_effect.enabled:
             z = float(data.xpos[bid, 2])
             gcfg = self._aero.ground_effect
             z_body_w = R_d @ np.array([0.0, 0.0, 1.0], dtype=np.float64)
-            # 机体系 +Z 与世界 +Z 同向分量；倒扣时为负，不应再乘地面效应
             cos_up = float(np.clip(z_body_w[2], -1.0, 1.0))
             tilt_ok = cos_up >= math.cos(math.radians(float(gcfg.max_tilt_deg)))
             if tilt_ok and z < gcfg.active_height and z > gcfg.min_height:
                 factor = 1.0 + gcfg.gain * (1.0 - z / gcfg.active_height)
                 factor = float(np.clip(factor, 1.0, gcfg.max_factor))
-                f_lin_w = R_d @ data.xfrc_applied[bid, 0:3]
-                f_lin_w[2] *= factor
-                data.xfrc_applied[bid, 0:3] = R_d.T @ f_lin_w
+                if vert_active:
+                    factor = 1.0 + (factor - 1.0) * 0.45
+                f_w[2] *= factor
                 self._last_ground_effect_factor = factor
 
-        f_lin_w = R_d @ data.xfrc_applied[bid, 0:3]
-        fn2 = float(np.linalg.norm(f_lin_w))
+        fn2 = float(np.linalg.norm(f_w))
         if fn2 > max_fw and fn2 > 1e-12:
-            f_lin_w *= max_fw / fn2
-            data.xfrc_applied[bid, 0:3] = R_d.T @ f_lin_w
+            f_w = f_w * (max_fw / fn2)
 
-        self._last_xfrc_body = np.array(data.xfrc_applied[bid], dtype=np.float64, copy=True)
+        data.xfrc_applied[bid, 0:3] = f_w
+        data.xfrc_applied[bid, 3:6] = tau_w
+
+        # 诊断用：与机体系控制律对齐的等效 wrench（世界系施加值旋回机体系）
+        self._last_xfrc_body = np.concatenate(
+            [R_d.T @ f_w.reshape(3), R_d.T @ tau_w.reshape(3)]
+        ).astype(np.float64, copy=False)
         self._last_thrust_scalar = thrust
         self._last_tau_cmd = np.array([tau_x, tau_y, tau_z], dtype=np.float64)
 
@@ -756,6 +944,12 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         qvel_rot_flat = np.concatenate([qvel[lo:hi] for lo, hi in self._rotor_dof_bounds]) if self._rotor_dof_bounds else np.array([])
         euler = rotations.quat2euler(np.asarray(mjd.xquat[bid], dtype=np.float64).reshape(1, -1))
         euler_deg = np.rad2deg(euler.reshape(-1))
+        frame_euler_suffix = ""
+        if not self._aero.vertical_z_only.enabled:
+            fe = rotations.quat2euler(
+                np.asarray(mjd.xquat[self._frame_body_id], dtype=np.float64).reshape(1, -1)
+            )
+            frame_euler_suffix = f" frame_euler_deg={np.round(np.rad2deg(fe.reshape(-1)), 2)}"
         cmd = np.asarray(self._last_command, dtype=np.float64).reshape(-1)
         msg = (
             f"[DroneOrcaEnv] {reason} sim_t={mjd.time:.5f} "
@@ -764,7 +958,7 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
             f"thrust_cmd={self._last_thrust_scalar:.4f} tau_cmd={np.round(self._last_tau_cmd, 5)} "
             f"ge_fac={self._last_ground_effect_factor:.3f} "
             f"xfrc_body[Fxyz,Txyz]={np.round(self._last_xfrc_body, 4)} "
-            f"Drone_xyz={np.round(mjd.xpos[bid], 4)} euler_deg={np.round(euler_deg, 2)} "
+            f"Drone_xyz={np.round(mjd.xpos[bid], 4)} euler_drone_deg={np.round(euler_deg, 2)}{frame_euler_suffix} "
             f"scene_max|qacc|={float(np.max(np.abs(qacc))) if nv else 0:.4e}@{imax}({self._v_dof_labels[imax] if nv else ''}) "
             f"scene_max|qvel|={float(np.max(np.abs(qvel))) if nv else 0:.4e}@{vmax}({self._v_dof_labels[vmax] if nv else ''}) "
             f"drone_max|qacc|={float(np.max(np.abs(qa_d))) if qa_d.size else 0:.4e}@{gidx_d_acc}({self._v_dof_labels[gidx_d_acc] if nv and gidx_d_acc >= 0 else ''}) "
@@ -814,7 +1008,13 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         if self._aero.vertical_z_only.enabled:
             ratio = float(self._last_thrust_scalar) / max(float(self._hover_thrust), 1e-9)
             collective = self._hover_rotor_speed * float(np.clip(ratio, 0.0, 3.5))
-            pitch_term = roll_term = yaw_term = 0.0
+            vz_cfg = self._aero.vertical_z_only
+            if float(vz_cfg.keyboard_world_xy_force_factor) > 1e-12:
+                pitch_term = command_x * 0.35 * self._rotor_speed_delta
+                roll_term = command_y * 0.35 * self._rotor_speed_delta
+            else:
+                pitch_term = roll_term = 0.0
+            yaw_term = 0.0
         else:
             planar = min(1.0, math.hypot(command_x, command_y))
             collective = self._hover_rotor_speed + command_z * self._rotor_speed_delta + planar * 0.25 * self._rotor_speed_delta
