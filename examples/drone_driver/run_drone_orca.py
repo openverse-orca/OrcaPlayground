@@ -118,6 +118,10 @@ def register_env(
     vertical_fixed_thrust_over_hover: float = -1.0,
     vertical_keyboard_baseline_tmg: float = DEFAULT_VERTICAL_KEYBOARD_BASE_TMG,
     vertical_keyboard_xy_force_factor: float = DEFAULT_VERTICAL_XY_FORCE_FACTOR,
+    reset_height_offset_m: float = 0.25,
+    fullmode_reset_thrust_ramp_s: float = 0.8,
+    fullmode_reset_thrust_start_factor: float = 0.2,
+    fullmode_reset_minimal_stab_s: float = 0.35,
 ) -> tuple[str, dict]:
     orcagym_addr_str = orcagym_addr.replace(":", "-")
     env_id = "DroneOrca-OrcaGym-" + orcagym_addr_str + f"-{env_index:03d}"
@@ -137,6 +141,10 @@ def register_env(
         "vertical_fixed_thrust_over_hover": vertical_fixed_thrust_over_hover,
         "vertical_keyboard_baseline_tmg": vertical_keyboard_baseline_tmg,
         "vertical_keyboard_xy_force_factor": float(vertical_keyboard_xy_force_factor),
+        "reset_height_offset_m": float(reset_height_offset_m),
+        "fullmode_reset_thrust_ramp_s": float(fullmode_reset_thrust_ramp_s),
+        "fullmode_reset_thrust_start_factor": float(fullmode_reset_thrust_start_factor),
+        "fullmode_reset_minimal_stab_s": float(fullmode_reset_minimal_stab_s),
     }
     gym.register(
         id=env_id,
@@ -162,6 +170,10 @@ def run_simulation(
     vertical_fixed_thrust_over_hover: float = -1.0,
     vertical_keyboard_baseline_tmg: float = DEFAULT_VERTICAL_KEYBOARD_BASE_TMG,
     vertical_keyboard_xy_force_factor: float = DEFAULT_VERTICAL_XY_FORCE_FACTOR,
+    reset_height_offset_m: float = 0.25,
+    fullmode_reset_thrust_ramp_s: float = 0.8,
+    fullmode_reset_thrust_start_factor: float = 0.2,
+    fullmode_reset_minimal_stab_s: float = 0.35,
 ) -> None:
     env = None
     try:
@@ -190,11 +202,24 @@ def run_simulation(
             vertical_fixed_thrust_over_hover=vertical_fixed_thrust_over_hover,
             vertical_keyboard_baseline_tmg=vertical_keyboard_baseline_tmg,
             vertical_keyboard_xy_force_factor=vertical_keyboard_xy_force_factor,
+            reset_height_offset_m=reset_height_offset_m,
+            fullmode_reset_thrust_ramp_s=fullmode_reset_thrust_ramp_s,
+            fullmode_reset_thrust_start_factor=fullmode_reset_thrust_start_factor,
+            fullmode_reset_minimal_stab_s=fullmode_reset_minimal_stab_s,
         )
         env = gym.make(env_id)
         obs, info = env.reset()
         sceneinfo(None, "beginscene", orcagym_addr)
         print(f"orcagym_addr: {orcagym_addr}")
+        if reset_height_offset_m > 0.0:
+            _logger.info(f"已启用 reset 安全抬高：dz={float(reset_height_offset_m):.4f}m")
+        if not vertical_z_only_physics:
+            _logger.info(
+                "full 模式启动隔离参数："
+                f" thrust_ramp={float(fullmode_reset_thrust_ramp_s):.3f}s"
+                f" start={float(fullmode_reset_thrust_start_factor):.2f}·hover"
+                f" minimal_stab={float(fullmode_reset_minimal_stab_s):.3f}s"
+            )
         if autoplay:
             _logger.info("已启用 autoplay：无人机将持续执行前进、横移、升降和偏航扰动，便于反复调试")
         if vertical_z_only_physics:
@@ -249,6 +274,7 @@ def run_takeoff_bisection(
     bisect_hold_s: float,
     bisect_dz_m: float,
     vertical_lock_quat_world_up: bool,
+    reset_height_offset_m: float = 0.0,
 ) -> None:
     """竖直模式下对固定 T/(mg) 做二分：假设 lo 不能持续离地、hi 能（见 env 内判据）。"""
     env = None
@@ -270,6 +296,7 @@ def run_takeoff_bisection(
             vertical_fixed_thrust_over_hover=-1.0,
             vertical_lock_quat_world_up=vertical_lock_quat_world_up,
             vertical_keyboard_xy_force_factor=0.0,
+            reset_height_offset_m=reset_height_offset_m,
         )
         env = gym.make(env_id)
         raw = env.unwrapped
@@ -385,6 +412,30 @@ if __name__ == "__main__":
     parser.add_argument("--bisect-iters", type=int, default=14, help="二分迭代次数")
     parser.add_argument("--bisect-hold-s", type=float, default=3.0, help="每档试验持有的仿真时长 (s)")
     parser.add_argument("--bisect-dz", type=float, default=0.06, help="判定离地的 Δz (m)")
+    parser.add_argument(
+        "--reset-height-offset",
+        type=float,
+        default=0.25,
+        help="reset 时给无人机初始 z 额外抬高的距离 (m)，用于排查出生点接触/穿插导致的乱飞",
+    )
+    parser.add_argument(
+        "--fullmode-reset-thrust-ramp",
+        type=float,
+        default=0.8,
+        help="full 模式 reset 后集体推力渐入时间 (s)",
+    )
+    parser.add_argument(
+        "--fullmode-reset-thrust-start-factor",
+        type=float,
+        default=0.2,
+        help="full 模式 reset 推力渐入起点，占 hover thrust 的比例",
+    )
+    parser.add_argument(
+        "--fullmode-reset-minimal-stab",
+        type=float,
+        default=0.35,
+        help="full 模式 reset 后的最小稳定窗口时长 (s)，零输入时仅保留集体推力主链",
+    )
     args = parser.parse_args()
     lock_world_up = not bool(args.vertical_use_scene_quat)
     fix_tmg = float(args.vertical_fixed_tmg)
@@ -405,6 +456,7 @@ if __name__ == "__main__":
             bisect_hold_s=float(args.bisect_hold_s),
             bisect_dz_m=float(args.bisect_dz),
             vertical_lock_quat_world_up=lock_world_up,
+            reset_height_offset_m=float(args.reset_height_offset),
         )
     else:
         run_simulation(
@@ -421,4 +473,8 @@ if __name__ == "__main__":
             vertical_fixed_thrust_over_hover=fix_tmg if use_fixed else -1.0,
             vertical_keyboard_baseline_tmg=float(args.vertical_keyboard_base_tmg),
             vertical_keyboard_xy_force_factor=xy_k,
+            reset_height_offset_m=float(args.reset_height_offset),
+            fullmode_reset_thrust_ramp_s=float(args.fullmode_reset_thrust_ramp),
+            fullmode_reset_thrust_start_factor=float(args.fullmode_reset_thrust_start_factor),
+            fullmode_reset_minimal_stab_s=float(args.fullmode_reset_minimal_stab),
         )

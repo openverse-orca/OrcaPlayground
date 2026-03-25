@@ -37,6 +37,13 @@
 python examples/drone_driver/run_drone_orca.py
 ```
 
+默认启动已内置一组更稳的 reset 隔离参数：
+
+- `reset_height_offset=0.25`
+- `fullmode_reset_thrust_ramp=0.8`
+- `fullmode_reset_thrust_start_factor=0.2`
+- `fullmode_reset_minimal_stab=0.35`
+
 显式切回竖直 Z-only 调试模式：
 
 ```bash
@@ -53,12 +60,19 @@ python examples/drone_driver/run_drone_orca.py \
   --autoplay
 ```
 
+若你想显式覆盖默认值，仍可手动传参；例如只改 reset 抬高量：
+
+```bash
+python examples/drone_driver/run_drone_orca.py --reset-height-offset 0.25
+```
+
 参数说明：
 
 - `--orcagym_addr`：OrcaGym 服务地址，默认 `localhost:50051`
 - `--time_step`：物理步长，默认约 `1/120s`
 - `--frame_skip`：每次控制对应的仿真步数
 - `--autoplay`：启用循环自动输入，适合在 gRPC 常驻时反复调试
+- `--reset-height-offset`：reset 时给初始 `z` 额外抬高若干米，用于排查出生点接触/穿插
 - `--vertical-z-only`：切回竖直模式，只保留世界 `+Z` 推力与 `vz` 阻尼
 - `--vertical-thrust-ramp` / `--vertical-fixed-tmg` / `--vertical-takeoff-bisect`：竖直模式下的起飞标定辅助参数
 
@@ -94,6 +108,11 @@ python examples/drone_driver/run_drone_orca.py \
    - 默认 full 模式：集体推力沿 `drone_frame +Z`，通过小角度倾转产生水平分力，并叠加阻尼/偏航稳定
    - `vertical_z_only`：改为世界 `+Z` 推力与 `vz` 阻尼，可选世界系水平力
 4. 更新旋翼关节动画 → `ctrl=0` → `mj_step`
+
+调试提示：
+
+- 环境启动时会额外打印 `scene DOF` 观察点 `v[8]` 的 `joint/body/actor` 归属，便于和 `scene_max|qacc|=...@8(...)` 一类日志直接对照
+- 若复杂场景一 reset 就炸，可先加 `--reset-height-offset 0.2~0.4` 验证是否为出生点接触问题
 
 ## 当前限制
 

@@ -16,19 +16,19 @@ class BodyDragConfig:
     linear_z: float = 0.14
     quadratic_xy: float = 0.05
     quadratic_z: float = 0.08
-    angular_xy: float = 0.030
-    angular_z: float = 0.028
+    angular_xy: float = 0.016
+    angular_z: float = 0.016
     # 世界系水平线速度阻尼 (N/(m/s))；不宜过大，高速时与二次阻力叠加会失控
     world_xy_velocity_damping: float = 0.10
     # 计算阻力/阻尼时用的线速度裁剪 (m/s)，避免 v≫10 时 0.05*v² 量级达数百牛
     aero_model_velocity_clip: float = 6.0
     # 角阻尼用力矩分量上限 (N·m)；用真实角速度算 -k*ω，再裁剪，避免 ω≫25 时等效阻尼过弱而翻飞
-    angular_drag_torque_axis_max: float = 0.60
+    angular_drag_torque_axis_max: float = 0.18
     # 姿态杆全在死区内时，额外角阻尼系数与力矩上限（耗散机械臂扰动）
-    zero_cmd_angular_hold_k: float = 0.02
-    zero_cmd_angular_torque_axis_max: float = 0.08
+    zero_cmd_angular_hold_k: float = 0.01
+    zero_cmd_angular_torque_axis_max: float = 0.035
     # 机体 xfrc 力矩向量范数上限 (N·m)，防止数值尖峰
-    max_body_torque_norm: float = 1.20
+    max_body_torque_norm: float = 0.38
     # 世界系线合力上限 = 系数 × hover_thrust，防止数值/接触偶发巨大外力
     max_total_linear_force_over_hover: float = 8.0
     # 全量四旋翼：以倾转为主，叠加少量世界系水平助推，避免视觉有倾斜但平移过肉
@@ -43,7 +43,7 @@ class BodyDragConfig:
     zero_cmd_z_hold_force_cap: float = 1.2  # N
     # free joint 速度安全钳制（数值保险丝，防止耦合导致发散）
     free_linear_speed_cap: float = 60.0  # m/s
-    free_angular_speed_cap: float = 35.0  # rad/s
+    free_angular_speed_cap: float = 18.0  # rad/s
 
 
 @dataclass(frozen=True)
