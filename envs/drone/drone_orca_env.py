@@ -127,7 +127,8 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         subtree_mass = float(self.gym._mjModel.body_subtreemass[self._frame_body_id])
         # 与 subtree 重力平衡；略高会持续爬升。接触/地面效应可用键盘垂直通道微调。
         self._hover_thrust = subtree_mass * 9.81
-        self._thrust_cmd_scale = 0.55 * self._hover_thrust
+        # R/F 集体推力增益保守一些，避免大杆量时先把姿态/高度瞬间拉爆
+        self._thrust_cmd_scale = 0.38 * self._hover_thrust
         # 全量模式滚转/俯仰改由「目标推力方向」PD（见 _apply_thrust_and_drag）；偏航杆量保守些，避免在 WASD/RF 下被航向环带偏
         self._tau_yaw = 0.012 * self._hover_thrust
         self._thrust_min = max(0.12 * self._hover_thrust, 0.02)
@@ -650,9 +651,12 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
 
         planar_mag = min(1.0, float(math.hypot(forward_cmd, lateral_cmd)))
         max_tilt_rad = math.radians(18.0)
-        tilt_mag = max_tilt_rad * planar_mag
-        # 倾转时按 cos(theta) 轻补集体升力，保留微倾斜视觉同时减少 WASD 触发的掉高/补偿振荡。
-        thrust_hover_comp = 1.0 / max(math.cos(tilt_mag), math.cos(max_tilt_rad))
+        R_d = data.xmat[bid].reshape(3, 3)
+        zb_w_cur = R_d @ np.array([0.0, 0.0, 1.0], dtype=np.float64)
+        # WASD 时按当前真实倾角补 hover，而不是按目标倾角补。
+        # 之前实际只倾了 1~2 度，却按更大的目标角度多补了推力，导致平移时持续上飘/下沉。
+        cos_up_cur = float(np.clip(zb_w_cur[2], math.cos(max_tilt_rad), 1.0))
+        thrust_hover_comp = (1.0 / cos_up_cur) if planar_mag > 1e-6 else 1.0
         thrust_target = float(
             np.clip(
                 (self._hover_thrust * thrust_hover_comp) + vertical_cmd * self._thrust_cmd_scale,
@@ -667,7 +671,6 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         )
         thrust = float(self._full_mode_thrust_lpf)
 
-        R_d = data.xmat[bid].reshape(3, 3)
         cvel = data.cvel[bid]
         omega_w_raw = np.asarray(cvel[0:3], dtype=np.float64).reshape(3)
         omega_b_raw = R_d.T @ omega_w_raw

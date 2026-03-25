@@ -19,14 +19,11 @@ from orca_gym.log.orca_log import get_orca_logger
 from orca_gym.scene.orca_gym_scene import OrcaGymScene
 
 _logger = get_orca_logger()
-
-ENV_ENTRY_POINT = {
-    "DroneOrca": "envs.drone.drone_orca_env:DroneOrcaEnv",
-}
+ENV_ENTRY_POINT = "envs.drone.drone_orca_env:DroneOrcaEnv"
 
 DEFAULT_TIME_STEP = 1.0 / 120.0
 DEFAULT_FRAME_SKIP = 1
-# 默认与当前竖直标定一致：无参运行时 world-Z 推力 + 姿态锁；杆量零时 T/mg≈二分临界
+# 竖直模式的键盘基准 T/mg；仅在显式切到 vertical_z_only 时使用
 DEFAULT_VERTICAL_KEYBOARD_BASE_TMG = 1.0022
 DEFAULT_VERTICAL_XY_FORCE_FACTOR = float(
     DEFAULT_DRONE_AERO_CONFIG.vertical_z_only.keyboard_world_xy_force_factor
@@ -90,10 +87,10 @@ def sceneinfo(scene, stage: str, orcagym_address: str):
         script_name = os.path.basename(sys.argv[0]) if sys.argv else os.path.basename(__file__)
         scene.get_rundata(script_name, stage)
         if stage == "beginscene":
-            _logger.info("开始仿真：默认竖直 Z-only（drone_frame 推力、世界朝上锁姿）；R/F 升降，Space 重置")
+            _logger.info("开始仿真：默认 full 四旋翼模式；W/S 前后、A/D 左右、R/F 升降、Q/E 偏航，Space 重置")
             _logger.info(
-                "W/S、A/D 在竖直模式下可驱动世界系水平力（见 --vertical-xy-force-factor / --vertical-pure-z）；"
-                "四旋翼杆量（俯仰/滚转力矩 + 机体系升力）请用 --full-6dof-thrust 或 --quad-wasd-torque"
+                "若需切回竖直 Z-only 调试链，请用 --vertical-z-only；"
+                "W/S、A/D 在竖直模式下可驱动世界系水平力（见 --vertical-xy-force-factor / --vertical-pure-z）"
             )
         elif stage == "loadscene":
             _logger.info("加载模型中")
@@ -105,7 +102,6 @@ def sceneinfo(scene, stage: str, orcagym_address: str):
 
 def register_env(
     orcagym_addr: str,
-    env_name: str,
     env_index: int,
     agent_names: list[str],
     scene_binding: dict,
@@ -124,7 +120,7 @@ def register_env(
     vertical_keyboard_xy_force_factor: float = DEFAULT_VERTICAL_XY_FORCE_FACTOR,
 ) -> tuple[str, dict]:
     orcagym_addr_str = orcagym_addr.replace(":", "-")
-    env_id = env_name + "-OrcaGym-" + orcagym_addr_str + f"-{env_index:03d}"
+    env_id = "DroneOrca-OrcaGym-" + orcagym_addr_str + f"-{env_index:03d}"
     kwargs = {
         "frame_skip": frame_skip,
         "orcagym_addr": orcagym_addr,
@@ -144,7 +140,7 @@ def register_env(
     }
     gym.register(
         id=env_id,
-        entry_point=ENV_ENTRY_POINT[env_name],
+        entry_point=ENV_ENTRY_POINT,
         kwargs=kwargs,
         max_episode_steps=max_episode_steps,
         reward_threshold=0.0,
@@ -154,7 +150,6 @@ def register_env(
 
 def run_simulation(
     orcagym_addr: str,
-    env_name: str,
     time_step: float,
     frame_skip: int,
     autoplay: bool,
@@ -179,7 +174,6 @@ def run_simulation(
         _logger.info(f"检测到场景中的 Drone 实例: {resolved_name}")
         env_id, _ = register_env(
             orcagym_addr=orcagym_addr,
-            env_name=env_name,
             env_index=0,
             agent_names=agent_names,
             scene_binding=scene_binding,
@@ -247,7 +241,6 @@ def run_simulation(
 
 def run_takeoff_bisection(
     orcagym_addr: str,
-    env_name: str,
     time_step: float,
     frame_skip: int,
     bisect_lo: float,
@@ -265,7 +258,6 @@ def run_takeoff_bisection(
         agent_names, scene_binding = resolve_drone_scene_binding(orcagym_addr, time_step)
         env_id, _ = register_env(
             orcagym_addr=orcagym_addr,
-            env_name=env_name,
             env_index=0,
             agent_names=agent_names,
             scene_binding=scene_binding,
@@ -331,24 +323,18 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         "Run drone orca communication demo",
         description=(
-            f"默认：竖直 Z-only + 键盘基准 T/mg≈{DEFAULT_VERTICAL_KEYBOARD_BASE_TMG}（R/F 微调）。"
-            "四旋翼式：W/A/S/D→滚转/俯仰力矩 + 机体系升力用 --full-6dof-thrust 或 --quad-wasd-torque。"
+            "默认：full 四旋翼模式。W/S、A/D 控制前后/左右平移（伴随机身轻微倾斜），"
+            "R/F 控制集体升降，Q/E 控制偏航。"
         ),
     )
     parser.add_argument("--orcagym_addr", type=str, default="localhost:50051")
-    parser.add_argument("--env_name", type=str, default="DroneOrca")
     parser.add_argument("--time_step", type=float, default=DEFAULT_TIME_STEP)
     parser.add_argument("--frame_skip", type=int, default=DEFAULT_FRAME_SKIP)
     parser.add_argument("--autoplay", action="store_true")
     parser.add_argument(
-        "--full-6dof-thrust",
+        "--vertical-z-only",
         action="store_true",
-        help="关闭竖直 Z-only：W/S、A/D→俯仰/滚转力矩，R/F→集体升力，推力沿 drone_frame +Z（与 free 同体；倾斜即有水平分力），Q/E 偏航",
-    )
-    parser.add_argument(
-        "--quad-wasd-torque",
-        action="store_true",
-        help="同 --full-6dof-thrust（四旋翼杆量语义别名）",
+        help="显式切回竖直 Z-only 调试模式：世界 +Z 推力与 vz 阻尼，姿态可锁",
     )
     parser.add_argument(
         "--vertical-thrust-ramp",
@@ -403,15 +389,14 @@ if __name__ == "__main__":
     lock_world_up = not bool(args.vertical_use_scene_quat)
     fix_tmg = float(args.vertical_fixed_tmg)
     use_fixed = fix_tmg >= 0.0
-    use_quad_flight = bool(args.full_6dof_thrust) or bool(args.quad_wasd_torque)
-    vz_only = (not use_quad_flight) or bool(
+    use_vertical_mode = bool(args.vertical_z_only) or bool(
         args.vertical_thrust_ramp or args.vertical_takeoff_bisect or use_fixed
     )
+    vz_only = use_vertical_mode
     xy_k = 0.0 if bool(args.vertical_pure_z) else float(args.vertical_xy_force_factor)
     if args.vertical_takeoff_bisect:
         run_takeoff_bisection(
             orcagym_addr=args.orcagym_addr,
-            env_name=args.env_name,
             time_step=args.time_step,
             frame_skip=args.frame_skip,
             bisect_lo=float(args.bisect_lo),
@@ -424,7 +409,6 @@ if __name__ == "__main__":
     else:
         run_simulation(
             orcagym_addr=args.orcagym_addr,
-            env_name=args.env_name,
             time_step=args.time_step,
             frame_skip=args.frame_skip,
             autoplay=args.autoplay,

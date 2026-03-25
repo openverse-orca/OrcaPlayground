@@ -33,8 +33,8 @@ class BodyDragConfig:
     max_total_linear_force_over_hover: float = 8.0
     # 全量四旋翼：以倾转为主，叠加少量世界系水平助推，避免视觉有倾斜但平移过肉
     quad_world_xy_stick_force_factor: float = 0.012
-    # 全量模式推力目标一阶低通时间常数 (s)，兼顾 R/F 平顺与跟手
-    full_mode_thrust_lpf_tau_s: float = 0.10
+    # 全量模式推力目标一阶低通时间常数 (s)，略放慢以避免 R/F 大动作时瞬间拉爆姿态
+    full_mode_thrust_lpf_tau_s: float = 0.16
     # 杆量接近零时：用真实线速度做世界系阻尼（带力上限），耗散机械臂等扰动，避免只靠裁剪速度导致“飘走”
     zero_cmd_hold_deadband: float = 0.05
     zero_cmd_xy_hold_k: float = 0.12  # N/(m/s)；过大易与倾转 PD 耦合导致开局水平晃
