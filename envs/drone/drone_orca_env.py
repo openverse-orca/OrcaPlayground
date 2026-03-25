@@ -214,7 +214,8 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
             self._v_dof_labels.append(_format_dof_label(mjm, i))
 
         self._diag_env_steps = 0
-        self._diag_every_env_steps = 20
+        # 默认关闭 periodic 动力学长日志，避免正常飞行时刷屏；异常仍走 unstable_post_mj_step
+        self._diag_every_env_steps = 0
         self._last_xfrc_body = np.zeros(6, dtype=np.float64)
         self._last_thrust_scalar = 0.0
         self._last_tau_cmd = np.zeros(3, dtype=np.float64)
