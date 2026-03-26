@@ -1,3 +1,4 @@
+import argparse
 from orca_gym.scene.orca_gym_scene_runtime import OrcaGymSceneRuntime
 from orca_gym.scene.orca_gym_scene import OrcaGymScene, Actor
 from orca_gym.utils.rotations import euler2quat
@@ -18,7 +19,7 @@ from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()
 
 # Ackerman 场景 spawn 用资产路径（与机器狗方式一致，脚本自动创建场景）
-ACKERMAN_AGENT_ASSET_PATH = "assets/e071469a36d3c8aa/default_project/prefabs/hummer_h2_usda"
+ACKERMAN_AGENT_ASSET_PATH = "assets/prefabs/hummer_h2_usda"
 
 def sceneinfo(
     scene,
@@ -105,8 +106,10 @@ def register_env(orcagym_addr : str,
 def run_simulation(orcagym_addr : str, 
                 agent_name : str,
                 env_name : str,
+                log_speed: bool = False,
                 scene_runtime: Optional[OrcaGymSceneRuntime] = None) -> None:
     env = None  # Initialize env to None
+    log_interval = max(1, int(os.environ.get("ACKERMAN_LOG_INTERVAL", "25")))
     try:
         _logger.info(f"simulation running... , orcagym_addr:  {orcagym_addr}")
 
@@ -129,10 +132,31 @@ def run_simulation(orcagym_addr : str,
         sceneinfo(None, "beginscene", orcagym_addr)
         # 控制来自环境内键盘，与 RL 动作无关；用零向量避免无意义的随机动作干扰排查
         action = np.zeros(env.action_space.shape, dtype=np.float32)
+        step_count = 0
         while True:
             start_time = datetime.now()
 
             obs, reward, terminated, truncated, info = env.step(action)
+            step_count += 1
+
+            if log_speed and step_count % log_interval == 0:
+                print(
+                    "Ackerman drive debug | "
+                    f"req_move={info.get('drive_requested_move', 0.0):+.2f} "
+                    f"move={info.get('drive_move', 0.0):+.2f} "
+                    f"turn={info.get('drive_turn', 0.0):+.2f} "
+                    f"switch={int(info.get('direction_switch_active', 0.0))} "
+                    f"move_sign={int(info.get('move_sign', 0.0))} "
+                    f"pending={int(info.get('pending_move_sign', 0.0))} "
+                    f"yaw={np.degrees(info.get('base_yaw_rad', 0.0)):+.1f}deg "
+                    f"steer_fl={info.get('steer_fl_deg', float('nan')):+.2f}deg "
+                    f"steer_fr={info.get('steer_fr_deg', float('nan')):+.2f}deg "
+                    f"rear_l={info.get('rear_wheel_speed_l', 0.0):+.2f} "
+                    f"rear_r={info.get('rear_wheel_speed_r', 0.0):+.2f} "
+                    f"rear_avg={info.get('rear_wheel_speed_avg', 0.0):+.2f} "
+                    f"veh_speed={info.get('rear_vehicle_speed', 0.0):+.2f}",
+                    flush=True,
+                )
 
             env.render()
 
@@ -148,7 +172,16 @@ def run_simulation(orcagym_addr : str,
 
 
 if __name__ == "__main__":
-    orcagym_addr = "localhost:50051"
-    agent_name = "hummer_h2_usda_1"
-    env_name = "Ackerman"
-    run_simulation(orcagym_addr, agent_name, env_name)
+    parser = argparse.ArgumentParser("Run Ackerman simulation")
+    parser.add_argument("--orcagym_addr", type=str, default="localhost:50051")
+    parser.add_argument("--agent_name", type=str, default="hummer_h2_usda_1")
+    parser.add_argument("--env_name", type=str, default="Ackerman")
+    parser.add_argument("--speed", action="store_true", help="打印速度与换向调试日志")
+    args = parser.parse_args()
+
+    run_simulation(
+        args.orcagym_addr,
+        args.agent_name,
+        args.env_name,
+        log_speed=args.speed,
+    )
