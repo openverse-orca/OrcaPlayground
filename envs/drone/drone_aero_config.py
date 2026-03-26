@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 
 
 @dataclass(frozen=True)
@@ -107,4 +107,128 @@ class DroneAeroConfig:
     vertical_z_only: VerticalZOnlyConfig = VerticalZOnlyConfig()
 
 
+@dataclass(frozen=True)
+class FullModeControlConfig:
+    thrust_cmd_scale_over_hover: float = 0.38
+    tau_yaw_over_hover: float = 0.012
+    thrust_max_over_hover: float = 2.2
+    max_tilt_deg: float = 18.0
+    planar_forward_axis_body: tuple[float, float, float] = (0.0, 1.0, 0.0)
+    planar_right_axis_body: tuple[float, float, float] = (1.0, 0.0, 0.0)
+    attitude_kp_scale: float = 1.0
+    attitude_kd_scale: float = 1.0
+    attitude_rate_cap_scale: float = 1.0
+    attitude_torque_limit_scale: float = 1.0
+    idle_attitude_kp_scale: float = 1.0
+    idle_attitude_torque_limit_scale: float = 1.0
+    hover_rotor_speed: float = 42.0
+    rotor_speed_delta: float = 24.0
+    rotor_ramp_rate: float = 80.0
+    demo_rotor_bias: tuple[float, float, float, float] = (60.0, 60.0, 60.0, 60.0)
+    reset_height_offset_m: float = 0.25
+    fullmode_reset_thrust_ramp_s: float = 0.8
+    fullmode_reset_thrust_start_factor: float = 0.2
+    fullmode_reset_minimal_stab_s: float = 0.35
+
+
+@dataclass(frozen=True)
+class DroneModelProfile:
+    key: str
+    display_name: str
+    aero: DroneAeroConfig = field(default_factory=lambda: DEFAULT_DRONE_AERO_CONFIG)
+    full_mode: FullModeControlConfig = field(default_factory=FullModeControlConfig)
+    vertical_keyboard_baseline_tmg: float = 1.0022
+    vertical_xy_force_factor: float = 0.055
+
+
 DEFAULT_DRONE_AERO_CONFIG = DroneAeroConfig()
+
+DEFAULT_DRONE_MODEL = "Drone_ver_1.0"
+
+_X2_DRAG_CONFIG = replace(
+    DEFAULT_DRONE_AERO_CONFIG.drag,
+    linear_xy=0.22,
+    linear_z=0.22,
+    quadratic_xy=0.10,
+    quadratic_z=0.12,
+    angular_xy=0.040,
+    angular_z=0.030,
+    world_xy_velocity_damping=0.28,
+    angular_drag_torque_axis_max=0.30,
+    zero_cmd_angular_hold_k=0.022,
+    zero_cmd_angular_torque_axis_max=0.070,
+    max_body_torque_norm=0.56,
+    quad_world_xy_stick_force_factor=0.003,
+    full_mode_thrust_lpf_tau_s=0.28,
+    zero_cmd_xy_hold_k=0.34,
+    zero_cmd_xy_hold_force_cap=1.35,
+    zero_cmd_z_hold_k=0.80,
+    zero_cmd_z_hold_force_cap=1.70,
+)
+_X2_GROUND_EFFECT_CONFIG = replace(
+    DEFAULT_DRONE_AERO_CONFIG.ground_effect,
+    rotor_radius=0.13,
+    active_height=0.42,
+    gain=0.14,
+    max_factor=1.16,
+)
+_X2_AERO_CONFIG = replace(
+    DEFAULT_DRONE_AERO_CONFIG,
+    drag=_X2_DRAG_CONFIG,
+    ground_effect=_X2_GROUND_EFFECT_CONFIG,
+)
+
+DRONE_MODEL_PROFILES: dict[str, DroneModelProfile] = {
+    "Drone_ver_1.0": DroneModelProfile(
+        key="Drone_ver_1.0",
+        display_name="Drone_ver_1.0",
+    ),
+    "x2": DroneModelProfile(
+        key="x2",
+        display_name="Skydio X2",
+        aero=_X2_AERO_CONFIG,
+        full_mode=FullModeControlConfig(
+            thrust_cmd_scale_over_hover=0.18,
+            tau_yaw_over_hover=0.006,
+            thrust_max_over_hover=1.6,
+            max_tilt_deg=12.0,
+            planar_forward_axis_body=(-1.0, 0.0, 0.0),
+            planar_right_axis_body=(0.0, -1.0, 0.0),
+            attitude_kp_scale=1.35,
+            attitude_kd_scale=1.20,
+            attitude_rate_cap_scale=1.35,
+            attitude_torque_limit_scale=1.50,
+            idle_attitude_kp_scale=1.55,
+            idle_attitude_torque_limit_scale=2.00,
+            hover_rotor_speed=38.0,
+            rotor_speed_delta=14.0,
+            rotor_ramp_rate=50.0,
+            demo_rotor_bias=(36.0, 36.0, 36.0, 36.0),
+            reset_height_offset_m=0.25,
+            fullmode_reset_thrust_ramp_s=1.40,
+            fullmode_reset_thrust_start_factor=0.14,
+            fullmode_reset_minimal_stab_s=0.70,
+        ),
+        vertical_keyboard_baseline_tmg=1.0022,
+        vertical_xy_force_factor=0.04,
+    ),
+}
+
+DRONE_MODEL_ALIASES: dict[str, str] = {
+    "drone_v1": "Drone_ver_1.0",
+    "drone-v1": "Drone_ver_1.0",
+    "drone_ver_1.0": "Drone_ver_1.0",
+    "Drone_ver_1.0": "Drone_ver_1.0",
+    "x2": "x2",
+    "skydio_x2": "x2",
+    "skydio-x2": "x2",
+}
+
+
+def get_drone_model_profile(name: str | None) -> DroneModelProfile:
+    requested = DEFAULT_DRONE_MODEL if name is None else str(name).strip()
+    canonical = DRONE_MODEL_ALIASES.get(requested, requested)
+    if canonical not in DRONE_MODEL_PROFILES:
+        choices = ", ".join(sorted(DRONE_MODEL_PROFILES))
+        raise KeyError(f"Unknown drone model profile '{name}'. Available: {choices}")
+    return DRONE_MODEL_PROFILES[canonical]
