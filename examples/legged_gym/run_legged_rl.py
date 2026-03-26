@@ -175,6 +175,11 @@ def process_model_dir(
     create_tmp_dir("trained_models_tmp")
 
     if ckpt is not None:
+        if not os.path.exists(ckpt):
+            raise FileNotFoundError(
+                f"Checkpoint file not found: {ckpt}. "
+                "Please pass a valid --ckpt path for testing / play."
+            )
         model_file = ckpt
         model_dir = os.path.dirname(model_file)
     elif run_mode == "training":
@@ -239,6 +244,12 @@ def run_sb3_ppo_rl(
     )
     agent_num = len(scene_binding.agent_names)
     run_mode_config['agent_num'] = agent_num
+    if run_mode == "play" and agent_num > 1:
+        print(
+            f"[play] 场景中匹配到 {agent_num} 台机器人。"
+            "只有第一台会接收键盘控制，其余机器人仍会一起运行。"
+            "如果你想要真正的单机器人交互，请在场景中只保留 1 台匹配机器人。"
+        )
     if run_mode == "training":
         total_envs_target = run_mode_config.get("total_envs_target")
         if total_envs_target is not None:

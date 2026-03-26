@@ -109,6 +109,11 @@ python examples/legged_gym/run_legged_rl.py \
 
 训练模式现在也要求你预先把机器人摆进场景。脚本会在启动时扫描所有完整匹配的机器人实例，并把扫描到的数量作为本次运行的 `agent_num`。
 
+训练产物清理建议：
+- 仓库样例层面，建议只保留 `trained_models_tmp/.gitignore`，不要长期保留批量训练产物。
+- 如果你想本地保留一份可复现样例，最多保留 **1 个完整目录** 即可：目录里至少应包含 `config.json` 和最终 checkpoint `*.zip`。
+- 只有中间快照（如 `*_iteration_300.zip`）或只有 `config.json` 的目录，通常都可以清理。
+
 ### 测试/运行模式
 
 使用已训练的模型进行策略回放或交互式运行。
@@ -119,7 +124,9 @@ python examples/legged_gym/run_legged_rl.py \
 
 说明：
 - `--test`：按 checkpoint 做策略回放，不启用键盘控制。
-- `--play`：仍然使用 `run_legged_rl.py` / `LeggedGymEnv.play` 这条链路，启用场景内单机器人键盘控制。
+- `--play`：仍然使用 `run_legged_rl.py` / `LeggedGymEnv.play` 这条链路，启用场景内键盘控制。
+- `--play` / `--test` 都会先扫描场景中的完整匹配机器人，并以扫描结果覆盖配置里的 `agent_num`。
+- `--play` 如果扫描到多台机器人，只有**第一台**会接收键盘控制，其余机器人仍会一起运行；如果你想得到真正的单机器人交互，请在场景中只保留 1 台匹配机器人。
 - 训练、测试、运行阶段的扫描结果、绑定信息和失败原因，都会打印到终端；请点击左下角**终端按钮**查看输出。
 
 训练完成后，使用训练生成的配置文件进行测试：
@@ -131,12 +138,17 @@ python examples/legged_gym/run_legged_rl.py \
     --test \
     --ckpt trained_models_tmp/Lite3_flat_terrain_YYYY-MM-DD_HH-MM-SS/Lite3_flat_terrain.zip
 
-# 交互式运行模式（单智能体，键盘控制）
+# 交互式运行模式（推荐场景只放 1 台匹配机器人）
 python examples/legged_gym/run_legged_rl.py \
     --config trained_models_tmp/Lite3_flat_terrain_YYYY-MM-DD_HH-MM-SS/config.json \
     --play \
     --ckpt trained_models_tmp/Lite3_flat_terrain_YYYY-MM-DD_HH-MM-SS/Lite3_flat_terrain.zip
 ```
+
+补充说明：
+- `--test` / `--play` 需要 `--ckpt` 指向真实存在的 checkpoint 文件。
+- 训练导出的 `config.json` 可以直接用于 `--test` / `--play`。
+- `--play` 的键盘速度范围优先取机器人配置里的 `curriculum_commands.move_medium`；如果没有该字段，会自动退回到 `max_cmd_vel`。
 
 #### 使用官方发布模型
 
@@ -178,6 +190,8 @@ python examples/legged_gym/run_legged_sim.py \
 - `A/D`：左转 / 右转
 - `LShift`：加速
 - `Space`：重置
+
+说明：`run_legged_rl.py --play` 的线速度范围来自机器人配置，不同型号或不同导出的 `config.json` 手感可能不同。
 
 `run_legged_sim.py`
 - `W/S`：前进 / 后退

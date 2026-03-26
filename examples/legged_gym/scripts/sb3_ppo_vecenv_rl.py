@@ -410,8 +410,14 @@ def test_model(
     curriculum_list: list[dict[str, int]],
     render_mode: str,
     ):
+    env = None
+    testing_started = False
     try:
         _logger.info(f"simulation running... , orcagym_addr:  {orcagym_addresses}")
+        if not curriculum_list:
+            raise ValueError("curriculum_list must not be empty for testing / play.")
+        if not os.path.exists(model_file):
+            raise FileNotFoundError(f"Model checkpoint not found: {model_file}")
 
         env_name = "LeggedGym-v0"
         orcagym_addr_list, env_index_list, render_mode_list = generate_env_list(orcagym_addresses, 1)
@@ -445,6 +451,7 @@ def test_model(
         
         model: PPO = PPO.load(model_file, env=env, device=device)
 
+        testing_started = True
         testing_model(
             env=env,
             agent_num=agent_num,
@@ -457,7 +464,9 @@ def test_model(
 
     except KeyboardInterrupt:
         _logger.info("退出仿真环境")
-        env.close()
+    finally:
+        if env is not None and not testing_started:
+            env.close()
 
 def _segment_observation(observation, agent_num):
     # 将观测数据分割成多个agent的数据
