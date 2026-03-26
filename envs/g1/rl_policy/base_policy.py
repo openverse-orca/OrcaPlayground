@@ -8,7 +8,7 @@ from scipy.spatial.transform import Rotation
 # import torch
 import pygame
 # from pynput import keyboard
-from sshkeyboard import listen_keyboard
+from sshkeyboard import listen_keyboard, stop_listening
 from termcolor import colored
 import onnxruntime
 # import ipdb; ipdb.set_trace()
@@ -76,8 +76,8 @@ class BasePolicy:
             self.history_handler = HistoryHandler(self.config["history_config"], self.config["obs_dims"])
             self.current_obs = {key: np.zeros((1, self.config["obs_dims"][key])) for key in self.config["obs_dims"].keys()}
 
-
-        self.key_listener_thread = threading.Thread(target=self.start_key_listener, daemon=True)
+        self._shutdown_event = threading.Event()
+        self.key_listener_thread = threading.Thread(target=self.start_key_listener)
         self.key_listener_thread.start()
 
     def setup_policy(self, model_path):
@@ -137,6 +137,9 @@ class BasePolicy:
         self.share_state.low_state_semaphore.acquire()
         
         try:
+            if self._shutdown_event.is_set():
+                return
+
             self.robot_state_data = self.state_processor._prepare_low_state()
             if self.robot_state_data is None:
                 print("No robot state data received, skipping rl inference")
@@ -180,9 +183,11 @@ class BasePolicy:
             except AttributeError:
                 pass  # Handle special keys if needed
 
-        listener = listen_keyboard(on_press=on_press)
-        listener.start()
-        listener.join()  # Keep the thread alive
+        try:
+            listen_keyboard(on_press=on_press, until=None)
+        except Exception as exc:
+            if not self._shutdown_event.is_set():
+                orca_logger.warning(f"Keyboard listener exited unexpectedly: {exc}")
 
     def _handle_keyboard_button_impl(self, keycode):
         """处理键盘事件的实现，子类可以重写此方法扩展功能"""
@@ -279,7 +284,7 @@ class BasePolicy:
         total_inference_cnt = 0
         start_time = time.time()
         try:
-            while True:
+            while not self._shutdown_event.is_set():
                 # if self.use_joystick and self.wc_msg is not None:
                 #     self.process_joystick_input()
                 self.rl_inference()
@@ -288,3 +293,22 @@ class BasePolicy:
 
         except KeyboardInterrupt:
             pass
+
+    def close(self, join_timeout=2.0):
+        """Stop background workers so stdin/terminal state can be restored."""
+        if self._shutdown_event.is_set():
+            return
+
+        self._shutdown_event.set()
+
+        try:
+            stop_listening()
+        except Exception:
+            pass
+
+        # Wake up any waiting worker so run() can observe the shutdown flag.
+        self.share_state.low_state_semaphore.release()
+        self.share_state.low_command_semaphore.release()
+
+        if self.key_listener_thread.is_alive():
+            self.key_listener_thread.join(timeout=join_timeout)
