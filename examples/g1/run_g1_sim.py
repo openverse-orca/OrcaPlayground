@@ -130,15 +130,7 @@ def publish_g1_scene(orcagym_addr: str, agent_name: str) -> None:
     _logger.info("=============> 发布 G1 场景完成.")
 
 
-def policy_thread_func(config, loco_model_path, mimic_model_path, share_state):
-    policy = MotionTrackingDecLocoHeightPolicy(
-        config=config,
-        loco_model_path=loco_model_path,
-        mimic_model_paths=mimic_model_path,
-        share_state=share_state,
-        decimation=4,
-        use_mocap=False
-    )
+def policy_thread_func(policy):
     policy.run()
 
 
@@ -153,10 +145,11 @@ def run_simulation(
     """运行仿真主循环。
 
     干净退出：在运行本脚本的终端中按一次 Ctrl+C，会触发 KeyboardInterrupt，
-    随后执行 finally 中的 env.close()。请勿直接强制结束终端窗口，否则可能来不及关闭环境。
-    策略线程为 daemon，主进程退出时会被一并结束，避免 Python 进程挂起。
+    随后执行 finally 中的关闭逻辑。请勿直接强制结束终端窗口，否则可能来不及关闭环境。
     """
     env = None
+    policy = None
+    policy_thread = None
     
     try:
         _logger.info(f"开始仿真... OrcaGym地址: {orcagym_addr}")
@@ -184,10 +177,18 @@ def run_simulation(
         obs, info = env.reset()
         sceneinfo(None, "beginscene", orcagym_addr)
         
+        policy = MotionTrackingDecLocoHeightPolicy(
+            config=config,
+            loco_model_path=loco_model_path,
+            mimic_model_paths=mimic_model_path,
+            share_state=share_state,
+            decimation=4,
+            use_mocap=False
+        )
+
         policy_thread = threading.Thread(
             target=policy_thread_func,
-            args=(config, loco_model_path, mimic_model_path, share_state),
-            daemon=True,
+            args=(policy,),
         )
         policy_thread.start()
         
@@ -211,6 +212,10 @@ def run_simulation(
         traceback.print_exc()
     
     finally:
+        if policy is not None:
+            policy.close()
+        if policy_thread is not None and policy_thread.is_alive():
+            policy_thread.join(timeout=2.0)
         if env is not None:
             env.close()
             _logger.info("环境已关闭")
