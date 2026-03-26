@@ -5,8 +5,14 @@ import time
 import gymnasium as gym
 import sys
 import os
+import numpy as np
 from datetime import datetime
 from typing import Optional
+
+# 添加项目根目录到 sys.path，避免部分机器在非仓库根目录启动时无法导入 `envs`
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()
@@ -118,13 +124,14 @@ def run_simulation(orcagym_addr : str,
         env = gym.make(env_id)        
         _logger.info("Starting simulation...")
 
-        obs = env.reset()
+        reset_out = env.reset()
+        obs = reset_out[0] if isinstance(reset_out, tuple) else reset_out
         sceneinfo(None, "beginscene", orcagym_addr)
+        # 控制来自环境内键盘，与 RL 动作无关；用零向量避免无意义的随机动作干扰排查
+        action = np.zeros(env.action_space.shape, dtype=np.float32)
         while True:
             start_time = datetime.now()
 
-            action = env.action_space.sample()
-    
             obs, reward, terminated, truncated, info = env.step(action)
 
             env.render()

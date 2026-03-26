@@ -150,7 +150,12 @@ def run_simulation(
     mimic_model_path: str,
     config: dict
 ) -> None:
-    """运行仿真主循环"""
+    """运行仿真主循环。
+
+    干净退出：在运行本脚本的终端中按一次 Ctrl+C，会触发 KeyboardInterrupt，
+    随后执行 finally 中的 env.close()。请勿直接强制结束终端窗口，否则可能来不及关闭环境。
+    策略线程为 daemon，主进程退出时会被一并结束，避免 Python 进程挂起。
+    """
     env = None
     
     try:
@@ -179,7 +184,11 @@ def run_simulation(
         obs, info = env.reset()
         sceneinfo(None, "beginscene", orcagym_addr)
         
-        policy_thread = threading.Thread(target=policy_thread_func, args=(config, loco_model_path, mimic_model_path, share_state))
+        policy_thread = threading.Thread(
+            target=policy_thread_func,
+            args=(config, loco_model_path, mimic_model_path, share_state),
+            daemon=True,
+        )
         policy_thread.start()
         
         while True:
