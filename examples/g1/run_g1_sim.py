@@ -29,13 +29,12 @@ try:
 except ImportError:
     ONNX_AVAILABLE = False
 
-
 from envs.g1.rl_policy.deepmimic_dec_loco_height import MotionTrackingDecLocoHeightPolicy
 import threading
 
 from envs.g1.share_state import LowCommand, ShareState
 from orca_gym.log.orca_log import get_orca_logger
-_logger = get_orca_logger(name="G1", log_file="g1.log", file_level="INFO", console_level="INFO", force_reinit=True)
+_logger = get_orca_logger(name="G1", log_file="g1.log", file_level="INFO", console_level="WARNING", force_reinit=True)
 
 
 # 环境注册
@@ -133,9 +132,11 @@ def sceneinfo(
         script_name = os.path.basename(sys.argv[0]) if sys.argv else os.path.basename(__file__)
         scene.get_rundata(script_name, stage)
         if stage == "beginscene":
-            _logger.info("开始运行")
+            mess = f"开始运行"
+            scene.set_ui_text(actor_name=1, message=mess, showtime=5, color="0xffff00", size=32)
         elif stage == "loadscene":
-            _logger.info("加载模型中")
+            mess = f"加载模型中"
+            scene.set_ui_text(actor_name=1, message=mess, showtime=5, color="0xffff00", blinkfreq =5, size=32)
     finally:
         if toclose:
             scene.close()
@@ -214,11 +215,10 @@ def run_simulation(
     """运行仿真主循环。
 
     干净退出：在运行本脚本的终端中按一次 Ctrl+C，会触发 KeyboardInterrupt，
-    随后执行 finally 中的关闭逻辑。请勿直接强制结束终端窗口，否则可能来不及关闭环境。
+    随后执行 finally 中的 env.close()。请勿直接强制结束终端窗口，否则可能来不及关闭环境。
+    策略线程为 daemon，主进程退出时会被一并结束，避免 Python 进程挂起。
     """
     env = None
-    policy = None
-    policy_thread = None
     
     try:
         _logger.info(f"开始仿真... OrcaGym地址: {orcagym_addr}")
@@ -229,7 +229,6 @@ def run_simulation(
         # 注册并创建环境
         env_index = 0
         resolved_agent_name = resolve_g1_scene_agent_name(orcagym_addr)
-        _logger.info(f"检测到场景中的 G1 实例: {resolved_agent_name}")
         env_id, kwargs = register_env(
             orcagym_addr,
             env_name,
@@ -248,18 +247,10 @@ def run_simulation(
         obs, info = env.reset()
         sceneinfo(None, "beginscene", orcagym_addr)
         
-        policy = MotionTrackingDecLocoHeightPolicy(
-            config=config,
-            loco_model_path=loco_model_path,
-            mimic_model_paths=mimic_model_path,
-            share_state=share_state,
-            decimation=4,
-            use_mocap=False
-        )
-
         policy_thread = threading.Thread(
             target=policy_thread_func,
-            args=(policy,),
+            args=(config, loco_model_path, mimic_model_path, share_state, orcagym_addr),
+            daemon=True,
         )
         policy_thread.start()
         
@@ -267,14 +258,7 @@ def run_simulation(
             start_time = datetime.now()
             share_state.low_command_semaphore.acquire()
 
-            if share_state.reset_requested:
-                share_state.reset_requested = False
-                obs, info = env.reset()
-                env.unwrapped.update_share_low_state(obs)
-                share_state.low_state_semaphore.release()
-                _logger.info("收到重置按键，已执行仿真重置")
-            else:
-                obs, _, _, _, _ = env.step(None)
+            obs, _, _, _, _ = env.step(None)
             env.render()
             end_time = datetime.now()
             elapsed_time = end_time - start_time
@@ -283,6 +267,8 @@ def run_simulation(
     
     except KeyboardInterrupt:
         _logger.info("用户中断仿真")
+    except ValueError:
+        _logger.error("仿真出错")
     
     except Exception as e:
         _logger.error(f"仿真出错: {e}")
@@ -290,10 +276,6 @@ def run_simulation(
         traceback.print_exc()
     
     finally:
-        if policy is not None:
-            policy.close()
-        if policy_thread is not None and policy_thread.is_alive():
-            policy_thread.join(timeout=2.0)
         if env is not None:
             env.close()
             _logger.info("环境已关闭")

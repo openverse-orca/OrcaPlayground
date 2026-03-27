@@ -23,7 +23,7 @@ import argparse
 import time
 
 from orca_gym.log.orca_log import get_orca_logger
-_logger = get_orca_logger()
+_logger = get_orca_logger(console_level="WARNING", file_level="INFO", force_reinit=True)
 
 XBOT_JOINT_SUFFIXES = [
     "left_leg_roll_joint", "left_leg_yaw_joint", "left_leg_pitch_joint",
@@ -192,10 +192,14 @@ def main(device: str = "cpu"):
     _logger.performance(f"  - 物理步长: {config['time_step']}s (1000Hz)")
     _logger.info(f"  - 策略频率: 100Hz")
 
-    resolved_agent_name, scene_binding = resolve_xbot_scene_binding(
-        orcagym_addr=orcagym_addr,
-        time_step=config["time_step"],
-    )
+    try:
+        resolved_agent_name, scene_binding = resolve_xbot_scene_binding(
+            orcagym_addr=orcagym_addr,
+            time_step=config["time_step"],
+        )
+    except ValueError:
+        _logger.error("仿真出错")
+        return
     config["agent_names"] = [resolved_agent_name]
     config["scene_binding"] = scene_binding
     _logger.info(f"  - 扫描到的机器人实例: {resolved_agent_name}")

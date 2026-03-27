@@ -75,6 +75,12 @@ class ZQSA01Env(OrcaGymLocalEnv):
         ]
         self.actuator_names = [self.actuator(name) for name in self.actuator_names_str]
         self.actuator_ids = [self.model.actuator_name2id(name) for name in self.actuator_names]
+        self.control_dof_count = len(self.actuator_ids)
+        if self.control_dof_count != len(self.default_dof_pos):
+            raise ValueError(
+                f"[ZQSA01] Controlled actuator count mismatch: "
+                f"actuators={self.control_dof_count}, dof_pos={len(self.default_dof_pos)}"
+            )
         # 观察历史
         self.frame_stack = frame_stack
 
@@ -175,7 +181,7 @@ class ZQSA01Env(OrcaGymLocalEnv):
             
             # 设置控制并仿真一步
             ctrl = np.zeros(self.nu, dtype=np.float32)
-            for i in range(self.nu):
+            for i in range(self.control_dof_count):
                 ctrl[self.actuator_ids[i]] = tau[i]
             
             self.set_ctrl(ctrl)

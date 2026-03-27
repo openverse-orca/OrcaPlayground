@@ -24,7 +24,7 @@ import numpy as np
 import math
 
 from orca_gym.log.orca_log import get_orca_logger
-_logger = get_orca_logger()
+_logger = get_orca_logger(console_level="WARNING", file_level="INFO", force_reinit=True)
 
 XBOT_JOINT_SUFFIXES = [
     "left_leg_roll_joint", "left_leg_yaw_joint", "left_leg_pitch_joint",
@@ -226,10 +226,14 @@ def main(device: str = "cpu"):
     _logger.info(f"  - vy: {CMD_VY} m/s")
     _logger.info(f"  - dyaw: {CMD_DYAW} rad/s")
     
-    resolved_agent_name, scene_binding = resolve_xbot_scene_binding(
-        orcagym_addr=config["orcagym_addr"],
-        time_step=config["time_step"],
-    )
+    try:
+        resolved_agent_name, scene_binding = resolve_xbot_scene_binding(
+            orcagym_addr=config["orcagym_addr"],
+            time_step=config["time_step"],
+        )
+    except ValueError:
+        _logger.error("仿真出错")
+        return
     config["agent_names"] = [resolved_agent_name]
     config["scene_binding"] = scene_binding
     _logger.info(f"\n🔎 扫描到场景中的 XBot 实例: {resolved_agent_name}")

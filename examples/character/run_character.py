@@ -14,7 +14,7 @@ from envs.common.model_scanner import (
     scan_scene_for_template,
 )
 from orca_gym.log.orca_log import get_orca_logger
-_logger = get_orca_logger()
+_logger = get_orca_logger(console_level="WARNING", file_level="INFO", force_reinit=True)
 
 
 ENV_ENTRY_POINT = {
@@ -148,6 +148,8 @@ def run_simulation(orcagym_addr : str,
         print("Simulation stopped")        
         if env is not None:
             env.close()
+    except ValueError:
+        _logger.error("仿真出错")
 
 
 if __name__ == "__main__":

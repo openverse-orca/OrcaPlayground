@@ -21,7 +21,7 @@ from envs.drone.drone_aero_config import (
 from orca_gym.log.orca_log import get_orca_logger
 from orca_gym.scene.orca_gym_scene import OrcaGymScene
 
-_logger = get_orca_logger()
+_logger = get_orca_logger(console_level="WARNING", file_level="INFO", force_reinit=True)
 ENV_ENTRY_POINT = "envs.drone.drone_orca_env:DroneOrcaEnv"
 
 DEFAULT_TIME_STEP = 1.0 / 120.0
@@ -277,6 +277,8 @@ def run_simulation(
 
     except KeyboardInterrupt:
         print("Simulation stopped")
+    except ValueError:
+        _logger.error("仿真出错")
     finally:
         if env is not None:
             env.close()
@@ -361,6 +363,8 @@ def run_takeoff_bisection(
         )
     except KeyboardInterrupt:
         print("Bisection stopped")
+    except ValueError:
+        _logger.error("仿真出错")
     finally:
         if env is not None:
             try:

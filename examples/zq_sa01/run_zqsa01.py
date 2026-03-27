@@ -26,7 +26,7 @@ except ImportError:
     ONNX_AVAILABLE = False
 
 from orca_gym.log.orca_log import get_orca_logger
-_logger = get_orca_logger(name="ZQSA01", log_file="zqsa01.log", file_level="INFO", console_level="INFO", force_reinit=True)
+_logger = get_orca_logger(name="ZQSA01", log_file="zqsa01.log", file_level="INFO", console_level="WARNING", force_reinit=True)
 
 
 # 环境注册
@@ -317,6 +317,8 @@ def run_simulation(
     
     except KeyboardInterrupt:
         _logger.info("用户中断仿真")
+    except ValueError:
+        _logger.error("仿真出错")
     
     except Exception as e:
         _logger.error(f"仿真出错: {e}")

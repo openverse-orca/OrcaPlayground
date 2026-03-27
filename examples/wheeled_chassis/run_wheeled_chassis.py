@@ -1,7 +1,5 @@
 import argparse
 from orca_gym.scene.orca_gym_scene_runtime import OrcaGymSceneRuntime
-from orca_gym.scene.orca_gym_scene import OrcaGymScene, Actor
-from orca_gym.utils.rotations import euler2quat
 import time
 import gymnasium as gym
 import sys
@@ -14,37 +12,13 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+from envs.common.model_scanner import (
+    build_suffix_template,
+    require_complete_matches,
+    scan_scene_for_template,
+)
 from orca_gym.log.orca_log import get_orca_logger
-_logger = get_orca_logger()
-
-# WheeledChassis 场景 spawn 用资产路径（与机器狗方式一致，脚本自动创建场景）
-WHEELED_CHASSIS_AGENT_ASSET_PATH = "assets/e071469a36d3c8aa/default_project/prefabs/openloong_gripper_2f85_mobile_base_usda"
-
-
-
-def publish_wheeled_chassis_scene(orcagym_addr: str, agent_name: str, agent_asset_path: str) -> None:
-    """仿照机器狗方式，通过 spawn（replicator）自动创建场景，无需手动拖拽到布局。"""
-    _logger.info("=============> 发布 WheeledChassis 场景 (spawn)...")
-    temp_scene = OrcaGymScene(orcagym_addr)
-    temp_scene.publish_scene()
-    time.sleep(1)
-    temp_scene.close()
-    time.sleep(1)
-    scene = OrcaGymScene(orcagym_addr)
-    agent = Actor(
-        name=agent_name,
-        asset_path=agent_asset_path.replace("//", "/"),
-        position=[0, 0, 0],
-        rotation=euler2quat([0, 0, 0]),
-        scale=1.0,
-    )
-    scene.add_actor(agent)
-    _logger.info(f"    =============> Add agent {agent_name} with path {agent_asset_path} ...")
-    scene.publish_scene()
-    time.sleep(3)
-    scene.close()
-    time.sleep(1)
-    _logger.info("=============> 发布 WheeledChassis 场景完成.")
+_logger = get_orca_logger(console_level="WARNING", file_level="INFO", force_reinit=True)
 
 
 ENV_ENTRY_POINT = {
@@ -56,6 +30,31 @@ FRAME_SKIP = 20
 REALTIME_STEP = TIME_STEP * FRAME_SKIP
 CONTROL_FREQ = 1 / REALTIME_STEP
 WHEELED_CHASSIS_ACTUATORS = ["M_wheel_r", "M_wheel_l"]
+
+def sceneinfo(
+    scene,
+    stage: str,
+    orcagym_address: str,
+):
+    toclose = False
+    if scene is None:
+        toclose = True
+        import importlib
+        OrcaGymScene = importlib.import_module("orca_gym.scene.orca_gym_scene").OrcaGymScene
+        scene = OrcaGymScene(orcagym_address)
+    try:
+        script_name = os.path.basename(sys.argv[0]) if sys.argv else os.path.basename(__file__)
+        scene.get_rundata(script_name, stage)
+        if stage == "beginscene":
+            mess = f"开始仿真程序运行，按A/W/S/D控制机器人移动"
+            scene.set_ui_text(actor_name=1, message=mess, showtime=5, color="0xffff00", size=32)
+        elif stage == "loadscene":
+            mess = f"加载模型中"
+            scene.set_ui_text(actor_name=1, message=mess, showtime=10, color="0xffff00", blinkfreq =5, size=32)
+        scene.set_image_enabled(1,True)
+    finally:
+        if toclose:
+            scene.close()
 
 
 def resolve_wheeled_scene_agent_name(orcagym_addr: str) -> str:
@@ -76,29 +75,6 @@ def resolve_wheeled_scene_agent_name(orcagym_addr: str) -> str:
         allow_empty_prefix=False,
         orcagym_addr=orcagym_addr,
     )[0].agent_name
-
-def sceneinfo(
-    scene,
-    stage: str,
-    orcagym_address: str,
-):
-    toclose = False
-    if scene is None:
-        toclose = True
-        import importlib
-        OrcaGymScene = importlib.import_module("orca_gym.scene.orca_gym_scene").OrcaGymScene
-        scene = OrcaGymScene(orcagym_address)
-    try:
-        script_name = os.path.basename(sys.argv[0]) if sys.argv else os.path.basename(__file__)
-        scene.get_rundata(script_name, stage)
-        if stage == "beginscene":
-            _logger.info("开始仿真程序运行，按A/W/S/D控制机器人移动")
-        elif stage == "loadscene":
-            _logger.info("加载模型中")
-        scene.set_image_enabled(1,True)
-    finally:
-        if toclose:
-            scene.close()
 
 def register_env(orcagym_addr : str, 
                  env_name : str, 
@@ -129,12 +105,12 @@ def run_simulation(orcagym_addr : str,
     env = None  # Initialize env to None
     try:
         _logger.info(f"simulation running... , orcagym_addr:  {orcagym_addr}")
+        sceneinfo(None, "loadscene", orcagym_addr)
         if agent_name:
             _logger.info("agent_name 参数仅作兼容保留；运行时会自动扫描场景中的实际底盘实例名。")
 
-        resolved_agent_name = resolve_wheeled_scene_agent_name(orcagym_addr)
-        _logger.info(f"检测到场景中的 WheeledChassis 实例: {resolved_agent_name}")
         env_index = 0
+        resolved_agent_name = resolve_wheeled_scene_agent_name(orcagym_addr)
         env_id, kwargs = register_env(orcagym_addr, 
                                       env_name, 
                                       env_index, 
@@ -167,6 +143,8 @@ def run_simulation(orcagym_addr : str,
         print("Simulation stopped")        
         if env is not None:
             env.close()
+    except ValueError:
+        _logger.error("仿真出错")
 
 
 if __name__ == "__main__":
