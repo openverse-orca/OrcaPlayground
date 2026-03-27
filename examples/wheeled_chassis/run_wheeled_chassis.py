@@ -9,11 +9,11 @@ import os
 from datetime import datetime
 from typing import Optional
 
-from envs.common.model_scanner import (
-    build_suffix_template,
-    require_complete_matches,
-    scan_scene_for_template,
-)
+# 添加项目根目录到 sys.path，避免部分机器在非仓库根目录启动时无法导入 `envs`
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()
 
