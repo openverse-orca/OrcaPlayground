@@ -95,6 +95,8 @@ def register_env(
     env_index: int,
     agent_num: int,
     agent_name: str,
+    agent_names: list[str] | None,
+    robot_config: dict | None,
     task: str,
     run_mode: str,
     entry_point: str,
@@ -108,6 +110,8 @@ def register_env(
 ) -> str:
     orcagym_addr_str = orcagym_addr.replace(":", "-")
     env_id = env_name + "-OrcaGym-" + orcagym_addr_str + f"-{env_index:03d}"
+    resolved_agent_names = agent_names or [f"{agent_name}_{agent_id:03d}" for agent_id in range(agent_num)]
+    resolved_robot_config = robot_config or LeggedRobotConfig[agent_name]
     gym.register(
         id=env_id,
         entry_point=entry_point,
@@ -116,7 +120,7 @@ def register_env(
             'action_skip': action_skip,
             'task': task,
             'orcagym_addr': orcagym_addr,
-            'agent_names': [f"{agent_name}_{agent_id:03d}" for agent_id in range(agent_num)],
+            'agent_names': resolved_agent_names,
             'time_step': time_step,
             'max_episode_steps': max_episode_steps,  # 环境永不停止，agent有最大步数
             'render_mode': render_mode,
@@ -124,7 +128,7 @@ def register_env(
             'height_map_file': height_map_file,
             'run_mode': run_mode,
             'env_id': env_id,
-            'robot_config': LeggedRobotConfig[agent_name],
+            'robot_config': resolved_robot_config,
             'legged_obs_config': LeggedObsConfig,
             'curriculum_config': CurriculumConfig,
             'legged_env_config': LeggedEnvConfig,
@@ -141,6 +145,8 @@ def make_env(
     env_index: int, 
     agent_num: int, 
     agent_name: str, 
+    agent_names: list[str] | None,
+    robot_config: dict | None,
     task: str, 
     run_mode: str, 
     entry_point: str, 
@@ -160,6 +166,8 @@ def make_env(
             env_index=env_index, 
             agent_num=agent_num, 
             agent_name=agent_name, 
+            agent_names=agent_names,
+            robot_config=robot_config,
             task=task, 
             run_mode=run_mode, 
             entry_point=entry_point, 
@@ -313,7 +321,9 @@ def train_model(
     subenv_num: int,
     agent_num: int,
     agent_name: str,
+    agent_names: list[str],
     agent_config: dict,
+    robot_config: dict,
     task: str,
     entry_point: str,
     time_step: float,
@@ -342,6 +352,8 @@ def train_model(
                 env_index=env_index,
                 agent_num=agent_num,
                 agent_name=agent_name,
+                agent_names=agent_names,
+                robot_config=robot_config,
                 task=task,
                 run_mode="training",
                 entry_point=entry_point,
@@ -366,6 +378,9 @@ def train_model(
             agent_config=agent_config,
             model_file=model_file,
         )
+        # 先落一个基础 checkpoint，避免训练中途被外部打断时目录里只有 config/log 而没有 zip。
+        _logger.info(f"-----------------Save Initial Model----------------- {model_file}")
+        model.save(model_file)
 
         training_model(model, total_timesteps, model_file, curriculum_list)
 
@@ -381,6 +396,8 @@ def test_model(
     orcagym_addresses: str,
     agent_num: int,
     agent_name: str,
+    agent_names: list[str],
+    robot_config: dict,
     task: str,
     run_mode: str,
     entry_point: str,
@@ -393,8 +410,14 @@ def test_model(
     curriculum_list: list[dict[str, int]],
     render_mode: str,
     ):
+    env = None
+    testing_started = False
     try:
         _logger.info(f"simulation running... , orcagym_addr:  {orcagym_addresses}")
+        if not curriculum_list:
+            raise ValueError("curriculum_list must not be empty for testing / play.")
+        if not os.path.exists(model_file):
+            raise FileNotFoundError(f"Model checkpoint not found: {model_file}")
 
         env_name = "LeggedGym-v0"
         orcagym_addr_list, env_index_list, render_mode_list = generate_env_list(orcagym_addresses, 1)
@@ -407,6 +430,8 @@ def test_model(
                 env_index=env_index,
                 agent_num=agent_num,
                 agent_name=agent_name,
+                agent_names=agent_names,
+                robot_config=robot_config,
                 task=task,
                 run_mode=run_mode,
                 entry_point=entry_point,
@@ -426,6 +451,7 @@ def test_model(
         
         model: PPO = PPO.load(model_file, env=env, device=device)
 
+        testing_started = True
         testing_model(
             env=env,
             agent_num=agent_num,
@@ -438,7 +464,9 @@ def test_model(
 
     except KeyboardInterrupt:
         _logger.info("退出仿真环境")
-        env.close()
+    finally:
+        if env is not None and not testing_started:
+            env.close()
 
 def _segment_observation(observation, agent_num):
     # 将观测数据分割成多个agent的数据

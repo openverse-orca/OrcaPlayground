@@ -78,6 +78,16 @@ class CommandSender:
         self.ndim = self.robot.NUM_MOTORS
         self.low_command : LowCommand = low_command
         self.init_low_command()
+
+    def set_kp_level(self, kp_level: float):
+        self.kp_level = kp_level
+        for i in range(len(self.robot.MOTOR_KP)):
+            self.robot_kp[i] = self.robot.MOTOR_KP[i] * self.kp_level
+
+    def reset_gains(self):
+        self.set_kp_level(1.0)
+        for i in range(len(self.robot.MOTOR_KD)):
+            self.robot_kd[i] = self.robot.MOTOR_KD[i] * 1.0
     
     def init_low_command(self):
         # 初始化为默认站立姿态，并设置正确的 kp/kd，防止启动时摔倒
@@ -111,3 +121,4 @@ class ShareState:
         self.low_command = LowCommand()
         self.low_state_semaphore = Semaphore(1)
         self.low_command_semaphore = Semaphore(1)
+        self.reset_requested = False

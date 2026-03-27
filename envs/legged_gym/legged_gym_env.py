@@ -442,9 +442,24 @@ class LeggedGymEnv(OrcaGymAsyncEnv):
                 agent.init_playable()
                 agent.player_control = True
                 break
-            
-        self._player_agent_lin_vel_x = np.array(self._robot_config["curriculum_commands"]["move_medium"]["command_lin_vel_range_x"]) / 2
-        self._player_agent_lin_vel_y = np.array(self._robot_config["curriculum_commands"]["move_medium"]["command_lin_vel_range_y"]) / 2
+
+        curriculum_commands = self._robot_config.get("curriculum_commands", {})
+        play_command_cfg = curriculum_commands.get("move_medium")
+
+        if play_command_cfg is not None:
+            self._player_agent_lin_vel_x = np.array(play_command_cfg["command_lin_vel_range_x"], dtype=float) / 2
+            self._player_agent_lin_vel_y = np.array(play_command_cfg["command_lin_vel_range_y"], dtype=float) / 2
+            return
+
+        max_cmd_vel = np.asarray(self._robot_config.get("max_cmd_vel", [0.8, 0.2, 0.8]), dtype=float).reshape(-1)
+        lin_vel_x = float(max_cmd_vel[0]) if max_cmd_vel.size >= 1 else 0.8
+        lin_vel_y = float(max_cmd_vel[1]) if max_cmd_vel.size >= 2 else min(lin_vel_x * 0.25, 0.2)
+        self._player_agent_lin_vel_x = np.array([-lin_vel_x, lin_vel_x], dtype=float) / 2
+        self._player_agent_lin_vel_y = np.array([-lin_vel_y, lin_vel_y], dtype=float) / 2
+        _logger.warning(
+            "robot_config missing curriculum_commands.move_medium; "
+            "falling back to max_cmd_vel for play-mode keyboard speed limits"
+        )
     
     def _update_playable(self) -> None:
         if self._run_mode != "play" and self._run_mode != "nav":

@@ -54,3 +54,5 @@ pygame  # 键盘输入（用于 KeyboardInput PYGAME 模式）
 numba  # Numba JIT 编译（orca-gym 的 robosuite 适配器使用，wheeled_chassis 示例可能间接依赖）
 
 sshkeyboard
+
+orca-sph>=26.3.1
