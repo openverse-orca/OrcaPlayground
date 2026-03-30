@@ -1,4 +1,5 @@
 
+import threading
 import numpy as np
 import time
 import grpc
@@ -139,9 +140,17 @@ class BasePolicy:
             self.history_handler = HistoryHandler(self.config["history_config"], self.config["obs_dims"])
             self.current_obs = {key: np.zeros((1, self.config["obs_dims"][key])) for key in self.config["obs_dims"].keys()}
 
+        self._keyboard = None
+        self._last_key_state = {}
+        if orcagym_addr:
+            self._keyboard = SceneKeyboardInput(orcagym_addr)
+            self._last_key_state = self._keyboard.get_state()
+
         self._shutdown_event = threading.Event()
-        self.key_listener_thread = threading.Thread(target=self.start_key_listener)
-        self.key_listener_thread.start()
+        self.key_listener_thread = None
+        if self._keyboard is None:
+            self.key_listener_thread = threading.Thread(target=self.start_key_listener)
+            self.key_listener_thread.start()
 
     def setup_policy(self, model_path):
         # load onnx policy
@@ -419,9 +428,15 @@ class BasePolicy:
         except Exception:
             pass
 
+        if self._keyboard is not None:
+            try:
+                self._keyboard.close()
+            except Exception:
+                pass
+
         # Wake up any waiting worker so run() can observe the shutdown flag.
         self.share_state.low_state_semaphore.release()
         self.share_state.low_command_semaphore.release()
 
-        if self.key_listener_thread.is_alive():
+        if self.key_listener_thread is not None and self.key_listener_thread.is_alive():
             self.key_listener_thread.join(timeout=join_timeout)

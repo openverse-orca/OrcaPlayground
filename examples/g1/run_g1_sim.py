@@ -191,16 +191,7 @@ def resolve_g1_scene_agent_name(orcagym_addr: str) -> str:
     )[0].agent_name
 
 
-def policy_thread_func(config, loco_model_path, mimic_model_path, share_state, orcagym_addr):
-    policy = MotionTrackingDecLocoHeightPolicy(
-        config=config,
-        loco_model_path=loco_model_path,
-        mimic_model_paths=mimic_model_path,
-        share_state=share_state,
-        decimation=4,
-        use_mocap=False,
-        orcagym_addr=orcagym_addr,
-    )
+def policy_thread_func(policy):
     policy.run()
 
 
@@ -219,6 +210,8 @@ def run_simulation(
     策略线程为 daemon，主进程退出时会被一并结束，避免 Python 进程挂起。
     """
     env = None
+    policy = None
+    policy_thread = None
     
     try:
         _logger.info(f"开始仿真... OrcaGym地址: {orcagym_addr}")
@@ -247,10 +240,19 @@ def run_simulation(
         obs, info = env.reset()
         sceneinfo(None, "beginscene", orcagym_addr)
         
+        policy = MotionTrackingDecLocoHeightPolicy(
+            config=config,
+            loco_model_path=loco_model_path,
+            mimic_model_paths=mimic_model_path,
+            share_state=share_state,
+            decimation=4,
+            use_mocap=False,
+            orcagym_addr=orcagym_addr,
+        )
+
         policy_thread = threading.Thread(
             target=policy_thread_func,
-            args=(config, loco_model_path, mimic_model_path, share_state, orcagym_addr),
-            daemon=True,
+            args=(policy,),
         )
         policy_thread.start()
         
@@ -258,7 +260,13 @@ def run_simulation(
             start_time = datetime.now()
             share_state.low_command_semaphore.acquire()
 
-            obs, _, _, _, _ = env.step(None)
+            if share_state.reset_requested:
+                share_state.reset_requested = False
+                obs, info = env.reset()
+                env.unwrapped.update_share_low_state(obs)
+                share_state.low_state_semaphore.release()
+            else:
+                obs, _, _, _, _ = env.step(None)
             env.render()
             end_time = datetime.now()
             elapsed_time = end_time - start_time
@@ -276,6 +284,10 @@ def run_simulation(
         traceback.print_exc()
     
     finally:
+        if policy is not None:
+            policy.close()
+        if policy_thread is not None and policy_thread.is_alive():
+            policy_thread.join(timeout=2.0)
         if env is not None:
             env.close()
             _logger.info("环境已关闭")
