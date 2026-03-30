@@ -68,6 +68,9 @@ class TrainingRolloutPerfCallback(BaseCallback):
             self._csv_fp = None
             self._csv_writer = None
 
+    def _on_step(self) -> bool:
+        return True
+
     def _on_training_start(self) -> None:
         _logger.info(
             f"[PERF-TRAIN] 已启用：每 {self.report_every_rollouts} 个 rollout 汇总一次；"

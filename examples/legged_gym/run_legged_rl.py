@@ -65,6 +65,68 @@ class LeggedRlPerfCli:
     interval_rollouts: int = 10
     csv_path: Optional[str] = None
 
+
+def print_perf_hardware_snapshot() -> None:
+    """
+    训练性能对照用：打印 CPU / 内存 / GPU 显存与型号（与代码、yaml 无关，便于本机 vs 云端逐项对比）。
+    不依赖 psutil；若已安装 psutil 则补充频率与内存详情。
+    """
+    import torch
+
+    def line(msg: str) -> None:
+        print(f"[PERF-HW] {msg}")
+
+    u = platform.uname()
+    line(f"node={platform.node()} system={u.system} release={u.release} machine={u.machine}")
+    line(f"processor={platform.processor()!r}")
+    try:
+        with open("/proc/cpuinfo", encoding="utf-8", errors="ignore") as f:
+            for ln in f:
+                if ln.startswith("model name") or ln.startswith("Model name"):
+                    line(f"cpu_model={ln.split(':', 1)[1].strip()}")
+                    break
+    except OSError:
+        pass
+
+    try:
+        import psutil  # type: ignore
+
+        line(
+            f"logical_cpus={psutil.cpu_count(logical=True)} "
+            f"physical_cpus={psutil.cpu_count(logical=False)}"
+        )
+        cf = psutil.cpu_freq()
+        if cf and cf.current:
+            line(
+                f"cpu_freq_MHz current={cf.current:.0f} min={cf.min or 0:.0f} max={cf.max or 0:.0f}"
+            )
+        vm = psutil.virtual_memory()
+        line(
+            f"ram_total_GiB={vm.total / (1024**3):.2f} available_GiB={vm.available / (1024**3):.2f}"
+        )
+    except ImportError:
+        line("psutil_not_installed (pip install psutil 可看到 CPU 频率与内存详情)")
+    except Exception as ex:
+        line(f"psutil_error={ex!r}")
+
+    line(f"torch_cuda_available={torch.cuda.is_available()}")
+    if torch.cuda.is_available():
+        i = torch.cuda.current_device()
+        line(f"cuda_device_index={i} name={torch.cuda.get_device_name(i)}")
+        props = torch.cuda.get_device_properties(i)
+        total_gib = props.total_memory / (1024**3)
+        line(
+            f"cuda_total_mem_GiB={total_gib:.2f} capability={props.major}.{props.minor} "
+            f"multi_processor_count={props.multi_processor_count}"
+        )
+        try:
+            alloc = torch.cuda.memory_allocated(i) / (1024**3)
+            reserved = torch.cuda.memory_reserved(i) / (1024**3)
+            line(f"cuda_allocated_GiB={alloc:.3f} reserved_GiB={reserved:.3f} (训练开始前)")
+        except Exception:
+            pass
+
+
 def export_config(config: dict, model_dir: str):
     agent_name = config['agent_name']
     agent_config = LeggedRobotConfig[agent_name]
@@ -270,6 +332,7 @@ def run_sb3_ppo_rl(
                 f"cuda={torch.cuda.is_available()} "
                 f"interval_rollouts={perf_profile.interval_rollouts} csv={perf_profile.csv_path}"
             )
+            print_perf_hardware_snapshot()
             train_perf = sb3_rl.TrainPerfProfileOptions(
                 interval_rollouts=perf_profile.interval_rollouts,
                 csv_path=perf_profile.csv_path,
