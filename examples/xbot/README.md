@@ -67,36 +67,6 @@ CMD_VY = 0.0   # 侧向速度 (m/s)
 CMD_DYAW = 0.0 # 转向速度 (rad/s)
 ```
 
-#### 方法 2: 键盘控制（WASD）⭐
-
-```bash
-# 使用 GPU（默认）
-python examples/xbot/run_xbot_keyboard.py
-
-# 或使用模块方式
-python -m examples.xbot.run_xbot_keyboard
-
-# 使用 CPU
-python examples/xbot/run_xbot_keyboard.py --device cpu
-```
-
-**按键说明**:
-- `W` - 前进
-- `S` - 后退
-- `A` - 左转
-- `D` - 右转
-- `Q` - 左平移
-- `E` - 右平移
-- `LShift` - 加速（Turbo模式，2倍速度）
-- `Space` - 停止
-- `R` - 手动重置环境 ⭐
-- `Esc` - 退出程序
-
-**特性**:
-- ✅ **不会自动重置**: 即使检测到摔倒或超时，机器人也会继续运行
-- ✅ **手动控制**: 只有按R键才会重置环境
-- ✅ **实时速度调整**: 按住按键即时响应
-
 ## 📊 性能指标
 
 使用humanoid-gym预训练模型：
@@ -125,12 +95,6 @@ python examples/xbot/run_xbot_keyboard.py --device cpu
   - 加载预训练策略
   - 设置固定命令速度
   - 实时监控和诊断
-
-- **`run_xbot_keyboard.py`** - 键盘控制脚本 ⭐
-  - WASD控制移动方向
-  - 实时调整速度
-  - 支持Turbo加速模式
-
 
 ## 📝 关键配置
 
