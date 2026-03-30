@@ -1,9 +1,13 @@
 import os
 import sys
 import argparse
+import csv
+import platform
 import time
 import numpy as np
+from dataclasses import dataclass
 from datetime import datetime
+from typing import Optional
 
 # 获取脚本文件所在目录，然后计算项目根目录
 # 从 examples/legged_gym/run_legged_sim.py 到项目根目录需要向上两级
@@ -28,6 +32,14 @@ from examples.legged_gym.scripts.grpc_client import GrpcInferenceClient, create_
 
 from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()
+
+
+@dataclass
+class PerfProfileOptions:
+    """性能定位：主循环分段耗时（默认关闭）。"""
+    interval: int = 100
+    csv_path: Optional[str] = None
+    skip_obs_csv: bool = False
 
 
 EPISODE_TIME_VERY_SHORT = LeggedEnvConfig["EPISODE_TIME_VERY_SHORT"]
@@ -257,6 +269,7 @@ def main(
     config: dict,
     remote: str,
     config_path: str = None,
+    perf_profile: Optional[PerfProfileOptions] = None,
     ):
     env = None
     model_type = None
@@ -449,6 +462,7 @@ def main(
             action_skip=ACTION_SKIP,
             keyboard_control=keyboard_control,
             command_model=command_model,
+            perf_profile=perf_profile,
         )
     except Exception as e:
         _logger.error(f"Error occurred: {e}")
@@ -549,15 +563,25 @@ def log_observation(obs: dict, action: np.ndarray, filename: str, physics_step: 
         raw_action_data = [timestamp] + list(action)
         writer.writerow(raw_action_data)
 
-def run_simulation(env: gym.Env, 
+
+def _mj_sim_time(env: gym.Env) -> float:
+    u = getattr(env, "unwrapped", env)
+    data = getattr(u, "data", None)
+    if data is not None and hasattr(data, "time"):
+        return float(data.time)
+    return float("nan")
+
+
+def run_simulation(env: gym.Env,
                  agent_name_list: list[str],
-                 models: dict, 
+                 models: dict,
                  model_type: str,
-                 time_step: float, 
+                 time_step: float,
                  frame_skip: int,
                  action_skip: int,
                  keyboard_control: KeyboardControl,
-                 command_model: dict[str, str]):
+                 command_model: dict[str, str],
+                 perf_profile: Optional[PerfProfileOptions] = None):
     obs, info = env.reset()
 
     dt = time_step * frame_skip * action_skip
@@ -566,17 +590,49 @@ def run_simulation(env: gym.Env,
     # Generate base filename for robot data files
     timestamp_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     log_file = f"./log/robot_data_{timestamp_str}"
-    
+
     # Add step counting
     physics_step = 0
     control_step = 0
     sim_time = 0.0
     brake_time = 0.0
-        
+
+    perf_csv_fp = None
+    perf_csv_writer = None
+    perf_keys = ("kb_cmd", "infer", "log_obs", "step", "render", "sleep", "total")
+    win_n = 0
+    win_sum = {k: 0.0 for k in perf_keys}
+    win_max = {k: 0.0 for k in perf_keys}
+
+    if perf_profile:
+        _logger.info(
+            f"[PERF] 性能定位已开启 interval={perf_profile.interval} "
+            f"csv={perf_profile.csv_path} skip_obs_csv={perf_profile.skip_obs_csv}"
+        )
+        _logger.info(
+            f"[PERF] host={platform.node()} cuda={torch.cuda.is_available()} "
+            f"target_dt_ms={dt * 1000:.3f} target_hz={1.0 / dt:.2f}"
+        )
+        if torch.cuda.is_available():
+            _logger.info(f"[PERF] cuda_device={torch.cuda.get_device_name(0)}")
+        if perf_profile.csv_path:
+            perf_dir = os.path.dirname(os.path.abspath(perf_profile.csv_path))
+            if perf_dir:
+                os.makedirs(perf_dir, exist_ok=True)
+            new_file = not os.path.exists(perf_profile.csv_path)
+            perf_csv_fp = open(perf_profile.csv_path, "a", newline="", encoding="utf-8")
+            perf_csv_writer = csv.writer(perf_csv_fp)
+            if new_file:
+                perf_csv_writer.writerow([
+                    "control_step", "terrain_type", "model_type",
+                    "kb_cmd_ms", "infer_ms", "log_obs_ms", "step_ms", "render_ms", "sleep_ms", "total_ms",
+                    "mj_time", "over_target_ms",
+                ])
+
     try:
         while True:
             start_time = datetime.now()
-
+            t_loop0 = time.perf_counter() if perf_profile else None
 
             lin_vel, ang_vel, reborn, terrain_type, model_type = keyboard_control.update()
             if reborn:
@@ -597,7 +653,7 @@ def run_simulation(env: gym.Env,
                     terrain_type = fallback_terrain
                 else:
                     raise ValueError(f"No terrain types available in models for model_type '{model_type}'")
-            
+
             model = models[model_type][terrain_type]
 
             command_dict = {"lin_vel": lin_vel, "ang_vel": ang_vel}
@@ -606,14 +662,13 @@ def run_simulation(env: gym.Env,
             else:
                 env.unwrapped.setup_command(command_dict)
 
+            t_after_kb = time.perf_counter() if perf_profile else None
+
             segmented_obs = segment_obs(obs, agent_name_list)
             action_list = []
             for agent_obs in segmented_obs.values():
                 if model_type == "sb3":
-                    # print("sb3 obs: ", agent_obs)
                     sb3_action, _states = model.predict(agent_obs, deterministic=True)
-                    # print("sb3 action: ", sb3_action)
-                    # print("--------------------------------")
                     action = sb3_action
 
                 elif model_type == "onnx":
@@ -622,27 +677,20 @@ def run_simulation(env: gym.Env,
                         "observation_desired_goal": np.array([agent_obs["desired_goal"]], dtype=np.float32),
                         "observation_observation": np.array([agent_obs["observation"]], dtype=np.float32)
                     }
-                    # print("onnx obs: ", agent_obs)
                     onnx_actions = model.run(None, agent_obs)[0]
                     onnx_action = onnx_actions[0]
                     onnx_action = np.clip(onnx_action, -100, 100)
-                    # print("onnx action: ", onnx_action)
-                    # print("--------------------------------")
                     action = onnx_action
 
                 elif model_type == "grpc":
-                    # 准备gRPC请求的观察数据
                     grpc_obs = {
                         "observation": agent_obs["observation"].astype(np.float32),
                         "desired_goal": agent_obs["desired_goal"].astype(np.float32),
                         "achieved_goal": agent_obs["achieved_goal"].astype(np.float32)
                     }
-                    # print("grpc obs: ", grpc_obs)
                     grpc_action, _states = model.predict(grpc_obs, model_type=terrain_type, deterministic=True)
                     if grpc_action is None:
                         grpc_action = np.zeros(env.action_space.shape[0])
-                    # print("grpc action: ", grpc_action)
-                    # print("--------------------------------")
                     action = grpc_action
 
                 elif model_type == "rllib":
@@ -654,38 +702,103 @@ def run_simulation(env: gym.Env,
                     logits = convert_to_numpy(rl_module_out[Columns.ACTION_DIST_INPUTS])
                     mu = logits[:, :env.action_space.shape[0]]
                     action = np.clip(mu[0], env.action_space.low, env.action_space.high)
-                    # print("rllib action: ", action)
-                    # print("--------------------------------")
                 else:
                     raise ValueError(f"Invalid model type: {model_type}")
 
                 action_list.append(action)
 
             action = np.concatenate(action_list).flatten()
-            
-            # Log with step information
-            log_observation(obs, action, log_file, physics_step, control_step, sim_time)
-            
+
+            t_after_infer = time.perf_counter() if perf_profile else None
+
+            if not perf_profile or not perf_profile.skip_obs_csv:
+                log_observation(obs, action, log_file, physics_step, control_step, sim_time)
+
+            t_after_log = time.perf_counter() if perf_profile else None
+
             # Update step counters before next step
             physics_step += frame_skip  # Each control step includes frame_skip physics steps
             control_step += 1
             sim_time += dt
 
-            # no action testing
-            # action = np.zeros(env.action_space.shape[0])
-            
             obs, reward, terminated, truncated, info = env.step(action)
+
+            t_after_step = time.perf_counter() if perf_profile else None
+
             env.render()
 
-            # print("--------------------------------")
-            # print("action: ", action)
-            # print("obs: ", obs)
+            t_after_render = time.perf_counter() if perf_profile else None
 
             elapsed_time = datetime.now() - start_time
+            sleep_ms = 0.0
             if elapsed_time.total_seconds() < dt:
-                time.sleep(dt - elapsed_time.total_seconds())
-            
+                sleep_sec = dt - elapsed_time.total_seconds()
+                if perf_profile:
+                    t_sl = time.perf_counter()
+                    time.sleep(sleep_sec)
+                    sleep_ms = (time.perf_counter() - t_sl) * 1000.0
+                else:
+                    time.sleep(sleep_sec)
+
+            t_end = time.perf_counter() if perf_profile else None
+
+            if perf_profile:
+                kb_cmd_ms = (t_after_kb - t_loop0) * 1000.0
+                infer_ms = (t_after_infer - t_after_kb) * 1000.0
+                log_obs_ms = (t_after_log - t_after_infer) * 1000.0
+                step_ms = (t_after_step - t_after_log) * 1000.0
+                render_ms = (t_after_render - t_after_step) * 1000.0
+                total_ms = (t_end - t_loop0) * 1000.0
+                mj_t = _mj_sim_time(env)
+                over_ms = total_ms - dt * 1000.0
+
+                win_n += 1
+                seg = {
+                    "kb_cmd": kb_cmd_ms,
+                    "infer": infer_ms,
+                    "log_obs": log_obs_ms,
+                    "step": step_ms,
+                    "render": render_ms,
+                    "sleep": sleep_ms,
+                    "total": total_ms,
+                }
+                for k in perf_keys:
+                    win_sum[k] += seg[k]
+                    win_max[k] = max(win_max[k], seg[k])
+
+                if perf_csv_writer is not None:
+                    perf_csv_writer.writerow([
+                        control_step, terrain_type, model_type,
+                        f"{kb_cmd_ms:.4f}", f"{infer_ms:.4f}", f"{log_obs_ms:.4f}",
+                        f"{step_ms:.4f}", f"{render_ms:.4f}", f"{sleep_ms:.4f}", f"{total_ms:.4f}",
+                        f"{mj_t:.6f}" if mj_t == mj_t else "",
+                        f"{over_ms:.4f}",
+                    ])
+                    if win_n % 50 == 0:
+                        perf_csv_fp.flush()
+
+                if win_n >= perf_profile.interval:
+                    n = win_n
+                    _logger.info(
+                        f"[PERF] 近 {n} 步均值(ms) "
+                        f"kb_cmd={win_sum['kb_cmd'] / n:.2f} infer={win_sum['infer'] / n:.2f} "
+                        f"log_obs={win_sum['log_obs'] / n:.2f} step={win_sum['step'] / n:.2f} "
+                        f"render={win_sum['render'] / n:.2f} sleep={win_sum['sleep'] / n:.2f} "
+                        f"total={win_sum['total'] / n:.2f} | 目标周期={dt * 1000:.2f}ms"
+                    )
+                    _logger.info(
+                        f"[PERF] 近 {n} 步峰值(ms) "
+                        f"infer={win_max['infer']:.2f} step={win_max['step']:.2f} "
+                        f"render={win_max['render']:.2f} total={win_max['total']:.2f}"
+                    )
+                    win_n = 0
+                    for k in perf_keys:
+                        win_sum[k] = 0.0
+                        win_max[k] = 0.0
+
     finally:
+        if perf_csv_fp is not None:
+            perf_csv_fp.close()
         _logger.info("退出仿真环境")
         env.close()
 
@@ -693,6 +806,28 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run multiple instances of the script with different gRPC addresses.')
     parser.add_argument('--config', type=str, help='The path of the config file (YAML or JSON)')
     parser.add_argument('--remote', type=str, help='The remote address of the orca studio')
+    parser.add_argument(
+        '--perf-profile',
+        action='store_true',
+        help='开启主循环分段性能统计（周期性日志，可选 --perf-csv）',
+    )
+    parser.add_argument(
+        '--perf-interval',
+        type=int,
+        default=100,
+        help='每 N 个控制步打印一次均值/峰值（默认 100）',
+    )
+    parser.add_argument(
+        '--perf-csv',
+        type=str,
+        default=None,
+        help='每步耗时写入该 CSV（含 kb_cmd/infer/step/render 等列）',
+    )
+    parser.add_argument(
+        '--perf-skip-obs-csv',
+        action='store_true',
+        help='跳过 robot_data_* 观测/动作 CSV，避免磁盘 I/O 干扰耗时',
+    )
     args = parser.parse_args()
 
     if args.config is None:
@@ -705,10 +840,19 @@ if __name__ == "__main__":
         else:
             config = yaml.load(f, Loader=yaml.FullLoader)
 
+    perf_profile = None
+    if args.perf_profile:
+        perf_profile = PerfProfileOptions(
+            interval=max(1, args.perf_interval),
+            csv_path=args.perf_csv,
+            skip_obs_csv=args.perf_skip_obs_csv,
+        )
+
     main(
         config=config,
         remote=args.remote,
         config_path=config_path,
+        perf_profile=perf_profile,
     )
 
 
