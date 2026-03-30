@@ -69,3 +69,10 @@ display_name = "zq_sa01"
 command = "python"
 args = [ "-m", "examples.zq_sa01.run_zqsa01",]
 description = "启动isaacgym行走移植仿真"
+
+[[external_programs.programs]]
+name = "fluid_sim"
+display_name = "run_fluid_sim"
+command = "python"
+args = [ "-m", "examples.fluid.run_fluid_sim",]
+description = "启动流体仿真"
