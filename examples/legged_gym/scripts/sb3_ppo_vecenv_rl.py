@@ -1,8 +1,10 @@
-
+import csv
 import gymnasium as gym
 from stable_baselines3 import PPO
 from gymnasium.envs.registration import register
+from dataclasses import dataclass
 from datetime import datetime
+from typing import Optional
 import torch
 import torch.nn as nn
 # from stable_baselines3.common.vec_env import SubprocVecEnv
@@ -22,6 +24,102 @@ from envs.legged_gym.legged_config import LeggedRobotConfig, LeggedObsConfig, Cu
 
 from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()
+
+
+@dataclass
+class TrainPerfProfileOptions:
+    """SB3 PPO 训练性能统计：按 rollout 周期分段（采集 vs 策略更新）。"""
+    interval_rollouts: int = 10
+    csv_path: Optional[str] = None
+
+
+class TrainingRolloutPerfCallback(BaseCallback):
+    """
+    在每个 rollout 结束时记录：
+    - rollout_ms：环境采样（collect_rollouts）墙钟时间
+    - train_ms：上一个 rollout 结束到本次 rollout 开始之间的时间（主要为 PPO train）
+    """
+
+    def __init__(self, report_every_rollouts: int = 10, csv_path: Optional[str] = None, verbose: int = 0):
+        super().__init__(verbose)
+        self.report_every_rollouts = max(1, report_every_rollouts)
+        self.csv_path = csv_path
+        self._rollout_idx = 0
+        self._t_rollout_start: Optional[float] = None
+        self._t_prev_rollout_end: Optional[float] = None
+        self._pending_train_ms: Optional[float] = None
+        self._win_rollout: list[float] = []
+        self._win_train: list[float] = []
+        self._csv_fp = None
+        self._csv_writer = None
+        if csv_path:
+            csv_dir = os.path.dirname(os.path.abspath(csv_path))
+            if csv_dir:
+                os.makedirs(csv_dir, exist_ok=True)
+            new_file = not os.path.exists(csv_path)
+            self._csv_fp = open(csv_path, "a", newline="", encoding="utf-8")
+            self._csv_writer = csv.writer(self._csv_fp)
+            if new_file:
+                self._csv_writer.writerow(["rollout_idx", "train_ms", "rollout_ms"])
+
+    def close(self) -> None:
+        if self._csv_fp is not None:
+            self._csv_fp.close()
+            self._csv_fp = None
+            self._csv_writer = None
+
+    def _on_training_start(self) -> None:
+        _logger.info(
+            f"[PERF-TRAIN] 已启用：每 {self.report_every_rollouts} 个 rollout 汇总一次；"
+            f"csv={self.csv_path}"
+        )
+
+    def _on_rollout_start(self) -> None:
+        now = time.perf_counter()
+        if self._t_prev_rollout_end is not None:
+            self._pending_train_ms = (now - self._t_prev_rollout_end) * 1000.0
+        else:
+            self._pending_train_ms = None
+        self._t_rollout_start = now
+
+    def _on_rollout_end(self) -> None:
+        now = time.perf_counter()
+        if self._t_rollout_start is None:
+            return
+        rollout_ms = (now - self._t_rollout_start) * 1000.0
+        train_ms = self._pending_train_ms
+        self._t_prev_rollout_end = now
+        self._rollout_idx += 1
+
+        if self._csv_writer is not None:
+            self._csv_writer.writerow([
+                self._rollout_idx,
+                f"{train_ms:.4f}" if train_ms is not None else "",
+                f"{rollout_ms:.4f}",
+            ])
+            if self._rollout_idx % 20 == 0:
+                self._csv_fp.flush()
+
+        self._win_rollout.append(rollout_ms)
+        if train_ms is not None:
+            self._win_train.append(train_ms)
+
+        if self._rollout_idx % self.report_every_rollouts == 0:
+            nr = len(self._win_rollout)
+            r_mean = sum(self._win_rollout) / nr
+            r_max = max(self._win_rollout)
+            msg = f"[PERF-TRAIN] 近 {nr} 个 rollout — collect 均值={r_mean:.1f}ms 峰值={r_max:.1f}ms"
+            if self._win_train:
+                nt = len(self._win_train)
+                t_mean = sum(self._win_train) / nt
+                t_max = max(self._win_train)
+                msg += f"；train 均值={t_mean:.1f}ms 峰值={t_max:.1f}ms"
+            _logger.info(msg)
+            self._win_rollout.clear()
+            self._win_train.clear()
+
+    def _on_training_end(self) -> None:
+        self.close()
 
 
 class SnapshotCallback(BaseCallback):
@@ -180,24 +278,35 @@ def make_env(
     return _init
 
 def training_model(
-    model : PPO, 
-    total_timesteps: int, 
+    model: PPO,
+    total_timesteps: int,
     model_file: str,
     curriculum_list: list[dict[str, int]],
+    perf_profile: Optional[TrainPerfProfileOptions] = None,
 ):
+    perf_cb: Optional[TrainingRolloutPerfCallback] = None
     try:
-        snapshot_callback = SnapshotCallback(save_interval=100, 
+        snapshot_callback = SnapshotCallback(save_interval=100,
                                              save_path=model_file,
                                              model_nstep=model.n_steps)
 
-        curriculum_callback = CurriculumCallback(save_path=model_file, 
-                                                 model_nstep=model.n_steps, 
+        curriculum_callback = CurriculumCallback(save_path=model_file,
+                                                 model_nstep=model.n_steps,
                                                  curriculum_list=curriculum_list)
-        
-        
-        model.learn(total_timesteps=total_timesteps, 
-                    callback=[snapshot_callback, curriculum_callback])
+
+        callbacks: list[BaseCallback] = [snapshot_callback, curriculum_callback]
+        if perf_profile is not None:
+            perf_cb = TrainingRolloutPerfCallback(
+                report_every_rollouts=perf_profile.interval_rollouts,
+                csv_path=perf_profile.csv_path,
+            )
+            callbacks.append(perf_cb)
+
+        model.learn(total_timesteps=total_timesteps,
+                    callback=callbacks)
     finally:
+        if perf_cb is not None:
+            perf_cb.close()
         _logger.info(f"-----------------Save Model-----------------")
         model.save(model_file)
 
@@ -325,6 +434,7 @@ def train_model(
     height_map_file: str,
     curriculum_list: list[dict[str, int]],
     render_mode: str,
+    perf_profile: Optional[TrainPerfProfileOptions] = None,
 ):
     model = None
     env = None
@@ -367,7 +477,7 @@ def train_model(
             model_file=model_file,
         )
 
-        training_model(model, total_timesteps, model_file, curriculum_list)
+        training_model(model, total_timesteps, model_file, curriculum_list, perf_profile=perf_profile)
 
     finally:
         _logger.info("退出仿真环境")

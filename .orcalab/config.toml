@@ -29,18 +29,19 @@ args = [ "-m", "examples.legged_gym.run_legged_rl", "--config", "examples/legged
 description = "启动legged_gym训练"
 
 [[external_programs.programs]]
-name = "legged_sim_perf"
-display_name = "run_legged_sim_perf"
+name = "legged_train_perf"
+display_name = "run_legged_rl_train_perf"
 command = "python"
 args = [
-    "-m", "examples.legged_gym.run_legged_sim",
-    "--config", "examples/legged_gym/configs/lite3_sim_config.yaml",
+    "-m", "examples.legged_gym.run_legged_rl",
+    "--config", "examples/legged_gym/configs/sb3_ppo_config.yaml",
+    "--train",
+    "--visualize",
     "--perf-profile",
-    "--perf-interval", "100",
-    "--perf-csv", "log/legged_sim_perf.csv",
-    "--perf-skip-obs-csv",
+    "--perf-interval-rollouts", "10",
+    "--perf-csv", "log/legged_rl_train_perf.csv",
 ]
-description = "legged_gym 仿真性能定位（分段耗时日志 + CSV，可改 config/remote）"
+description = "legged_gym SB3 训练性能定位（rollout collect/train 分段，同 sb3_ppo_config，非 run_legged_sim）"
 
 [[external_programs.programs]]
 name = "wheeled_chassis"

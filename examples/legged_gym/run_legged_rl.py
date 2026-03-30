@@ -1,8 +1,11 @@
 import os
 import sys
 import argparse
+import platform
 import time
+from dataclasses import dataclass
 from datetime import datetime
+from typing import Optional
 import yaml
 import json
 
@@ -54,6 +57,13 @@ TIME_STEP = LeggedEnvConfig["TIME_STEP"]
 FRAME_SKIP = LeggedEnvConfig["FRAME_SKIP"]
 ACTION_SKIP = LeggedEnvConfig["ACTION_SKIP"]
 EPISODE_TIME = LeggedEnvConfig["EPISODE_TIME_LONG"]
+
+
+@dataclass
+class LeggedRlPerfCli:
+    """CLI 与 sb3_ppo_vecenv_rl.TrainPerfProfileOptions 对应；在 __main__ 中转换。"""
+    interval_rollouts: int = 10
+    csv_path: Optional[str] = None
 
 def export_config(config: dict, model_dir: str):
     agent_name = config['agent_name']
@@ -172,6 +182,7 @@ def run_sb3_ppo_rl(
     ckpt: str,
     remote: str,
     visualize: bool,
+    perf_profile: Optional[LeggedRlPerfCli] = None,
 ):
     if remote is not None:
         orcagym_addresses = [remote]
@@ -251,6 +262,18 @@ def run_sb3_ppo_rl(
     if run_mode == "training":
         print("Start Training! task: ", task, " subenv_num: ", subenv_num, " agent_num: ", agent_num, " agent_name: ", agent_name)
         print("Total Steps: ", total_steps, "Max Episode Steps: ", max_episode_steps, " Frame Skip: ", FRAME_SKIP, " Action Skip: ", ACTION_SKIP)
+        train_perf = None
+        if perf_profile is not None:
+            import torch
+            print(
+                f"[PERF-TRAIN] host={platform.node()} "
+                f"cuda={torch.cuda.is_available()} "
+                f"interval_rollouts={perf_profile.interval_rollouts} csv={perf_profile.csv_path}"
+            )
+            train_perf = sb3_rl.TrainPerfProfileOptions(
+                interval_rollouts=perf_profile.interval_rollouts,
+                csv_path=perf_profile.csv_path,
+            )
         sb3_rl.train_model(
             orcagym_addresses=orcagym_addresses, 
             subenv_num=subenv_num, 
@@ -268,6 +291,7 @@ def run_sb3_ppo_rl(
             model_file=model_file, 
             height_map_file=height_map_file, 
             curriculum_list=run_mode_config['curriculum_list'][task],
+            perf_profile=train_perf,
         )
     elif run_mode in ["testing", "play"]:
         print("Start Testing! Run mode: ", run_mode, "task: ", task, " subenv_num: ", subenv_num, " agent_num: ", agent_num, " agent_name: ", agent_name)
@@ -524,9 +548,19 @@ def run_rllib_appo_rl(
     if ray.is_initialized():
         ray.shutdown()
 
-def run_rl(config: dict, run_mode: str, ckpt: str, remote: str, visualize: bool):
+def run_rl(
+    config: dict,
+    run_mode: str,
+    ckpt: str,
+    remote: str,
+    visualize: bool,
+    perf_profile: Optional[LeggedRlPerfCli] = None,
+):
+    if perf_profile is not None and run_mode != "training":
+        print("[PERF-TRAIN] 仅在 --train 时生效，当前模式已忽略性能统计。")
+        perf_profile = None
     if config['framework'] == 'sb3':
-        run_sb3_ppo_rl(config, run_mode, ckpt, remote, visualize)
+        run_sb3_ppo_rl(config, run_mode, ckpt, remote, visualize, perf_profile=perf_profile)
     elif config['framework'] == 'rllib':
         run_rllib_appo_rl(config, run_mode, ckpt, remote, visualize)
     else:
@@ -542,6 +576,23 @@ if __name__ == "__main__":
     parser.add_argument('--ckpt', type=str, help='The path to the checkpoint file for testing / play')
     parser.add_argument('--remote', type=str, help='[Optional] The remote address of the ORCA Lab Simulator. Example: 192.198.1.123:50051')
     parser.add_argument('--visualize', action='store_true', help='Visualize the training process')
+    parser.add_argument(
+        '--perf-profile',
+        action='store_true',
+        help='SB3 训练：按 rollout 统计 collect vs train 墙钟时间（仅 --train）',
+    )
+    parser.add_argument(
+        '--perf-interval-rollouts',
+        type=int,
+        default=10,
+        help='每多少个 rollout 打印一次汇总（默认 10）',
+    )
+    parser.add_argument(
+        '--perf-csv',
+        type=str,
+        default=None,
+        help='每个 rollout 一行写入该 CSV（rollout_idx, train_ms, rollout_ms）',
+    )
     args = parser.parse_args()
 
     if args.config is None:
@@ -555,12 +606,19 @@ if __name__ == "__main__":
     assert not (args.train and args.play), "Please specify only one of --train, --test, or --play"
     assert not (args.test and args.play), "Please specify only one of --train, --test, or --play"
 
+    perf_profile = None
+    if args.perf_profile:
+        perf_profile = LeggedRlPerfCli(
+            interval_rollouts=max(1, args.perf_interval_rollouts),
+            csv_path=args.perf_csv,
+        )
+
     if args.train:
-        run_rl(config, 'training', args.ckpt, args.remote, args.visualize)
+        run_rl(config, 'training', args.ckpt, args.remote, args.visualize, perf_profile=perf_profile)
     elif args.test:
-        run_rl(config, 'testing', args.ckpt, args.remote, args.visualize)
+        run_rl(config, 'testing', args.ckpt, args.remote, args.visualize, perf_profile=perf_profile)
     elif args.play:
-        run_rl(config, 'play', args.ckpt, args.remote, args.visualize)
+        run_rl(config, 'play', args.ckpt, args.remote, args.visualize, perf_profile=perf_profile)
     else:
         raise ValueError("Invalid run mode")
 
