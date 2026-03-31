@@ -15,6 +15,43 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def send_end_simulation(server_address: str, reason: str = "simulation_finished") -> bool:
+    """
+    向 ParticleRender gRPC 服务发送 EndSimulation 请求，使流体渲染重置到初始不可见状态。
+
+    Args:
+        server_address: ParticleRender gRPC 服务地址（如 "localhost:50251"）
+        reason: 可选的结束原因字符串，用于日志
+
+    Returns:
+        bool: 调用成功返回 True，否则返回 False
+    """
+    try:
+        import grpc
+        import sys
+        # 将 stubs 目录加入搜索路径
+        stubs_dir = str(Path(__file__).parent / "grpc_stubs")
+        if stubs_dir not in sys.path:
+            sys.path.insert(0, stubs_dir)
+        import particle_data_pb2
+        import particle_data_pb2_grpc
+
+        channel = grpc.insecure_channel(server_address)
+        stub = particle_data_pb2_grpc.ParticleDataServiceStub(channel)
+        request = particle_data_pb2.EndSimulationRequest(reason=reason)
+        response = stub.EndSimulation(request, timeout=5.0)
+        channel.close()
+
+        if response.success:
+            logger.info(f"✅ EndSimulation 已发送到 {server_address}：{response.message}")
+        else:
+            logger.warning(f"⚠️  EndSimulation 返回失败：{response.message}")
+        return response.success
+    except Exception as e:
+        logger.warning(f"⚠️  EndSimulation 调用失败（{server_address}）: {e}")
+        return False
+
+
 class ProcessManager:
     """进程管理器"""
     
@@ -566,6 +603,32 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
         except (OSError, ValueError):
             pass
         logger.info("\n🧹 清理资源...")
+
+        # 通知 ParticleRender 重置流体到初始不可见状态
+        particle_render_cfg = config.get('orcasph', {})
+        pr_server = None
+        # 优先从 sph_sim_config 模板中读取 gRPC 地址
+        try:
+            template_filename = particle_render_cfg.get('config_template', '')
+            if template_filename:
+                template_path = Path(__file__).parent.parent.parent / "examples" / "fluid" / template_filename
+                if not template_path.exists():
+                    template_path = Path(__file__).parent / template_filename
+                if template_path.exists():
+                    with open(template_path, 'r', encoding='utf-8') as _f:
+                        _tpl = json.load(_f)
+                    pr_server = _tpl.get('particle_render', {}).get('grpc', {}).get('server_address')
+        except Exception:
+            pass
+        # 也可通过顶层 config['particle_render']['grpc']['server_address'] 覆盖
+        pr_server = (
+            config.get('particle_render', {}).get('grpc', {}).get('server_address')
+            or pr_server
+        )
+        if pr_server and config.get('orcasph', {}).get('enabled', False):
+            logger.info(f"📤 发送 EndSimulation 到 ParticleRender ({pr_server})...")
+            send_end_simulation(pr_server, reason="simulation_finished")
+
         if sph_wrapper:
             sph_wrapper.close()
         if env:
