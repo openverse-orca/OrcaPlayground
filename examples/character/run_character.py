@@ -1,12 +1,18 @@
-from orca_gym.scene.orca_gym_scene_runtime import OrcaGymSceneRuntime
-import time
-import gymnasium as gym
-import sys
+import argparse
 import os
+import sys
+import time
 from datetime import datetime
 from typing import Optional
+
+CURRENT_FILE_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(CURRENT_FILE_DIR))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+import gymnasium as gym
 from orca_gym.scene.orca_gym_scene import OrcaGymScene
-import argparse
+from orca_gym.scene.orca_gym_scene_runtime import OrcaGymSceneRuntime
 
 from envs.common.model_scanner import (
     build_suffix_template,
