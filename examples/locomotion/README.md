@@ -41,19 +41,22 @@ python -c "import torch; print('cuda_available:', torch.cuda.is_available()); pr
 
 若 `cuda_available` 为 `False` 或版本号含 `+cpu`，需要换成 CUDA 版 wheel。**建议在执行 `python -m pip install -e .` 之前或之后** 用下面方式安装/覆盖为 GPU 版，并在安装完成后再次运行上述检查。
 
-### 安装 CUDA 版 PyTorch（示例：cu128）
+### 安装 CUDA 版 PyTorch
 
-与上游 mjlab 的 `pyproject.toml` 中 `cu128` 索引一致时，可执行：
+终端执行 `nvidia-smi`，看输出里的 **CUDA Version**：
+
+- **12.x** → 使用 **cu128**：
 
 ```bash
 python -m pip uninstall torch -y
 python -m pip install torch --index-url https://download.pytorch.org/whl/cu128
 ```
 
-装好后再次运行检查命令，应看到 `is_available()` 为 `True` 且 `device_count >= 1`。
+- **13.x** → 使用 **cu130**：
 
-若当前平台没有 `cu128` wheel，可到 [PyTorch 安装页](https://pytorch.org/get-started/locally/) 选择 **Pip + 合适的 CUDA 12.x**，使用页面生成的命令安装。**避免** 在后续 `python -m pip install -e .` 或依赖升级中把 torch 又装回 `+cpu`。
+```bash
+python -m pip uninstall torch -y
+python -m pip install torch --index-url https://download.pytorch.org/whl/cu130
+```
 
-### 关于 `nvidia-smi` 里的 “CUDA Version: 13.x”
-
-该版本表示 **驱动支持的最高 CUDA 版本**，不要求 PyTorch 也标成 13.x。PyTorch 的 **cu128** 自带 CUDA 12.8 运行时；只要驱动足够新（通常显示 12.x/13.x 的新驱动均可），即可使用 **cu128**（或官方提供的其他 CUDA 12.x wheel），无需与驱动上的数字逐项对齐。
+装好后再次运行检查命令，应看到 `cuda_available` 为 `True`。后续 `python -m pip install -e .` 或升级依赖时注意不要把 torch 又装成 `+cpu`。
