@@ -1,0 +1,4 @@
+[submodule "examples/locomotion/mjlab"]
+	path = examples/locomotion/mjlab
+	url = git@github.com:openverse-orca/mjlab.git
+	branch = orca_dev
