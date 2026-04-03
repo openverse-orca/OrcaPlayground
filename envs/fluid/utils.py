@@ -4,6 +4,7 @@ Fluid 模块工具函数 - 封装启动流程
 import subprocess
 import signal
 import atexit
+import threading
 import time
 import os
 import json
@@ -12,6 +13,43 @@ from typing import Optional, Dict
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def send_end_simulation(server_address: str, reason: str = "simulation_finished") -> bool:
+    """
+    向 ParticleRender gRPC 服务发送 EndSimulation 请求，使流体渲染重置到初始不可见状态。
+
+    Args:
+        server_address: ParticleRender gRPC 服务地址（如 "localhost:50251"）
+        reason: 可选的结束原因字符串，用于日志
+
+    Returns:
+        bool: 调用成功返回 True，否则返回 False
+    """
+    try:
+        import grpc
+        import sys
+        # 将 stubs 目录加入搜索路径
+        stubs_dir = str(Path(__file__).parent / "grpc_stubs")
+        if stubs_dir not in sys.path:
+            sys.path.insert(0, stubs_dir)
+        import particle_data_pb2
+        import particle_data_pb2_grpc
+
+        channel = grpc.insecure_channel(server_address)
+        stub = particle_data_pb2_grpc.ParticleDataServiceStub(channel)
+        request = particle_data_pb2.EndSimulationRequest(reason=reason)
+        response = stub.EndSimulation(request, timeout=5.0)
+        channel.close()
+
+        if response.success:
+            logger.info(f"✅ EndSimulation 已发送到 {server_address}：{response.message}")
+        else:
+            logger.warning(f"⚠️  EndSimulation 返回失败：{response.message}")
+        return response.success
+    except Exception as e:
+        logger.warning(f"⚠️  EndSimulation 调用失败（{server_address}）: {e}")
+        return False
 
 
 class ProcessManager:
@@ -219,6 +257,9 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
         4. 启动 orcasph --scene <scene.json>（依赖 scene.json）
         5. 连接并开始仿真
     
+    收到 SIGTERM / SIGHUP（如 OrcaLab 停止外部程序）时仅置停止标志，主循环协作退出后
+    在 finally 中清理 OrcaLink / OrcaSPH 子进程。
+    
     Args:
         config: 配置字典
         session_timestamp: 会话时间戳（用于统一日志文件名），如果为None则自动生成
@@ -245,7 +286,10 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
     env = None
     sph_wrapper = None
     scene_output_path = None
-    
+    shutdown_event = threading.Event()
+    prev_sigterm_handler = None
+    prev_sighup_handler = None
+
     try:
         logger.info("=" * 80)
         logger.info("Fluid-MuJoCo 耦合仿真启动")
@@ -483,13 +527,21 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
         sys.stderr.flush()
         print("[PRINT-DEBUG] utils.py - About to enter main loop...", file=sys.stderr, flush=True)
         print("[PRINT-DEBUG] utils.py - Main loop started...", file=sys.stderr, flush=True)
+
+        def _request_shutdown(_signum, _frame):
+            shutdown_event.set()
+
+        if hasattr(signal, "SIGTERM"):
+            prev_sigterm_handler = signal.signal(signal.SIGTERM, _request_shutdown)
+        if hasattr(signal, "SIGHUP"):
+            prev_sighup_handler = signal.signal(signal.SIGHUP, _request_shutdown)
         
         # ============ 主循环 ============
         step_count = 0
         REALTIME_STEP = 0.02
         
-        logger.debug("[DEBUG] Entering while True loop...")
-        while True:
+        logger.debug("[DEBUG] Entering main loop (cooperative shutdown on SIGTERM/SIGHUP)...")
+        while not shutdown_event.is_set():
             start_time = datetime.now()
             
             if step_count == 0:
@@ -522,23 +574,61 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
             if step_count == 0:
                 logger.debug("[DEBUG] After render")
             
-            # 实时同步
+            # 实时同步（wait 可在睡眠期间立即响应停止标志）
             elapsed = (datetime.now() - start_time).total_seconds()
             if elapsed < REALTIME_STEP:
-                time.sleep(REALTIME_STEP - elapsed)
+                remaining = REALTIME_STEP - elapsed
+                if shutdown_event.wait(timeout=remaining):
+                    break
             
             step_count += 1
             if step_count == 1:
                 logger.debug("[DEBUG] Completed first iteration successfully")
             if step_count % 100 == 0:
                 logger.info(f"仿真步数: {step_count}")
+
+        if shutdown_event.is_set():
+            logger.info("\n⏹️  收到停止信号（SIGTERM/SIGHUP），协作退出主循环")
     
     except KeyboardInterrupt:
         logger.info("\n⏹️  用户中断仿真")
     except Exception as e:
         logger.error(f"\n❌ 仿真错误: {e}", exc_info=True)
     finally:
+        try:
+            if prev_sigterm_handler is not None and hasattr(signal, "SIGTERM"):
+                signal.signal(signal.SIGTERM, prev_sigterm_handler)
+            if prev_sighup_handler is not None and hasattr(signal, "SIGHUP"):
+                signal.signal(signal.SIGHUP, prev_sighup_handler)
+        except (OSError, ValueError):
+            pass
         logger.info("\n🧹 清理资源...")
+
+        # 通知 ParticleRender 重置流体到初始不可见状态
+        particle_render_cfg = config.get('orcasph', {})
+        pr_server = None
+        # 优先从 sph_sim_config 模板中读取 gRPC 地址
+        try:
+            template_filename = particle_render_cfg.get('config_template', '')
+            if template_filename:
+                template_path = Path(__file__).parent.parent.parent / "examples" / "fluid" / template_filename
+                if not template_path.exists():
+                    template_path = Path(__file__).parent / template_filename
+                if template_path.exists():
+                    with open(template_path, 'r', encoding='utf-8') as _f:
+                        _tpl = json.load(_f)
+                    pr_server = _tpl.get('particle_render', {}).get('grpc', {}).get('server_address')
+        except Exception:
+            pass
+        # 也可通过顶层 config['particle_render']['grpc']['server_address'] 覆盖
+        pr_server = (
+            config.get('particle_render', {}).get('grpc', {}).get('server_address')
+            or pr_server
+        )
+        if pr_server and config.get('orcasph', {}).get('enabled', False):
+            logger.info(f"📤 发送 EndSimulation 到 ParticleRender ({pr_server})...")
+            send_end_simulation(pr_server, reason="simulation_finished")
+
         if sph_wrapper:
             sph_wrapper.close()
         if env:

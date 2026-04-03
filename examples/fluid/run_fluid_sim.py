@@ -106,13 +106,23 @@ def main():
             help='启用 OrcaSPH GUI 可视化界面（默认禁用）'
         )
         parser.add_argument(
-            '--cpu',
-            default=None,
-            metavar='CORES',
-            help='设置 OrcaSPH 进程的 CPU 亲和性（通过 taskset），例如: 0-7 或 0,2,4,6'
+            '--use-all-cpu',
+            action='store_true',
+            help='不使用 CPU 亲和性（默认将 OrcaSPH 绑定至 4～末核，为 Orca Studio 保留 0-3）'
         )
         
         args = parser.parse_args()
+        
+        if args.use_all_cpu:
+            cpu_affinity = None
+        else:
+            n = os.cpu_count()
+            if n is not None and n > 4:
+                cpu_affinity = f"4-{n - 1}"
+            else:
+                cpu_affinity = None
+                if n is not None and n <= 4:
+                    print("⚠️ 逻辑 CPU ≤4，无法保留 0-3 与绑定 OrcaSPH 至 4+，本次不设置 CPU 亲和")
         
         # 加载配置
         config_path = Path(__file__).parent / args.config
@@ -151,7 +161,7 @@ def main():
         
         # 运行仿真，传入时间戳
         try:
-            run_simulation_with_config(config, session_timestamp=session_timestamp, cpu_affinity=args.cpu)
+            run_simulation_with_config(config, session_timestamp=session_timestamp, cpu_affinity=cpu_affinity)
         except KeyboardInterrupt:
             print("\n✅ 仿真已停止")
         except Exception as e:
