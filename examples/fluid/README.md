@@ -6,7 +6,7 @@ SPH 流体与 MuJoCo 刚体耦合仿真，使用 OrcaLink 进行通信。
 
 ### 1. 启动 OrcaStudio 或 OrcaLab 并加载场景
 
-**推荐使用 OrcaLab。** 启动后，在**资产库**中选择并打开 **`water_example`** 场景，用于流体渲染并与本示例脚本协同仿真。
+**推荐使用 OrcaLab。** 启动后，在**资产库**中订阅 **`water_example`** 场景，并在启动 OrcaLab 时选择该场景。
 
 若使用 OrcaStudio，同样需要加载对应的流体场景。
 
@@ -49,6 +49,8 @@ description = "启动流体仿真"
 
 ### 方式 2：命令行启动
 
+**必须先完成 OrcaLab 侧仿真入口：** 已按上文打开 **`water_example`** 场景后，在 OrcaLab 中点击 **「无仿真程序」** **启动仿真**；**未执行此步骤时，仅运行下方命令行脚本通常无法正常运行流体仿真。** 然后再在终端执行：
+
 从项目根目录运行：
 
 ```bash
@@ -59,7 +61,7 @@ python examples/fluid/run_fluid_sim.py
 python -m examples.fluid.run_fluid_sim
 ```
 
-可选参数示例：
+可选参数示例 (开发者使用)：
 
 ```bash
 # 启用 OrcaSPH GUI
@@ -72,7 +74,7 @@ python examples/fluid/run_fluid_sim.py --config my_config.json
 python examples/fluid/run_fluid_sim.py --manual-mode
 ```
 
-手动分步调试（与 `--manual-mode` 配合）：
+手动分步调试（开发者使用，与 `--manual-mode` 配合）：
 
 ```bash
 # 终端 1：启动 OrcaLink
