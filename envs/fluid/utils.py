@@ -124,7 +124,19 @@ def _fluid_send_end_simulation_from_config(config: Dict) -> None:
 
 
 def _fluid_sync_initial_viewport_to_engine(env) -> None:
-    """reset_simulation + 强制 gym.render，把初始 qpos 推到 OrcaSim。"""
+    """reset_simulation + 强制 gym.render，把初始 qpos 推到 OrcaSim。
+
+    Ctrl+C 可能在 sph_wrapper.step() 的 loop.run_until_complete() 内抛出
+    KeyboardInterrupt，使 asyncio 事件循环处于"已停止但未清空"状态。
+    直接再次调用 loop.run_until_complete() 会触发 RuntimeError: This event loop
+    is already running。此处改为：
+      1. 若循环当前没有在运行（正常情况），直接 run_until_complete。
+      2. 若循环被标记为 running（极少发生，通常是嵌套调用），在独立线程里跑以绕过限制。
+      3. 若循环已关闭，新建一个临时循环完成同步。
+    """
+    import asyncio
+    import concurrent.futures
+
     unwrapped = env.unwrapped
     if not hasattr(unwrapped, "reset_simulation"):
         return
@@ -134,9 +146,34 @@ def _fluid_sync_initial_viewport_to_engine(env) -> None:
         unwrapped.mj_forward()
     gym_core = getattr(unwrapped, "gym", None)
     loop = getattr(unwrapped, "loop", None)
-    if gym_core is not None and loop is not None and hasattr(gym_core, "render"):
-        loop.run_until_complete(gym_core.render())
+    if gym_core is None or not hasattr(gym_core, "render"):
+        return
+
+    async def _do_render():
+        await gym_core.render()
+
+    def _run_in_thread():
+        """在新线程里跑一个全新的事件循环执行 render（绕过已运行/已关闭的原循环）。"""
+        new_loop = asyncio.new_event_loop()
+        try:
+            new_loop.run_until_complete(_do_render())
+        finally:
+            new_loop.close()
+
+    try:
+        if loop is None or loop.is_closed():
+            # 原循环已关闭，新建临时循环
+            _run_in_thread()
+        elif loop.is_running():
+            # 循环正在运行（极少情况），转线程执行
+            logger.debug("事件循环仍在运行，使用线程执行 gym.render()")
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+                ex.submit(_run_in_thread).result(timeout=5)
+        else:
+            loop.run_until_complete(_do_render())
         logger.info("✅ 已将初始 qpos 同步到 OrcaSim（UpdateLocalEnv）")
+    except Exception as e:
+        logger.warning(f"gym.render() 同步失败: {e}")
 
 
 # 关终端等导致未走 finally 时，解释器退出阶段仍尽力恢复粒子与视口（atexit 不保证在 SIGKILL 下执行）
@@ -145,12 +182,16 @@ _fluid_atexit_state: Dict[str, Any] = {
     "viewport_reset_done": False,
     "env_ref": None,
     "config_ref": None,
+    # 仅在 gym.make 成功之后置 True；避免第二实例因端口占用等提前退出时仍向共享 ParticleRender 发 EndSimulation，干扰第一实例
+    "owns_shared_services": False,
 }
 
 
 def _atexit_fluid_visual_reset() -> None:
     st = _fluid_atexit_state
     if not st["session_active"] or st["viewport_reset_done"]:
+        return
+    if not st.get("owns_shared_services"):
         return
     cfg = st["config_ref"]
     if cfg is None:
@@ -409,6 +450,24 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
     
     orcagym_tmp_dir = Path.home() / ".orcagym" / "tmp"
     orcagym_tmp_dir.mkdir(parents=True, exist_ok=True)
+
+    # 在注册 SIGTERM / ProcessManager / try-finally 之前做端口检查，避免第二实例走到 finally
+    # 时仍调用 EndSimulation，误伤已占用该端口的第一个流体会话的粒子渲染。
+    orcalink_cfg = config.get("orcalink", {})
+    if orcalink_cfg.get("enabled", True) and orcalink_cfg.get("auto_start", True):
+        link_host = orcalink_cfg.get("host", "localhost")
+        if link_host in ("0.0.0.0", "::", ""):
+            link_host = "127.0.0.1"
+        link_port = int(orcalink_cfg.get("port", 50351))
+        if is_tcp_port_accepting_connections(link_host, link_port):
+            logger.error(
+                "❌ OrcaLink 端口 %s:%s 已被占用，本脚本无法在此端口再启动 orcalink。\n"
+                "   请先结束占用该端口的进程（例如已在运行的流体仿真），或改用其它端口；\n"
+                "   若由 OrcaLab 等已提供 OrcaLink，请将配置中 orcalink.auto_start 设为 false 并用手动/外部方式启动。",
+                link_host,
+                link_port,
+            )
+            sys.exit(1)
     
     process_manager = ProcessManager()
     env = None
@@ -420,6 +479,7 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
     _fluid_atexit_state["viewport_reset_done"] = False
     _fluid_atexit_state["env_ref"] = None
     _fluid_atexit_state["config_ref"] = config
+    _fluid_atexit_state["owns_shared_services"] = False
 
     # -----------------------------------------------------------------------
     # 在函数入口（而非主循环入口）注册 SIGTERM，保证启动阶段也能响应：
@@ -432,12 +492,32 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
         logger.info("\n⏹️  收到 SIGTERM，开始同步清理（OrcaLab 停止）...")
         shutdown_event.set()
         if not _fluid_atexit_state.get("viewport_reset_done"):
-            try:
-                _fluid_send_end_simulation_from_config(config)
-            except Exception:
-                pass
+            _owns = _fluid_atexit_state.get("owns_shared_services")
             _env = _fluid_atexit_state.get("env_ref")
-            if _env is not None:
+
+            # 1. 断开 OrcaLink Bridge（停止推位置给 OrcaSPH）
+            if sph_wrapper is not None:
+                try:
+                    sph_wrapper.close()
+                except Exception:
+                    pass
+
+            # 2. 告知 ParticleRender 结束仿真（停止接收粒子帧）
+            if _owns:
+                try:
+                    _fluid_send_end_simulation_from_config(config)
+                except Exception:
+                    pass
+
+            # 3. 终止 OrcaSPH / OrcaLink 子进程
+            process_manager.cleanup_all()
+
+            # 4. 等待在途粒子帧被丢弃
+            if _owns:
+                time.sleep(0.2)
+
+            # 5. 重置刚体位姿并推给 OrcaSim
+            if _env is not None and _owns:
                 try:
                     _fluid_sync_initial_viewport_to_engine(_env)
                 except Exception as _e:
@@ -446,12 +526,12 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
                     _env.close()
                 except Exception:
                     pass
-            if sph_wrapper is not None:
+            elif _env is not None:
                 try:
-                    sph_wrapper.close()
+                    _env.close()
                 except Exception:
                     pass
-            process_manager.cleanup_all()
+
             _fluid_atexit_state["viewport_reset_done"] = True
             _fluid_atexit_state["session_active"] = False
         logger.info("✅ SIGTERM 清理完成，退出")
@@ -463,22 +543,6 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
         logger.info("=" * 80)
         logger.info("Fluid-MuJoCo 耦合仿真启动")
         logger.info("=" * 80)
-
-        orcalink_cfg = config.get("orcalink", {})
-        if orcalink_cfg.get("enabled", True) and orcalink_cfg.get("auto_start", True):
-            link_host = orcalink_cfg.get("host", "localhost")
-            if link_host in ("0.0.0.0", "::", ""):
-                link_host = "127.0.0.1"
-            link_port = int(orcalink_cfg.get("port", 50351))
-            if is_tcp_port_accepting_connections(link_host, link_port):
-                logger.error(
-                    "❌ OrcaLink 端口 %s:%s 已被占用，本脚本无法在此端口再启动 orcalink。\n"
-                    "   请先结束占用该端口的进程（例如重复运行的 orcalink），或改用其它端口；\n"
-                    "   若由 OrcaLab 等已提供 OrcaLink，请将配置中 orcalink.auto_start 设为 false 并用手动/外部方式启动。",
-                    link_host,
-                    link_port,
-                )
-                sys.exit(1)
         
         # ============ 步骤 1: 创建 MuJoCo 环境 ============
         logger.info("\n📦 步骤 1: 创建 MuJoCo 环境...")
@@ -502,6 +566,7 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
         print("[PRINT-DEBUG] utils.py - About to call gym.make()", file=sys.stderr, flush=True)
         env = gym.make(env_id)
         _fluid_atexit_state["env_ref"] = env
+        _fluid_atexit_state["owns_shared_services"] = True
         print("[PRINT-DEBUG] utils.py - gym.make() completed", file=sys.stderr, flush=True)
         
         print("[PRINT-DEBUG] utils.py - About to call env.reset()", file=sys.stderr, flush=True)
@@ -784,21 +849,39 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
             pass
         logger.info("\n🧹 清理资源...")
 
-        _fluid_send_end_simulation_from_config(config)
+        owns = _fluid_atexit_state.get("owns_shared_services")
 
+        # ── 第 1 步：先断开 OrcaLink Bridge（停止向 OrcaLink/SPH 推位置）──────────
         if sph_wrapper:
             sph_wrapper.close()
-        # OrcaGymLocalEnv.close() 只关 gRPC；reset + 强制 gym.render 见 _fluid_sync_initial_viewport_to_engine
+
+        # ── 第 2 步：告知 ParticleRender 仿真结束（停止接收粒子帧）────────────────
+        if owns:
+            _fluid_send_end_simulation_from_config(config)
+
+        # ── 第 3 步：终止 OrcaSPH / OrcaLink 子进程，确保不再有粒子帧被推送 ──────
+        process_manager.cleanup_all()
+
+        # ── 第 4 步：短暂等待，让 ParticleRender 处理完最后可能在途的粒子帧 ───────
+        # OrcaSPH 在收到 SIGTERM 后还可能有 1-2 帧已提交给 ParticleRender，
+        # 等待 200 ms 使这些帧全部被 EndSimulation 之后的逻辑丢弃。
+        if owns:
+            time.sleep(0.2)
+
+        # ── 第 5 步：重置刚体位姿到初始状态并推给 OrcaSim ──────────────────────
+        # 此时 OrcaSPH 已终止、ParticleRender 已收到 EndSimulation，
+        # gym.render() 推的初始 qpos 不会再被粒子帧覆盖。
         if env is not None:
             try:
-                _fluid_sync_initial_viewport_to_engine(env)
+                if owns:
+                    _fluid_sync_initial_viewport_to_engine(env)
             except Exception as e:
                 logger.warning(f"退出时 reset_simulation / 同步失败（可忽略）: {e}")
             try:
                 env.close()
             except Exception as e:
                 logger.warning(f"env.close() 失败: {e}")
-        process_manager.cleanup_all()
+
         _fluid_atexit_state["viewport_reset_done"] = True
         _fluid_atexit_state["session_active"] = False
         logger.info("✅ 清理完成")
