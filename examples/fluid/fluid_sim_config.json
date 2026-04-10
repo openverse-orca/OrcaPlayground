@@ -22,7 +22,7 @@
       "update_rate_hz": 50,
       "encoding": {
         "i_frame_interval": 30,
-        "change_threshold": 0.001
+        "change_threshold": 0.0001
       },
       "session": {
         "control_mode": "sync",

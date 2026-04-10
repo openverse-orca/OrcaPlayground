@@ -9,7 +9,7 @@
     "update_rate_hz": 50,
     "encoding": {
       "i_frame_interval": 30,
-      "change_threshold": 0.001
+      "change_threshold": 0.0001
     },
     "session": {
       "control_mode": "sync",
@@ -185,7 +185,7 @@
     "grpc": {
       "server_address": "localhost:50251",
       "enabled": true,
-      "update_rate_hz": 20,
+      "update_rate_hz": 30,
       "realtime_sync": true,
       "compression": {
         "enabled": false,
@@ -216,6 +216,7 @@
       }
     },
     "particle_frame": {
+      "comment": "grid_resolution/origin：与发帧时世界包围盒及位置量化格一致；voxel_size_ratio：Playground 生成场景时用 particle_radius×ratio 估体素尺度；SPlisHSPlasH 桥接里 PARTICLE_FRAME 的世界半宽还依赖同文件 voxel_grid.voxel_size_ratio，两处 ratio 建议保持一致。",
       "grid_resolution": {
         "x": 512,
         "y": 512,
@@ -228,9 +229,10 @@
       },
       "voxel_size_ratio": 1.0,
       "ip_frame": {
+        "comment": "阈值单位均为打包整数域，非 m / m/s。i_frame_interval：距上次 I 帧至多 N 帧后强制发 I 帧。position_threshold：三轴格点索引（各约 0..gridRes-1）的曼哈顿和 |Δix|+|Δiy|+|Δiz|；单轴近似位移约 > 阈值×(extent_i/gridRes_i) 米（extent_i 为该轴 worldMax−worldMin，由运行时包围盒决定）。velocity_threshold：三轴速度量化字节（各 0..255）差的绝对值之和 |Δbx|+|Δby|+|Δbz|；线性区单轴 |Δv|≈ 阈值×(2×maxSpeed/255) m/s，maxSpeed 见上方 voxel_grid.velocity.max_speed。change_ratio_threshold：(修改+新增+删除) 粒子数 / max(当前数,参考数) 超过此值则本帧改发 I 帧。",
         "i_frame_interval": 30,
-        "position_threshold": 2,
-        "velocity_threshold": 5,
+        "position_threshold": 1,
+        "velocity_threshold": 2,
         "change_ratio_threshold": 0.5
       }
     }
