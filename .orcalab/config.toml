@@ -26,7 +26,7 @@ name = "legged_train"
 display_name = "run_legged_rl_train"
 command = "python"
 args = [ "-m", "examples.legged_gym.run_legged_rl", "--config", "examples/legged_gym/configs/sb3_ppo_config.yaml", "--train"]
-description = "启动legged_gym训练"`
+description = "启动legged_gym训练"
 
 [[external_programs.programs]]
 name = "wheeled_chassis"
@@ -60,7 +60,7 @@ description = "启动阿克曼仿真"
 name = "g1"
 display_name = "run_g1"
 command = "python"
-args = [ "-m", "examples.g1.run_g1_sim"]
+args = [ "-m", "examples.g1.run_g1_sim",]
 description = "启动G1仿真"
 
 [[external_programs.programs]]
