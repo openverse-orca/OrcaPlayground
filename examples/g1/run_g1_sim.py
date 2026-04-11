@@ -3,7 +3,9 @@ G1 人形机器人运行脚本
 使用 ONNX 策略进行推理
 """
 
+import argparse
 from datetime import datetime
+from typing import cast
 import time
 import numpy as np
 import gymnasium as gym
@@ -29,6 +31,7 @@ try:
 except ImportError:
     ONNX_AVAILABLE = False
 
+from envs.g1.rl_policy.base_policy import KeyboardInputMode
 from envs.g1.rl_policy.deepmimic_dec_loco_height import MotionTrackingDecLocoHeightPolicy
 import threading
 
@@ -201,7 +204,8 @@ def run_simulation(
     env_name: str,
     loco_model_path: str,
     mimic_model_path: str,
-    config: dict
+    config: dict,
+    keyboard_input: KeyboardInputMode = "orcastudio",
 ) -> None:
     """运行仿真主循环。
 
@@ -248,6 +252,7 @@ def run_simulation(
             decimation=4,
             use_mocap=False,
             orcagym_addr=orcagym_addr,
+            keyboard_input=keyboard_input,
         )
 
         policy_thread = threading.Thread(
@@ -295,14 +300,28 @@ def run_simulation(
 
 def main():
     """主函数"""
-    # OrcaGym 服务地址
-    orcagym_addr = "127.0.0.1:50051"
-    
-    # 机器人名称
+    parser = argparse.ArgumentParser(description="G1 ONNX policy simulation")
+    parser.add_argument(
+        "--orcagym-addr",
+        type=str,
+        default="127.0.0.1:50051",
+        help="OrcaGym gRPC 地址（仿真与默认 OrcaStudio 键盘共用）",
+    )
+    parser.add_argument(
+        "--keyboard",
+        type=str,
+        choices=("orcastudio", "console"),
+        default="orcastudio",
+        help="orcastudio: 场景内键盘（OrcaStudio）；console: 运行脚本的终端 stdin（需终端焦点）",
+    )
+    args = parser.parse_args()
+
+    orcagym_addr = args.orcagym_addr
+    keyboard_input = cast(KeyboardInputMode, args.keyboard)
+
     agent_name = "g1"
-    # 环境名称
     env_name = "G1"
-    
+
     base_dir = os.path.dirname(os.path.realpath(__file__))
     config_path = os.path.join(base_dir, "config", "g1_29dof_hist.yaml")
     with open(config_path) as file:
@@ -311,16 +330,14 @@ def main():
     loco_model_path = os.path.join(base_dir, "models", "dec_loco", "model_6600.onnx")
     mimic_model_path = os.path.join(base_dir, "models", "mimic")
 
-    
-    # 运行仿真
     run_simulation(
         orcagym_addr=orcagym_addr,
         agent_name=agent_name,
         env_name=env_name,
         loco_model_path=loco_model_path,
         mimic_model_path=mimic_model_path,
-        config=config
-
+        config=config,
+        keyboard_input=keyboard_input,
     )
 
 

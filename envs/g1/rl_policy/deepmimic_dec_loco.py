@@ -10,7 +10,7 @@ sys.path.append('./rl_policy')
 
 import onnxruntime
 # import torch
-from .base_policy import BasePolicy
+from .base_policy import BasePolicy, KeyboardInputMode
 import os
 from orca_gym.log.orca_log import get_orca_logger, OrcaLog
 orca_logger = OrcaLog.get_instance()
@@ -58,7 +58,8 @@ class MotionTrackingDecLocoPolicy(BasePolicy):
                  policy_action_scale=0.25, 
                  decimation=4,
                  use_mocap=False,
-                 orcagym_addr: str | None = None):
+                 orcagym_addr: str | None = None,
+                 keyboard_input: KeyboardInputMode = "orcastudio"):
         self.mimic_model_paths = mimic_model_paths
         self.policy_locomotion = None
         self.policies_mimic = []
@@ -92,7 +93,8 @@ class MotionTrackingDecLocoPolicy(BasePolicy):
                          share_state,
                          policy_action_scale, 
                          decimation,
-                         orcagym_addr=orcagym_addr)
+                         orcagym_addr=orcagym_addr,
+                         keyboard_input=keyboard_input)
         self.use_clock_input = False
     
         self.robot_state_data = None
@@ -484,7 +486,7 @@ class MotionTrackingDecLocoPolicy(BasePolicy):
     def _handle_keyboard_button_impl(self, keycode):
         """重写父类方法，在信号量保护下处理按键"""
         super()._handle_keyboard_button_impl(keycode)
-        if keycode == "F3":
+        if keycode == "3":
             self.history_handler.reset([0])  # 重置 history
             self.last_action = np.zeros((1, self.num_dofs))  # 重置 last_action
             self.policy_locomotion_mimic_flag = 1 - self.policy_locomotion_mimic_flag
@@ -502,12 +504,12 @@ class MotionTrackingDecLocoPolicy(BasePolicy):
                     self.end_upper_dof_pos = self.robot_state_data[:, (7+self.num_lower_dofs):(7+self.num_dofs)].copy()
                     self.ref_upper_dof_pos[0, :] = self.end_upper_dof_pos[0, :].copy()
                 orca_logger.info("Switching back to Locomotion policy mode")
-        elif keycode == "F4":
+        elif keycode == "4":
             # 仅在 locomotion 模式下切到下一个 mimic 策略
             if self.policy_locomotion_mimic_flag == 0:
                 self.frame_start_time = time.time()
                 self.next_mimic_policy()
-        elif keycode == "F5":
+        elif keycode == "5":
             # 仅在 locomotion 模式下切到上一个 mimic 策略
             if self.policy_locomotion_mimic_flag == 0:
                 self.frame_start_time = time.time()

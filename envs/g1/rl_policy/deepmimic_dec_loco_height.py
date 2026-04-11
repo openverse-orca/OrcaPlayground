@@ -19,6 +19,7 @@ import os
 from orca_gym.log.orca_log import get_orca_logger, OrcaLog
 orca_logger = OrcaLog.get_instance()
 
+from .base_policy import KeyboardInputMode
 from .deepmimic_dec_loco import MotionTrackingDecLocoPolicy
 from ..share_state import ShareState
 
@@ -64,7 +65,8 @@ class MotionTrackingDecLocoHeightPolicy(MotionTrackingDecLocoPolicy):
                  policy_action_scale=0.25, 
                  decimation=4,
                  use_mocap=False,
-                 orcagym_addr: str | None = None):
+                 orcagym_addr: str | None = None,
+                 keyboard_input: KeyboardInputMode = "orcastudio"):
         super().__init__(config, 
                          loco_model_path,
                          mimic_model_paths, 
@@ -72,7 +74,8 @@ class MotionTrackingDecLocoHeightPolicy(MotionTrackingDecLocoPolicy):
                          policy_action_scale, 
                          decimation,
                          use_mocap,
-                         orcagym_addr=orcagym_addr)
+                         orcagym_addr=orcagym_addr,
+                         keyboard_input=keyboard_input)
         self.default_base_height_command = np.array([[0.78]])
         self.base_height_command = self.default_base_height_command.copy()
         # 启动时直接使用策略控制，与按 "]" 后的状态一致

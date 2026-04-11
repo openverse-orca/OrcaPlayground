@@ -1,3 +1,4 @@
+from typing import Literal
 
 import threading
 import numpy as np
@@ -27,6 +28,8 @@ import orca_gym.protos.mjc_message_pb2 as mjc_message_pb2
 
 orca_logger = OrcaLog.get_instance()
 
+KeyboardInputMode = Literal["orcastudio", "console"]
+
 
 class SceneKeyboardInput:
     def __init__(self, grpc_address: str):
@@ -37,8 +40,8 @@ class SceneKeyboardInput:
             "W": 0, "A": 0, "S": 0, "D": 0,
             "Q": 0, "E": 0, "Z": 0, "O": 0, "I": 0, "R": 0,
             "Space": 0, "Up": 0, "Down": 0, "Left": 0, "Right": 0,
-            "0": 0, "1": 0, "2": 0, "4": 0, "5": 0, "6": 0, "7": 0,
-            "F1": 0, "F2": 0, "F3": 0, "F4": 0, "F5": 0,
+            "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0,
+            ",": 0, ".": 0,
         }
         self._event_map = {
             "keyboard_key_alphanumeric_W": "W",
@@ -54,20 +57,20 @@ class SceneKeyboardInput:
             "keyboard_key_alphanumeric_0": "0",
             "keyboard_key_alphanumeric_1": "1",
             "keyboard_key_alphanumeric_2": "2",
+            "keyboard_key_alphanumeric_3": "3",
             "keyboard_key_alphanumeric_4": "4",
             "keyboard_key_alphanumeric_5": "5",
             "keyboard_key_alphanumeric_6": "6",
             "keyboard_key_alphanumeric_7": "7",
+            "keyboard_key_alphanumeric_8": "8",
+            "keyboard_key_alphanumeric_9": "9",
             "keyboard_key_edit_space": "Space",
             "keyboard_key_navigation_arrow_up": "Up",
             "keyboard_key_navigation_arrow_down": "Down",
             "keyboard_key_navigation_arrow_left": "Left",
             "keyboard_key_navigation_arrow_right": "Right",
-            "keyboard_key_function_F01": "F1",
-            "keyboard_key_function_F02": "F2",
-            "keyboard_key_function_F03": "F3",
-            "keyboard_key_function_F04": "F4",
-            "keyboard_key_function_F05": "F5",
+            "keyboard_key_punctuation_comma": ",",
+            "keyboard_key_punctuation_period": ".",
         }
 
     def update(self):
@@ -93,7 +96,8 @@ class BasePolicy:
                  share_state: ShareState,
                  policy_action_scale=0.25, 
                  decimation=4,
-                 orcagym_addr: str | None = None):
+                 orcagym_addr: str | None = None,
+                 keyboard_input: KeyboardInputMode = "orcastudio"):
         self.config = config
         self.robot = Robot(config)
         self.robot_state_data = None
@@ -142,9 +146,17 @@ class BasePolicy:
 
         self._keyboard = None
         self._last_key_state = {}
-        if orcagym_addr:
+        if keyboard_input == "orcastudio":
+            if not orcagym_addr:
+                raise ValueError(
+                    "keyboard_input='orcastudio' requires a non-empty orcagym_addr for scene keyboard gRPC."
+                )
             self._keyboard = SceneKeyboardInput(orcagym_addr)
             self._last_key_state = self._keyboard.get_state()
+        elif keyboard_input != "console":
+            raise ValueError(
+                f"Unknown keyboard_input: {keyboard_input!r}; use 'orcastudio' or 'console'."
+            )
 
         self._shutdown_event = threading.Event()
         self.key_listener_thread = None
@@ -281,15 +293,15 @@ class BasePolicy:
             "0": "0",
             "1": "1",
             "2": "2",
+            "3": "3",
             "4": "4",
             "5": "5",
             "6": "6",
             "7": "7",
-            "F1": "F1",
-            "F2": "F2",
-            "F3": "F3",
-            "F4": "F4",
-            "F5": "F5",
+            "8": "8",
+            "9": "9",
+            ",": ",",
+            ".": ".",
         }
 
         for source_key, translated_key in edge_key_map.items():
@@ -319,8 +331,11 @@ class BasePolicy:
         orca_logger.info("已请求仿真重置")
 
     def _handle_keyboard_button_impl(self, keycode):
-        """处理键盘事件的实现，子类可以重写此方法扩展功能"""
-        if keycode == "F1":
+        """处理键盘事件的实现，子类可以重写此方法扩展功能
+
+        主键位使用数字键 1–5（原 F1–F5），便于 sshkeyboard 等终端输入；高度与 Kp 使用 `,` `.` 与 6–0。
+        """
+        if keycode == "1":
             self.use_policy_action = True
             self.get_ready_state = False
             self.phase = 0.0
@@ -350,21 +365,21 @@ class BasePolicy:
             self.ang_vel_command[0, 0] = 0.
             self.lin_vel_command[0, 0] = 0.
             self.lin_vel_command[0, 1] = 0.
-        elif keycode == "1":
+        elif keycode == ",":
             self.base_height_command += 0.05
-        elif keycode == "2":
+        elif keycode == ".":
             self.base_height_command -= 0.05
-        elif keycode == "5":
-            self.command_sender.set_kp_level(self.command_sender.kp_level - 0.01)
         elif keycode == "6":
-            self.command_sender.set_kp_level(self.command_sender.kp_level + 0.01)
-        elif keycode == "4":
             self.command_sender.set_kp_level(self.command_sender.kp_level - 0.1)
         elif keycode == "7":
+            self.command_sender.set_kp_level(self.command_sender.kp_level - 0.01)
+        elif keycode == "8":
+            self.command_sender.set_kp_level(self.command_sender.kp_level + 0.01)
+        elif keycode == "9":
             self.command_sender.set_kp_level(self.command_sender.kp_level + 0.1)
         elif keycode == "0":
             self.command_sender.reset_gains()
-        elif keycode == "F2":
+        elif keycode == "2":
             self.stand_command = 1 - self.stand_command
             if self.stand_command[0, 0] == 0:
                 self.ang_vel_command[0, 0] = 0.
