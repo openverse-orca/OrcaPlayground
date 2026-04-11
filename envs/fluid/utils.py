@@ -11,7 +11,7 @@ import json
 import socket
 import sys
 from pathlib import Path
-from typing import Any, Optional, Dict
+from typing import Any, Dict, Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -286,6 +286,47 @@ def _deep_merge(base: dict, override: dict) -> None:
             base[key] = val
 
 
+def _apply_particle_render_run_mode(orcasph_config: dict, fluid_config: dict) -> None:
+    """
+    Apply config['particle_render_run'] to particle_render after template + MJCF overrides.
+
+    - live: force recording.enabled false (grpc unchanged from template).
+    - record: recording on, grpc outbound off, output_path and optional record_fps from run dict.
+    """
+    pr_run = fluid_config.get("particle_render_run") or {}
+    mode = pr_run.get("mode", "live")
+    if "particle_render" not in orcasph_config:
+        return
+    pr = orcasph_config["particle_render"]
+    if mode == "live":
+        _deep_merge(pr, {"recording": {"enabled": False}})
+        logger.info("[ParticleRender] run mode live: recording.enabled=false")
+        return
+    if mode == "record":
+        rec_path = pr_run.get("record_output_path") or ""
+        override: Dict[str, Any] = {
+            "grpc": {"enabled": False},
+            "recording": {
+                "enabled": True,
+                "output_path": rec_path,
+            },
+        }
+        _deep_merge(pr, override)
+        rf = pr_run.get("record_fps")
+        if rf is not None:
+            rf_f = float(rf)
+            if "recording" not in pr:
+                pr["recording"] = {}
+            pr["recording"]["record_fps"] = rf_f
+            if "grpc" not in pr:
+                pr["grpc"] = {}
+            pr["grpc"]["update_rate_hz"] = rf_f
+        logger.info(
+            f"[ParticleRender] run mode record: gRPC disabled, HDF5 output_path={rec_path!r}"
+        )
+        return
+
+
 def generate_orcasph_config(
     fluid_config: Dict,
     output_path: Path,
@@ -358,6 +399,8 @@ def generate_orcasph_config(
     if particle_render_override and 'particle_render' in orcasph_config:
         _deep_merge(orcasph_config['particle_render'], particle_render_override)
         logger.info(f"particle_render config overridden from MJCF bound site: {particle_render_override}")
+
+    _apply_particle_render_run_mode(orcasph_config, fluid_config)
     
     # 覆盖关键参数（确保动态值生效）
     orcasph_config['orcalink_client']['server_address'] = f"{orcalink_cfg.get('host', 'localhost')}:{orcalink_cfg.get('port', 50351)}"
@@ -415,6 +458,72 @@ def setup_python_logging(config: Dict) -> None:
         pass
 
 
+def _run_particle_playback_if_requested(config: Dict) -> bool:
+    """
+    If config['particle_render_run']['mode'] == 'playback', run replay_particle_h5.py
+    and return True so the caller exits without starting MuJoCo / OrcaLink / OrcaSPH.
+    """
+    pr_run = config.get("particle_render_run") or {}
+    if pr_run.get("mode") != "playback":
+        return False
+
+    h5 = pr_run.get("playback_h5")
+    if not h5:
+        logger.error("playback 模式需要 --h5")
+        sys.exit(1)
+    h5p = Path(h5)
+    if not h5p.is_file():
+        logger.error(f"HDF5 文件不存在: {h5p}")
+        sys.exit(1)
+
+    target = pr_run.get("playback_target")
+    if not target:
+        target = _resolve_particle_render_server(config)
+    if not target:
+        logger.error(
+            "playback 模式需要 --playback-target，或在 config_template 指向的 "
+            "sph_sim_config.json 中配置 particle_render.grpc.server_address"
+        )
+        sys.exit(1)
+
+    script = pr_run.get("replay_script")
+    if not script:
+        repo = os.environ.get("SPLISHSPLASH_REPO")
+        if repo:
+            script = Path(repo) / "Orca" / "ParticleRender" / "Tools" / "replay_particle_h5.py"
+        else:
+            logger.error(
+                "未指定 --replay-script，且 SPLISHSPLASH_REPO 未设置。"
+                "请传入 --replay-script，或 export SPLISHSPLASH_REPO=/path/to/SPlisHSPlasH"
+            )
+            sys.exit(1)
+    else:
+        script = Path(script)
+
+    if not script.is_file():
+        logger.error(f"回放脚本不存在: {script}")
+        sys.exit(1)
+
+    fps = float(pr_run.get("playback_fps") or 0.0)
+    cmd = [
+        sys.executable,
+        str(script),
+        "--h5",
+        str(h5p.resolve()),
+        "--target",
+        target,
+    ]
+    if fps > 0:
+        cmd.extend(["--fps", str(fps)])
+
+    logger.info(f"▶️  粒子 HDF5 回放: {' '.join(cmd)}")
+    try:
+        subprocess.run(cmd, check=False)
+    except KeyboardInterrupt:
+        logger.info("回放已中断")
+    return True
+
+
 def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = None, cpu_affinity: Optional[str] = None) -> None:
     """
     使用配置文件运行仿真
@@ -447,6 +556,9 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
     
     # 根据配置设置 Python 日志级别（必须在导入其他模块之前）
     setup_python_logging(config)
+
+    if _run_particle_playback_if_requested(config):
+        return
     
     orcagym_tmp_dir = Path.home() / ".orcagym" / "tmp"
     orcagym_tmp_dir.mkdir(parents=True, exist_ok=True)

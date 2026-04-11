@@ -3,8 +3,17 @@
 Fluid-MuJoCo 耦合仿真示例
 
 【运行前提】
-1. 已启动 OrcaStudio 或 OrcaLab
-2. 已加载包含 SPH 标记的流体仿真场景
+1. 已启动 OrcaStudio 或 OrcaLab（实时 / 录制模式；playback 仅需 OrcaStudio 接收 gRPC）
+2. 已加载包含 SPH 标记的流体仿真场景（实时 / 录制）
+
+【运行模式】（--mode）
+- live（默认）：粒子经 gRPC 发往 OrcaStudio（与 sph_sim_config.json 中 particle_render 一致）
+- record：仅将粒子帧写入 HDF5，不向 Orca 发粒子流；默认路径见下方
+- playback：不启动 MuJoCo/OrcaSPH，将已有 HDF5 通过 replay_particle_h5.py 发往 OrcaStudio
+
+【playback 依赖】
+- 已按 SPlisHSPlasH 仓库说明生成 particle_data_pb2*，且 PYTHONPATH 包含生成目录
+- 设置 SPLISHSPLASH_REPO 以便找到 replay_particle_h5.py，或使用 --replay-script
 
 【启动模式】
 - 自动模式（推荐）：脚本自动启动 OrcaLink 和 OrcaSPH
@@ -12,11 +21,14 @@ Fluid-MuJoCo 耦合仿真示例
 
 【使用方法】
     python run_fluid_sim.py
+    python run_fluid_sim.py --mode record
+    python run_fluid_sim.py --mode playback --h5 particle_records/foo_20260101_120000.h5
     python run_fluid_sim.py --config my_config.json
     python run_fluid_sim.py --manual-mode
 """
 
 import os
+import re
 import sys
 import argparse
 import json
@@ -75,21 +87,78 @@ def main():
             formatter_class=argparse.RawDescriptionHelpFormatter,
             epilog="""
 【运行前提】
-  1. 已启动 OrcaStudio/OrcaLab 并加载场景
-  2. 场景中包含带 SPH 标记的刚体
+  1. 已启动 OrcaStudio/OrcaLab 并加载场景（live / record）
+  2. 场景中包含带 SPH 标记的刚体（live / record）
+
+【运行模式】
+  --mode live      实时发粒子到 Orca（默认）
+  --mode record    写入 HDF5（默认路径: 本脚本目录/particle_records/前缀_日期时间.h5）
+  --mode playback  仅回放 HDF5 到 Orca（需 --h5；目标端口默认同 sph_sim_config 模板）
 
 【启动模式】
   自动模式: 脚本自动启动 OrcaLink 和 OrcaSPH（推荐）
   手动模式: 用户预先启动，脚本仅连接（使用 --manual-mode）
 
 【示例】
-  python run_fluid_sim.py                    # 默认配置，无 GUI
-  python run_fluid_sim.py --gui              # 启用 GUI
+  python run_fluid_sim.py                    # 默认 live，无 GUI
+  python run_fluid_sim.py --mode record      # 录制到 particle_records/
+  python run_fluid_sim.py --mode playback --h5 particle_records/x.h5
+  python run_fluid_sim.py --gui              # 启用 OrcaSPH GUI
   python run_fluid_sim.py --config my.json   # 自定义配置
   python run_fluid_sim.py --manual-mode      # 手动模式
             """
         )
         
+        parser.add_argument(
+            '--mode',
+            choices=('live', 'record', 'playback'),
+            default='live',
+            help='运行模式：live=实时；record=HDF5 录制；playback=离线回放（不启动耦合仿真）',
+        )
+        parser.add_argument(
+            '--record-output',
+            default=None,
+            metavar='PATH',
+            help='record 模式：HDF5 输出路径（未指定则使用 脚本目录/particle_records/前缀_时间戳.h5）',
+        )
+        parser.add_argument(
+            '--record-prefix',
+            default='particle_record',
+            help='record 模式默认文件名前缀（仅字母数字下划线连字符）',
+        )
+        parser.add_argument(
+            '--record-fps',
+            type=float,
+            default=None,
+            metavar='HZ',
+            help='record 模式：覆盖 recording.record_fps（并与 grpc.update_rate_hz 对齐）',
+        )
+        parser.add_argument(
+            '--h5',
+            dest='playback_h5',
+            default=None,
+            metavar='PATH',
+            help='playback 模式：录制的 HDF5 文件',
+        )
+        parser.add_argument(
+            '--playback-target',
+            default=None,
+            metavar='HOST:PORT',
+            help='playback：OrcaStudio ParticleRender gRPC 地址（省略则从 sph 模板读取）',
+        )
+        parser.add_argument(
+            '--playback-fps',
+            type=float,
+            default=0.0,
+            metavar='FPS',
+            help='playback 墙钟帧率（0=使用文件 record_fps 属性）',
+        )
+        parser.add_argument(
+            '--replay-script',
+            default=None,
+            metavar='PATH',
+            help='replay_particle_h5.py 路径（默认: $SPLISHSPLASH_REPO/Orca/ParticleRender/Tools/...）',
+        )
         parser.add_argument(
             '--config',
             default='fluid_sim_config.json',
@@ -112,6 +181,10 @@ def main():
         )
         
         args = parser.parse_args()
+
+        if args.mode == 'playback' and not args.playback_h5:
+            print("❌ playback 模式需要 --h5")
+            return 1
         
         if args.use_all_cpu:
             cpu_affinity = None
@@ -131,6 +204,34 @@ def main():
             return 1
         
         config = load_config(str(config_path))
+
+        # 与 SPH 侧 particle_render 录制/回放策略（见 sph_sim_config.json、generate_orcasph_config）
+        script_dir = Path(__file__).parent
+        pr_run = {'mode': args.mode}
+        if args.mode == 'record':
+            prefix = args.record_prefix
+            if not re.match(r'^[A-Za-z0-9_-]+$', prefix):
+                print("⚠️  --record-prefix 仅允许字母、数字、下划线、连字符，已回退为 particle_record")
+                prefix = "particle_record"
+            if args.record_output:
+                rp = Path(args.record_output).expanduser()
+                rp.parent.mkdir(parents=True, exist_ok=True)
+                record_path = str(rp.resolve())
+            else:
+                rec_dir = script_dir / "particle_records"
+                rec_dir.mkdir(parents=True, exist_ok=True)
+                record_path = str((rec_dir / f"{prefix}_{session_timestamp}.h5").resolve())
+            pr_run['record_output_path'] = record_path
+            if args.record_fps is not None:
+                pr_run['record_fps'] = args.record_fps
+            print(f"📼 录制 HDF5: {record_path}")
+        elif args.mode == 'playback':
+            pr_run['playback_h5'] = args.playback_h5
+            pr_run['playback_target'] = args.playback_target
+            pr_run['playback_fps'] = args.playback_fps
+            if args.replay_script:
+                pr_run['replay_script'] = args.replay_script
+        config['particle_render_run'] = pr_run
         
         # 设置 OrcaSPH GUI 参数
         if 'orcasph' in config and config['orcasph'].get('enabled', False):

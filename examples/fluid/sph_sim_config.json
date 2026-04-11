@@ -196,6 +196,13 @@
       },
       "transmission_mode": "particle_frame"
     },
+    "recording": {
+      "enabled": false,
+      "output_path": "",
+      "record_fps": 30.0,
+      "record_iframe_only": false,
+      "stats_interval_timesteps": 10
+    },
     "voxel_grid": {
       "width": 128,
       "height": 128,
