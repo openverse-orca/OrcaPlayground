@@ -9,11 +9,10 @@ Fluid-MuJoCo 耦合仿真示例
 【运行模式】（--mode）
 - live（默认）：粒子经 gRPC 发往 OrcaStudio（与 sph_sim_config.json 中 particle_render 一致）
 - record：仅将粒子帧写入 HDF5，不向 Orca 发粒子流；默认路径见下方
-- playback：不启动 MuJoCo/OrcaSPH，将已有 HDF5 通过 replay_particle_h5.py 发往 OrcaStudio
+- playback：不启动 MuJoCo/OrcaSPH，将已有 HDF5 通过 orca-sph 包内 API 发往 OrcaStudio
 
 【playback 依赖】
-- 已按 SPlisHSPlasH 仓库说明生成 particle_data_pb2*，且 PYTHONPATH 包含生成目录
-- 设置 SPLISHSPLASH_REPO 以便找到 replay_particle_h5.py，或使用 --replay-script
+- 已安装 orca-sph（提供 orcasph_client.particle_replay）
 
 【启动模式】
 - 自动模式（推荐）：脚本自动启动 OrcaLink 和 OrcaSPH
@@ -23,6 +22,7 @@ Fluid-MuJoCo 耦合仿真示例
     python run_fluid_sim.py
     python run_fluid_sim.py --mode record
     python run_fluid_sim.py --mode playback --h5 particle_records/foo_20260101_120000.h5
+    python run_fluid_sim.py --mode playback particle_records/foo.h5   # 与 --h5 等价
     python run_fluid_sim.py --config my_config.json
     python run_fluid_sim.py --manual-mode
 """
@@ -93,7 +93,7 @@ def main():
 【运行模式】
   --mode live      实时发粒子到 Orca（默认）
   --mode record    写入 HDF5（默认路径: 本脚本目录/particle_records/前缀_日期时间.h5）
-  --mode playback  仅回放 HDF5 到 Orca（需 --h5；目标端口默认同 sph_sim_config 模板）
+  --mode playback  仅回放 HDF5 到 Orca（需 --h5 或末尾写 HDF5 路径；目标端口默认同 sph_sim_config）
 
 【启动模式】
   自动模式: 脚本自动启动 OrcaLink 和 OrcaSPH（推荐）
@@ -103,6 +103,7 @@ def main():
   python run_fluid_sim.py                    # 默认 live，无 GUI
   python run_fluid_sim.py --mode record      # 录制到 particle_records/
   python run_fluid_sim.py --mode playback --h5 particle_records/x.h5
+  python run_fluid_sim.py --mode playback particle_records/x.h5
   python run_fluid_sim.py --gui              # 启用 OrcaSPH GUI
   python run_fluid_sim.py --config my.json   # 自定义配置
   python run_fluid_sim.py --manual-mode      # 手动模式
@@ -138,7 +139,7 @@ def main():
             dest='playback_h5',
             default=None,
             metavar='PATH',
-            help='playback 模式：录制的 HDF5 文件',
+            help='playback 模式：录制的 HDF5 文件（也可在命令末尾写路径，与位置参数等价）',
         )
         parser.add_argument(
             '--playback-target',
@@ -152,12 +153,6 @@ def main():
             default=0.0,
             metavar='FPS',
             help='playback 墙钟帧率（0=使用文件 record_fps 属性）',
-        )
-        parser.add_argument(
-            '--replay-script',
-            default=None,
-            metavar='PATH',
-            help='replay_particle_h5.py 路径（默认: $SPLISHSPLASH_REPO/Orca/ParticleRender/Tools/...）',
         )
         parser.add_argument(
             '--config',
@@ -179,11 +174,26 @@ def main():
             action='store_true',
             help='不使用 CPU 亲和性（默认将 OrcaSPH 绑定至 4～末核，为 Orca Studio 保留 0-3）'
         )
-        
+        parser.add_argument(
+            'playback_h5_positional',
+            nargs='?',
+            default=None,
+            metavar='H5_FILE',
+            help='playback 模式：HDF5 文件路径（与 --h5 等价，可写在命令行末尾）',
+        )
+
         args = parser.parse_args()
 
-        if args.mode == 'playback' and not args.playback_h5:
-            print("❌ playback 模式需要 --h5")
+        if args.playback_h5_positional is not None and args.mode != 'playback':
+            print(
+                f"❌ 末尾的 HDF5 路径仅在 --mode playback 时有效；当前为 {args.mode}。"
+                "请改用 playback 或去掉该路径。"
+            )
+            return 1
+
+        playback_h5 = args.playback_h5 or args.playback_h5_positional
+        if args.mode == 'playback' and not playback_h5:
+            print("❌ playback 模式需要 HDF5：请使用 --h5 PATH，或在命令末尾写 PATH（例如：--mode playback my.h5）")
             return 1
         
         if args.use_all_cpu:
@@ -226,11 +236,9 @@ def main():
                 pr_run['record_fps'] = args.record_fps
             print(f"📼 录制 HDF5: {record_path}")
         elif args.mode == 'playback':
-            pr_run['playback_h5'] = args.playback_h5
+            pr_run['playback_h5'] = playback_h5
             pr_run['playback_target'] = args.playback_target
             pr_run['playback_fps'] = args.playback_fps
-            if args.replay_script:
-                pr_run['replay_script'] = args.replay_script
         config['particle_render_run'] = pr_run
         
         # 设置 OrcaSPH GUI 参数

@@ -54,6 +54,8 @@ def send_end_simulation(server_address: str, reason: str = "simulation_finished"
     """
     向 ParticleRender gRPC 服务发送 EndSimulation 请求，使流体渲染重置到初始不可见状态。
 
+    实现委托给 ``orcasph_client.particle_render_rpc``（不在此处直接使用 grpc / protos）。
+
     Args:
         server_address: ParticleRender gRPC 服务地址（如 "localhost:50251"）
         reason: 可选的结束原因字符串，用于日志
@@ -61,30 +63,11 @@ def send_end_simulation(server_address: str, reason: str = "simulation_finished"
     Returns:
         bool: 调用成功返回 True，否则返回 False
     """
-    try:
-        import grpc
-        import sys
-        # 将 stubs 目录加入搜索路径
-        stubs_dir = str(Path(__file__).parent / "grpc_stubs")
-        if stubs_dir not in sys.path:
-            sys.path.insert(0, stubs_dir)
-        import particle_data_pb2
-        import particle_data_pb2_grpc
+    from orcasph_client.particle_render_rpc import send_particle_render_end_simulation
 
-        channel = grpc.insecure_channel(server_address)
-        stub = particle_data_pb2_grpc.ParticleDataServiceStub(channel)
-        request = particle_data_pb2.EndSimulationRequest(reason=reason)
-        response = stub.EndSimulation(request, timeout=5.0)
-        channel.close()
-
-        if response.success:
-            logger.info(f"✅ EndSimulation 已发送到 {server_address}：{response.message}")
-        else:
-            logger.warning(f"⚠️  EndSimulation 返回失败：{response.message}")
-        return response.success
-    except Exception as e:
-        logger.warning(f"⚠️  EndSimulation 调用失败（{server_address}）: {e}")
-        return False
+    return send_particle_render_end_simulation(
+        server_address, reason=reason, timeout_sec=5.0, log=logger
+    )
 
 
 def _resolve_particle_render_server(config: Dict) -> Optional[str]:
@@ -460,8 +443,9 @@ def setup_python_logging(config: Dict) -> None:
 
 def _run_particle_playback_if_requested(config: Dict) -> bool:
     """
-    If config['particle_render_run']['mode'] == 'playback', run replay_particle_h5.py
-    and return True so the caller exits without starting MuJoCo / OrcaLink / OrcaSPH.
+    If config['particle_render_run']['mode'] == 'playback', stream the HDF5 to OrcaStudio
+    via orcasph_client.particle_replay and return True so the caller exits without starting
+    MuJoCo / OrcaLink / OrcaSPH.
     """
     pr_run = config.get("particle_render_run") or {}
     if pr_run.get("mode") != "playback":
@@ -486,41 +470,35 @@ def _run_particle_playback_if_requested(config: Dict) -> bool:
         )
         sys.exit(1)
 
-    script = pr_run.get("replay_script")
-    if not script:
-        repo = os.environ.get("SPLISHSPLASH_REPO")
-        if repo:
-            script = Path(repo) / "Orca" / "ParticleRender" / "Tools" / "replay_particle_h5.py"
-        else:
-            logger.error(
-                "未指定 --replay-script，且 SPLISHSPLASH_REPO 未设置。"
-                "请传入 --replay-script，或 export SPLISHSPLASH_REPO=/path/to/SPlisHSPlasH"
-            )
-            sys.exit(1)
-    else:
-        script = Path(script)
-
-    if not script.is_file():
-        logger.error(f"回放脚本不存在: {script}")
+    try:
+        from orcasph_client.particle_replay import run_playback
+    except ImportError:
+        logger.error(
+            "playback 需要已安装的 orca-sph 包（提供 orcasph_client.particle_replay）。"
+            "请执行: pip install orca-sph"
+        )
         sys.exit(1)
 
     fps = float(pr_run.get("playback_fps") or 0.0)
-    cmd = [
-        sys.executable,
-        str(script),
-        "--h5",
-        str(h5p.resolve()),
-        "--target",
+    logger.info(
+        "▶️  粒子 HDF5 回放: h5=%s target=%s fps=%s",
+        h5p.resolve(),
         target,
-    ]
-    if fps > 0:
-        cmd.extend(["--fps", str(fps)])
-
-    logger.info(f"▶️  粒子 HDF5 回放: {' '.join(cmd)}")
+        fps if fps > 0 else "(record_fps from file)",
+    )
     try:
-        subprocess.run(cmd, check=False)
+        run_playback(
+            str(h5p.resolve()),
+            target,
+            playback_fps=fps,
+            start_frame=0,
+            max_frames=0,
+        )
     except KeyboardInterrupt:
         logger.info("回放已中断")
+    except (ValueError, OSError) as e:
+        logger.error("%s", e)
+        sys.exit(1)
     return True
 
 
