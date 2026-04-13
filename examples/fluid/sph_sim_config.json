@@ -201,7 +201,8 @@
       "output_path": "",
       "record_fps": 30.0,
       "record_iframe_only": false,
-      "stats_interval_timesteps": 10
+      "stats_interval_timesteps": 10,
+      "flush_interval_frames": 1
     },
     "voxel_grid": {
       "width": 128,
