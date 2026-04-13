@@ -373,7 +373,8 @@ def _apply_particle_render_run_mode(orcasph_config: dict, fluid_config: dict) ->
     Apply config['particle_render_run'] to particle_render after template + MJCF overrides.
 
     - live: force recording.enabled false (grpc unchanged from template).
-    - record: recording on, grpc outbound off, output_path and optional record_fps from run dict.
+    - record: recording on, HDF5 output_path and optional record_fps; gRPC to OrcaStudio follows
+      template unless particle_render_run.record_send_to_studio is false (CLI: --no-record-studio).
     """
     pr_run = fluid_config.get("particle_render_run") or {}
     mode = pr_run.get("mode", "live")
@@ -386,13 +387,15 @@ def _apply_particle_render_run_mode(orcasph_config: dict, fluid_config: dict) ->
         return
     if mode == "record":
         rec_path = pr_run.get("record_output_path") or ""
+        send_to_studio = pr_run.get("record_send_to_studio", True)
         override: Dict[str, Any] = {
-            "grpc": {"enabled": False},
             "recording": {
                 "enabled": True,
                 "output_path": rec_path,
             },
         }
+        if not send_to_studio:
+            override["grpc"] = {"enabled": False}
         _deep_merge(pr, override)
         rf = pr_run.get("record_fps")
         if rf is not None:
@@ -404,7 +407,9 @@ def _apply_particle_render_run_mode(orcasph_config: dict, fluid_config: dict) ->
                 pr["grpc"] = {}
             pr["grpc"]["update_rate_hz"] = rf_f
         logger.info(
-            f"[ParticleRender] run mode record: gRPC disabled, HDF5 output_path={rec_path!r}"
+            "[ParticleRender] run mode record: HDF5 output_path=%r, gRPC to OrcaStudio=%s",
+            rec_path,
+            "on" if send_to_studio else "off",
         )
         return
 

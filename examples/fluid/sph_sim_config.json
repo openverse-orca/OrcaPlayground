@@ -203,7 +203,8 @@
       "record_iframe_only": false,
       "stats_interval_timesteps": 10,
       "flush_interval_frames": 1,
-      "log_stats": true
+      "log_stats": true,
+      "comment": "模板默认不录 HDF5。OrcaPlayground --mode record 会启用录制并写 output_path；粒子 gRPC 默认仍发往 OrcaStudio（与模板 grpc.enabled），仅录文件时用 run_fluid_sim.py --no-record-studio。"
     },
     "voxel_grid": {
       "width": 128,

@@ -8,7 +8,7 @@ Fluid-MuJoCo 耦合仿真示例
 
 【运行模式】（--mode）
 - live（默认）：粒子经 gRPC 发往 OrcaStudio（与 sph_sim_config.json 中 particle_render 一致）
-- record：仅将粒子帧写入 HDF5，不向 Orca 发粒子流；默认路径见下方
+- record：将粒子帧写入 HDF5，并默认经 gRPC 向 OrcaStudio 推流以便预览；可用 --no-record-studio 仅录文件不发流（单GPU下可以提升一定的运算速度）；默认路径见下方
 - playback：不启动 MuJoCo/OrcaSPH，将已有 HDF5 通过 orca-sph 包内 API 发往 OrcaStudio
 
 【playback 依赖】
@@ -21,6 +21,7 @@ Fluid-MuJoCo 耦合仿真示例
 【使用方法】
     python run_fluid_sim.py
     python run_fluid_sim.py --mode record
+    python run_fluid_sim.py --mode record --no-record-studio      # 仅 HDF5，不向 OrcaStudio 发粒子
     python run_fluid_sim.py --mode record --no-record-stats-plot   # 不弹 matplotlib 统计窗
     python run_fluid_sim.py --mode playback --h5 particle_records/foo_20260101_120000.h5
     python run_fluid_sim.py --mode playback particle_records/foo.h5   # 与 --h5 等价
@@ -93,7 +94,7 @@ def main():
 
 【运行模式】
   --mode live      实时发粒子到 Orca（默认）
-  --mode record    写入 HDF5（默认路径: 本脚本目录/particle_records/前缀_日期时间.h5）
+  --mode record    写入 HDF5（默认路径见下）；默认同时向 OrcaStudio 推流；--no-record-studio 可关闭推流
   --mode playback  仅回放 HDF5 到 Orca（需 --h5 或末尾写 HDF5 路径；目标端口默认同 sph_sim_config）
 
 【启动模式】
@@ -102,7 +103,8 @@ def main():
 
 【示例】
   python run_fluid_sim.py                    # 默认 live，无 GUI
-  python run_fluid_sim.py --mode record      # 录制到 particle_records/
+  python run_fluid_sim.py --mode record      # 录制 + 默认 OrcaStudio 预览推流
+  python run_fluid_sim.py --mode record --no-record-studio  # 仅 HDF5
   python run_fluid_sim.py --mode playback --h5 particle_records/x.h5
   python run_fluid_sim.py --mode playback particle_records/x.h5
   python run_fluid_sim.py --gui              # 启用 OrcaSPH GUI
@@ -174,6 +176,11 @@ def main():
             '--use-all-cpu',
             action='store_true',
             help='不使用 CPU 亲和性（默认将 OrcaSPH 绑定至 4～末核，为 Orca Studio 保留 0-3）'
+        )
+        parser.add_argument(
+            '--no-record-studio',
+            action='store_true',
+            help='record 模式：不向 OrcaStudio 发送粒子 gRPC（仅写 HDF5；默认会推流以便预览渲染）',
         )
         parser.add_argument(
             '--no-record-stats-plot',
@@ -272,6 +279,7 @@ def main():
                 rec_dir.mkdir(parents=True, exist_ok=True)
                 record_path = str((rec_dir / f"{prefix}_{session_timestamp}.h5").resolve())
             pr_run['record_output_path'] = record_path
+            pr_run['record_send_to_studio'] = not args.no_record_studio
             if args.record_fps is not None:
                 pr_run['record_fps'] = args.record_fps
             pr_run['stats_plot'] = {
@@ -283,6 +291,10 @@ def main():
                 'rolling': args.record_stats_rolling,
             }
             print(f"📼 录制 HDF5: {record_path}")
+            if args.no_record_studio:
+                print("📡 OrcaStudio 粒子推流: 已关闭（--no-record-studio）")
+            else:
+                print("📡 OrcaStudio 粒子推流: 已启用（与 live 相同 gRPC 配置；可用 --no-record-studio 关闭）")
         elif args.mode == 'playback':
             pr_run['playback_h5'] = playback_h5
             pr_run['playback_target'] = args.playback_target
