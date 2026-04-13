@@ -21,6 +21,7 @@ Fluid-MuJoCo 耦合仿真示例
 【使用方法】
     python run_fluid_sim.py
     python run_fluid_sim.py --mode record
+    python run_fluid_sim.py --mode record --no-record-stats-plot   # 不弹 matplotlib 统计窗
     python run_fluid_sim.py --mode playback --h5 particle_records/foo_20260101_120000.h5
     python run_fluid_sim.py --mode playback particle_records/foo.h5   # 与 --h5 等价
     python run_fluid_sim.py --config my_config.json
@@ -175,6 +176,45 @@ def main():
             help='不使用 CPU 亲和性（默认将 OrcaSPH 绑定至 4～末核，为 Orca Studio 保留 0-3）'
         )
         parser.add_argument(
+            '--no-record-stats-plot',
+            action='store_true',
+            help='record 模式：不启动 matplotlib 录制统计子窗口（默认会启动）',
+        )
+        parser.add_argument(
+            '--record-stats-interval',
+            type=float,
+            default=5.0,
+            metavar='SEC',
+            help='record 统计图刷新间隔（秒），默认 5',
+        )
+        parser.add_argument(
+            '--record-stats-window',
+            type=float,
+            default=5.0,
+            metavar='SEC',
+            help='滑动窗口 FPS 曲线的时间窗（秒），默认 5',
+        )
+        parser.add_argument(
+            '--orcasph-log',
+            default=None,
+            metavar='PATH',
+            help='手动指定 OrcaSPH 日志路径（用于统计图 tail；手动启动 OrcaSPH 时用）',
+        )
+        parser.add_argument(
+            '--record-stats-skip-head',
+            type=int,
+            default=5,
+            metavar='N',
+            help='统计图：跳过开头 N 条 PARTICLE_RECORD_STATS（抑制启动异常；默认 5）',
+        )
+        parser.add_argument(
+            '--record-stats-rolling',
+            type=int,
+            default=50,
+            metavar='N',
+            help='统计图：每条曲线最多保留最近 N 个点（默认 50）',
+        )
+        parser.add_argument(
             'playback_h5_positional',
             nargs='?',
             default=None,
@@ -234,6 +274,14 @@ def main():
             pr_run['record_output_path'] = record_path
             if args.record_fps is not None:
                 pr_run['record_fps'] = args.record_fps
+            pr_run['stats_plot'] = {
+                'enabled': not args.no_record_stats_plot,
+                'interval': args.record_stats_interval,
+                'window': args.record_stats_window,
+                'orcasph_log': args.orcasph_log,
+                'skip_head': args.record_stats_skip_head,
+                'rolling': args.record_stats_rolling,
+            }
             print(f"📼 录制 HDF5: {record_path}")
         elif args.mode == 'playback':
             pr_run['playback_h5'] = playback_h5

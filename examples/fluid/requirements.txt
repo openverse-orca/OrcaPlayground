@@ -1,2 +1,8 @@
 orca-sph>=26.3.1
 orca-gym>=26.3.1.5
+
+# record 模式：matplotlib 录制统计子窗口（tail ~/.orcagym/tmp/orcasph_*.log 中的 [PARTICLE_RECORD_STATS]）
+# packaging：matplotlib 在部分环境下会 import packaging，最小环境需显式安装
+# 与仓库根目录 requirements.txt 中版本建议一致；若已通过根目录安装完整依赖可忽略本行
+matplotlib>=3.7.0
+packaging>=21.0

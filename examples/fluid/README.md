@@ -28,6 +28,22 @@ orcalab
 
 **安装 OrcaLab、`pip install -r requirements.txt` 及版本要求等，一律以仓库根目录说明为准**，请参阅：[`OrcaPlayground/README.md`](../../README.md) 中的「快速开始」与「依赖说明」。
 
+仅在本目录安装最小依赖时，可使用：
+
+```bash
+pip install -r examples/fluid/requirements.txt
+```
+
+其中 **`matplotlib`** 与 **`packaging`** 用于 **`--mode record`** 下的可选录制统计窗口（独立子进程，解析 OrcaSPH 日志中的 `[PARTICLE_RECORD_STATS]`）。若出现 `No module named 'packaging'`，请执行 `pip install packaging` 或重新安装本目录 `requirements.txt`。若不需要该窗口，可使用 `--no-record-stats-plot`，或在无图形界面环境中省略上述包（统计子进程可能启动失败，不影响主仿真）。
+
+**说明**：
+
+- `pip list` 里 **`packaging` 版本显示为 `None`**：多为 conda/pip 混用时的展示问题。请以 `python -c "import packaging; print(packaging.__version__)"` 为准；**能正常导入且有版本号即可使用**，不必强求 `pip list` 显示正常。
+- **`Cannot uninstall packaging` / `uninstall-no-record-file` / `no RECORD file`**：说明当前 `packaging` 不是通过完整 wheel 安装（常见于 conda 安装后 pip 无法管理）。可依次尝试：
+  1. **覆盖安装（不先卸载）**：`pip install --ignore-installed "packaging>=21.0"`
+  2. **用 conda 卸掉再用 pip 装**：`conda remove -y packaging`（若 conda 能提供该包），然后 `pip install "packaging>=21.0"`
+  3. **仍失败**：在已激活环境中查看路径 `python -c "import packaging; print(packaging.__file__)"`，到对应 `site-packages` 下**手动删除**名为 `packaging` 的目录及 `packaging-*.dist-info` / `packaging-*.egg-info`（若有），再执行 `pip install "packaging>=21.0"`。
+
 ## 🚀 基本使用
 
 ### 方式 1：使用 OrcaLab 启动（推荐）
@@ -73,6 +89,40 @@ python examples/fluid/run_fluid_sim.py --config my_config.json
 # 手动模式：需预先自行启动 orcalink 与 orcasph
 python examples/fluid/run_fluid_sim.py --manual-mode
 ```
+
+### 录制模式与统计窗口（record）
+
+将粒子帧写入 HDF5（不向引擎发粒子流），默认输出到 `examples/fluid/particle_records/`。自动启动 OrcaSPH 时，OrcaSPH 标准输出会写入 `~/.orcagym/tmp/orcasph_<时间戳>.log`，其中包含 `[PARTICLE_RECORD_STATS]` 行，供统计分析使用。
+
+默认会再启动一个 **matplotlib 子进程**：顶部 **大字显示当前已记录的仿真时间 `sim_time`**（秒）；下方三条曲线仅在 **跳过开头若干条异常样本** 后，对 **最近最多 50 条** 统计行做滚动绘制，避免全程历史拉长横轴、也减轻启动 FPS 尖峰对纵轴比例的影响。右侧文本区仍为基于**完整日志**的汇总与近窗指标。不需要图形窗口时：
+
+```bash
+python examples/fluid/run_fluid_sim.py --mode record --no-record-stats-plot
+```
+
+其他常用参数：
+
+```bash
+# 统计图刷新间隔（秒，默认 5）
+python examples/fluid/run_fluid_sim.py --mode record --record-stats-interval 5
+
+# 滑动 FPS 曲线的时间窗（秒，默认 5）
+python examples/fluid/run_fluid_sim.py --mode record --record-stats-window 5
+
+# 跳过开头 N 条统计行再画曲线（默认 5）；每条曲线最多保留最近 M 个点（默认 50）
+python examples/fluid/run_fluid_sim.py --mode record --record-stats-skip-head 5 --record-stats-rolling 50
+
+# 手动启动 OrcaSPH 时，指定其日志路径以便统计窗 tail
+python examples/fluid/run_fluid_sim.py --mode record --manual-mode --orcasph-log ~/.orcagym/tmp/orcasph_xxx.log
+```
+
+单独查看已有日志（需在仓库根目录且 `PYTHONPATH` 含项目根，或已 `pip install -e .` 安装本仓库）：
+
+```bash
+PYTHONPATH=. python envs/fluid/particle_record_stats_plot_viewer.py --log ~/.orcagym/tmp/orcasph_xxx.log --interval 5 --skip-head 5 --rolling 50
+```
+
+无显示器环境可设置 `MPLBACKEND=Agg`；若 Tk 后端不可用，子进程会退出并在终端打印提示，主仿真仍可继续。
 
 手动分步调试（开发者使用，与 `--manual-mode` 配合）：
 

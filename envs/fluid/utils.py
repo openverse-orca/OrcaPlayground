@@ -167,7 +167,106 @@ _fluid_atexit_state: Dict[str, Any] = {
     "config_ref": None,
     # 仅在 gym.make 成功之后置 True；避免第二实例因端口占用等提前退出时仍向共享 ParticleRender 发 EndSimulation，干扰第一实例
     "owns_shared_services": False,
+    "stats_plot_proc": None,
 }
+
+
+def _orca_playground_project_root() -> Path:
+    return Path(__file__).resolve().parent.parent.parent
+
+
+def _terminate_stats_plot_proc() -> None:
+    """Stop matplotlib record-stats viewer subprocess if running."""
+    proc: Any = _fluid_atexit_state.get("stats_plot_proc")
+    if proc is None:
+        return
+    try:
+        if proc.poll() is None:
+            logger.info("⏹️  终止录制统计窗口子进程...")
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait(timeout=2)
+    except Exception as e:
+        logger.warning(f"终止录制统计窗口失败（可忽略）: {e}")
+    finally:
+        _fluid_atexit_state["stats_plot_proc"] = None
+
+
+def _try_start_record_stats_plot_viewer(
+    config: Dict,
+    session_timestamp: str,
+    orcagym_tmp_dir: Path,
+) -> None:
+    """
+    In record mode, spawn ``python -m envs.fluid.particle_record_stats_plot_viewer`` when
+    ``particle_render_run.stats_plot.enabled`` and an OrcaSPH log path is known.
+    """
+    pr_run = config.get("particle_render_run") or {}
+    if pr_run.get("mode") != "record":
+        return
+    stats_cfg = pr_run.get("stats_plot") or {}
+    if not stats_cfg.get("enabled", True):
+        return
+
+    override = stats_cfg.get("orcasph_log")
+    orcasph_auto = bool(config.get("orcasph", {}).get("auto_start", True))
+    if override:
+        log_path = Path(override).expanduser().resolve()
+    elif orcasph_auto:
+        log_path = (orcagym_tmp_dir / f"orcasph_{session_timestamp}.log").resolve()
+    else:
+        logger.info("📊 录制统计窗口：未指定 orcasph 日志路径（手动模式请配置 stats_plot.orcasph_log），已跳过")
+        return
+
+    project_root = _orca_playground_project_root()
+    interval = float(stats_cfg.get("interval", 5.0))
+    window = float(stats_cfg.get("window", 5.0))
+    skip_head = int(stats_cfg.get("skip_head", 5))
+    rolling = int(stats_cfg.get("rolling", 50))
+
+    child_env = os.environ.copy()
+    root_s = str(project_root)
+    old_pp = child_env.get("PYTHONPATH", "")
+    child_env["PYTHONPATH"] = (root_s + os.pathsep + old_pp) if old_pp else root_s
+
+    viewer_script = project_root / "envs" / "fluid" / "particle_record_stats_plot_viewer.py"
+    if not viewer_script.is_file():
+        logger.warning(f"📊 录制统计脚本不存在: {viewer_script}，已跳过")
+        return
+
+    cmd = [
+        sys.executable,
+        str(viewer_script),
+        "--log",
+        str(log_path),
+        "--interval",
+        str(interval),
+        "--window",
+        str(window),
+        "--skip-head",
+        str(skip_head),
+        "--rolling",
+        str(rolling),
+    ]
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            cwd=root_s,
+            env=child_env,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=None,
+            start_new_session=True,
+        )
+        _fluid_atexit_state["stats_plot_proc"] = proc
+        logger.info(
+            f"📊 已启动录制统计窗口 (PID {proc.pid})，tail 日志: {log_path}，刷新间隔 {interval}s"
+        )
+    except Exception as e:
+        logger.warning(f"📊 无法启动录制统计窗口（可忽略）: {e}")
 
 
 def _atexit_fluid_visual_reset() -> None:
@@ -585,6 +684,8 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
             _owns = _fluid_atexit_state.get("owns_shared_services")
             _env = _fluid_atexit_state.get("env_ref")
 
+            _terminate_stats_plot_proc()
+
             # 1. 断开 OrcaLink Bridge（停止推位置给 OrcaSPH）
             if sph_wrapper is not None:
                 try:
@@ -821,7 +922,9 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
                 logger.info("⏳ 等待 OrcaSPH 初始化（2 秒）...")
                 time.sleep(2)
                 logger.info("✅ OrcaSPH 已启动\n")
-        
+
+        _try_start_record_stats_plot_viewer(config, session_timestamp, orcagym_tmp_dir)
+
         logger.debug("[DEBUG] About to enter main loop...")
         sys.stdout.flush()
         sys.stderr.flush()
@@ -938,6 +1041,8 @@ def run_simulation_with_config(config: Dict, session_timestamp: Optional[str] = 
         except (OSError, ValueError):
             pass
         logger.info("\n🧹 清理资源...")
+
+        _terminate_stats_plot_proc()
 
         owns = _fluid_atexit_state.get("owns_shared_services")
 
