@@ -4,6 +4,8 @@ Parse OrcaSPH stdout lines of the form::
     [PARTICLE_RECORD_STATS] timestep=... sim_time=... frames_written=...
     last_frame_bytes=... h5_path=... dropped_record_frames=... wall_elapsed_s=... mode=...
 
+    [TRAJECTORY_RECORD_STATS] frame_index=... num_frames=...   (optional; Python appends)
+
 Used by the matplotlib record-stats viewer; kept free of pyplot and gymnasium.
 """
 from __future__ import annotations
@@ -14,6 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 
 STAT_MARKER = "[PARTICLE_RECORD_STATS]"
+TRAJECTORY_STAT_MARKER = "[TRAJECTORY_RECORD_STATS]"
 
 
 def parse_stats_line(line: str) -> Optional[Dict[str, Any]]:
@@ -49,6 +52,29 @@ def parse_stats_line(line: str) -> Optional[Dict[str, Any]]:
     return out
 
 
+def parse_trajectory_stats_line(line: str) -> Optional[Dict[str, Any]]:
+    """Parse ``[TRAJECTORY_RECORD_STATS] frame_index=... num_frames=...`` or return None."""
+    if TRAJECTORY_STAT_MARKER not in line:
+        return None
+    i = line.find(TRAJECTORY_STAT_MARKER)
+    rest = line[i + len(TRAJECTORY_STAT_MARKER) :].strip()
+    if not rest:
+        return None
+    raw: Dict[str, str] = {}
+    for p in rest.split():
+        if "=" not in p:
+            continue
+        k, v = p.split("=", 1)
+        raw[k] = v
+    try:
+        return {
+            "frame_index": int(raw["frame_index"]),
+            "num_frames": int(raw["num_frames"]),
+        }
+    except (KeyError, ValueError):
+        return None
+
+
 @dataclass
 class TailState:
     """Incremental read state for a single log file."""
@@ -57,8 +83,16 @@ class TailState:
     offset: int = 0
 
 
-def read_new_records(path: Path, state: TailState) -> List[Dict[str, Any]]:
-    """Read newly appended bytes since *state.offset* and return parsed records."""
+def read_new_records(
+    path: Path,
+    state: TailState,
+    last_trajectory: Optional[Dict[str, Any]] = None,
+) -> List[Dict[str, Any]]:
+    """Read newly appended bytes since *state.offset* and return parsed particle records.
+
+    If *last_trajectory* is a mutable dict, update it with fields from the latest
+    ``[TRAJECTORY_RECORD_STATS]`` line in the chunk (``frame_index``, ``num_frames``).
+    """
     state.path = path
     if not path.exists():
         return []
@@ -80,6 +114,11 @@ def read_new_records(path: Path, state: TailState) -> List[Dict[str, Any]]:
         rec = parse_stats_line(line)
         if rec:
             records.append(rec)
+        if last_trajectory is not None:
+            tr = parse_trajectory_stats_line(line)
+            if tr:
+                last_trajectory.clear()
+                last_trajectory.update(tr)
     return records
 
 

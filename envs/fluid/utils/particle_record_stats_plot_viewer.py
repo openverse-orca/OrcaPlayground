@@ -80,6 +80,7 @@ def main() -> None:
     try:
         import matplotlib.pyplot as plt
         import matplotlib.gridspec as gridspec
+        from matplotlib.patches import Rectangle
     except Exception as e:
         print(f"[particle_record_stats_plot_viewer] import failed: {e}", file=sys.stderr)
         sys.exit(1)
@@ -94,11 +95,12 @@ def main() -> None:
     )
 
     records: List[Dict[str, Any]] = []
+    last_traj: Dict[str, Any] = {}
     tail = TailState(path=log_path, offset=0)
 
     if log_path.exists():
         tail.offset = 0
-        merge_dedupe(records, read_new_records(log_path, tail))
+        merge_dedupe(records, read_new_records(log_path, tail, last_traj))
     else:
         tail.offset = 0
 
@@ -117,6 +119,30 @@ def main() -> None:
     )
 
     ax_sim.axis("off")
+    _bar_x, _bar_y, _bar_w, _bar_h = 0.12, 0.26, 0.76, 0.034
+    rect_bar_bg = Rectangle(
+        (_bar_x, _bar_y),
+        _bar_w,
+        _bar_h,
+        transform=ax_sim.transAxes,
+        facecolor="#e8e8e8",
+        edgecolor="#bbbbbb",
+        linewidth=0.8,
+        zorder=1,
+        visible=False,
+    )
+    rect_bar_fill = Rectangle(
+        (_bar_x, _bar_y),
+        0.0,
+        _bar_h,
+        transform=ax_sim.transAxes,
+        facecolor="C0",
+        edgecolor="none",
+        zorder=2,
+        visible=False,
+    )
+    ax_sim.add_patch(rect_bar_bg)
+    ax_sim.add_patch(rect_bar_fill)
     txt_sim_label = ax_sim.text(
         0.5,
         0.82,
@@ -126,6 +152,7 @@ def main() -> None:
         va="center",
         fontsize=13,
         color="0.2",
+        zorder=5,
     )
     txt_sim_val = ax_sim.text(
         0.5,
@@ -137,6 +164,7 @@ def main() -> None:
         fontsize=34,
         fontweight="bold",
         color="0.1",
+        zorder=5,
     )
     txt_sim_sub = ax_sim.text(
         0.5,
@@ -147,6 +175,7 @@ def main() -> None:
         va="center",
         fontsize=11,
         color="0.45",
+        zorder=5,
     )
 
     (line0,) = ax0.plot([], [], "C0-", lw=1.2)
@@ -190,6 +219,13 @@ def main() -> None:
             f"dropped_record_frames: {glob.get('last_dropped')}",
             f"wall_elapsed_s: {glob.get('last_wall', 0):.3f}",
             f"mode: {glob.get('mode')}",
+            *(
+                [
+                    f"trajectory_frame: {last_traj.get('frame_index')} / {last_traj.get('num_frames')}",
+                ]
+                if int(last_traj.get("num_frames", 0) or 0) > 0
+                else []
+            ),
             f"h5_path: {h5}",
             f"avg_record_fps (overall): {glob.get('avg_record_fps', 0):.4f}",
             f"sim_time / wall: {glob.get('phys_time_over_wall', 0):.4f}",
@@ -207,10 +243,24 @@ def main() -> None:
         ]
         return "\n".join(lines)
 
+    def _update_traj_bar() -> None:
+        nf = int(last_traj.get("num_frames", 0) or 0)
+        fi = int(last_traj.get("frame_index", 0) or 0)
+        if nf > 0:
+            frac = max(0.0, min(1.0, float(fi) / float(nf)))
+            rect_bar_bg.set_visible(True)
+            rect_bar_fill.set_visible(True)
+            rect_bar_fill.set_xy((_bar_x, _bar_y))
+            rect_bar_fill.set_width(_bar_w * frac)
+        else:
+            rect_bar_bg.set_visible(False)
+            rect_bar_fill.set_visible(False)
+
     def on_frame(_frame: int) -> None:
         nonlocal records
         if log_path.exists():
-            merge_dedupe(records, read_new_records(log_path, tail))
+            merge_dedupe(records, read_new_records(log_path, tail, last_traj))
+        _update_traj_bar()
         if not records:
             txt_sim_val.set_text("-")
             txt_sim_sub.set_text("Waiting for log lines...")
@@ -226,7 +276,7 @@ def main() -> None:
         w = compute_window_summary(records, window_s=args.window)
         st = float(g.get("last_sim_time", 0.0))
         wall = float(g.get("last_wall", 0.0))
-        txt_sim_val.set_text(f"{st:.6f}  s")
+        txt_sim_val.set_text(f"{st:.2f}  s")
         txt_sim_sub.set_text(
             f"wall clock: {wall:.1f} s  |  sim_time/wall: {g.get('phys_time_over_wall', 0):.4f}"
         )

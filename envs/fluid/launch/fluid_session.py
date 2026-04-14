@@ -129,6 +129,33 @@ _fluid_atexit_state: Dict[str, Any] = {
 }
 
 
+def resolve_record_stats_orcasph_log_path(
+    config: Dict,
+    session_timestamp: str,
+    orcagym_tmp_dir: Path,
+) -> Optional[Path]:
+    """
+    Path to OrcaSPH stdout log used for [PARTICLE_RECORD_STATS] tailing and optional
+    [TRAJECTORY_RECORD_STATS] appends. Same rules as the matplotlib record-stats viewer.
+
+    Returns:
+        Resolved path when ``particle_render_run.mode == "record"`` and a path can be
+        determined (``stats_plot.orcasph_log`` override, or auto OrcaSPH default path).
+        ``None`` if not in record mode, or manual OrcaSPH without ``orcasph_log`` override.
+    """
+    pr_run = config.get("particle_render_run") or {}
+    if pr_run.get("mode") != "record":
+        return None
+    stats_cfg = pr_run.get("stats_plot") or {}
+    override = stats_cfg.get("orcasph_log")
+    orcasph_auto = bool(config.get("orcasph", {}).get("auto_start", True))
+    if override:
+        return Path(override).expanduser().resolve()
+    if orcasph_auto:
+        return (orcagym_tmp_dir / f"orcasph_{session_timestamp}.log").resolve()
+    return None
+
+
 def _terminate_stats_plot_proc() -> None:
     """Stop matplotlib record-stats viewer subprocess if running."""
     proc: Any = _fluid_atexit_state.get("stats_plot_proc")
@@ -165,13 +192,10 @@ def _try_start_record_stats_plot_viewer(
     if not stats_cfg.get("enabled", True):
         return
 
-    override = stats_cfg.get("orcasph_log")
-    orcasph_auto = bool(config.get("orcasph", {}).get("auto_start", True))
-    if override:
-        log_path = Path(override).expanduser().resolve()
-    elif orcasph_auto:
-        log_path = (orcagym_tmp_dir / f"orcasph_{session_timestamp}.log").resolve()
-    else:
+    log_path = resolve_record_stats_orcasph_log_path(
+        config, session_timestamp, orcagym_tmp_dir
+    )
+    if log_path is None:
         logger.info("📊 录制统计窗口：未指定 orcasph 日志路径（手动模式请配置 stats_plot.orcasph_log），已跳过")
         return
 

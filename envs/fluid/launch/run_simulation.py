@@ -25,6 +25,7 @@ from .fluid_session import (
     _run_particle_playback_if_requested,
     _terminate_stats_plot_proc,
     _try_start_record_stats_plot_viewer,
+    resolve_record_stats_orcasph_log_path,
 )
 from .process_utils import ProcessManager, is_tcp_port_accepting_connections
 from .sph_config import generate_orcasph_config, setup_python_logging
@@ -91,6 +92,7 @@ def run_simulation_with_config(
     sph_wrapper = None
     traj_rec = None
     traj_player = None
+    traj_stats_log_f = None
     scene_output_path = None
     shutdown_event = threading.Event()
 
@@ -482,6 +484,24 @@ def run_simulation_with_config(
                 traj_player.num_frames,
             )
 
+        traj_stats_path = resolve_record_stats_orcasph_log_path(
+            config, session_timestamp, orcagym_tmp_dir
+        )
+        if traj_player is not None and traj_stats_path is not None:
+            try:
+                traj_stats_path.parent.mkdir(parents=True, exist_ok=True)
+                traj_stats_log_f = open(
+                    traj_stats_path, "a", encoding="utf-8", buffering=1
+                )
+                traj_stats_log_f.write(
+                    "[TRAJECTORY_RECORD_STATS] "
+                    f"frame_index=0 num_frames={traj_player.num_frames}\n"
+                )
+                traj_stats_log_f.flush()
+            except OSError as e:
+                logger.warning("trajectory stats log open (%s): %s", traj_stats_path, e)
+                traj_stats_log_f = None
+
         # ============ 主循环 ============
         step_count = 0
 
@@ -521,6 +541,16 @@ def run_simulation_with_config(
                     traj_player.push_pending_to_env()
                     obs, reward, terminated, truncated, info = env.step(None)
                     traj_player.advance_cursor()
+                    if traj_stats_log_f is not None:
+                        try:
+                            traj_stats_log_f.write(
+                                "[TRAJECTORY_RECORD_STATS] "
+                                f"frame_index={traj_player.frame_index} "
+                                f"num_frames={traj_player.num_frames}\n"
+                            )
+                            traj_stats_log_f.flush()
+                        except OSError as e:
+                            logger.warning("trajectory stats log write: %s", e)
                 else:
                     # 无外围策略：None → SimEnv 内默认搅拌棒占位
                     obs, reward, terminated, truncated, info = env.step(None)
@@ -576,6 +606,11 @@ def run_simulation_with_config(
                 traj_player.close()
         except Exception as e:
             logger.warning("trajectory player close: %s", e)
+        try:
+            if traj_stats_log_f is not None:
+                traj_stats_log_f.close()
+        except Exception as e:
+            logger.warning("trajectory stats log close: %s", e)
 
         # ── 第 1 步：先断开 OrcaLink Bridge（停止向 OrcaLink/SPH 推位置）──────────
         if sph_wrapper:
