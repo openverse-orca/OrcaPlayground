@@ -10,6 +10,8 @@ import os
 import numpy as np
 import logging
 from pathlib import Path
+
+from ..paths import FLUID_PACKAGE_DIR
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass, asdict
 import sys
@@ -74,8 +76,8 @@ class SceneGenerator:
         # 格式: {body_name: GeomInfo}
         self._sph_geom_cache = {}
         
-        # 基准目录：scene_generator.py 所在目录（用于解析配置文件中的相对路径）
-        self._base_dir = os.path.dirname(os.path.abspath(__file__))
+        # 基准目录：envs.fluid 包根（与原先 scene_generator 位于 fluid/ 下时一致）
+        self._base_dir = str(FLUID_PACKAGE_DIR)
         
         logger.info(f"SceneGenerator initialized")
     
@@ -86,7 +88,7 @@ class SceneGenerator:
         支持三种路径格式：
         1. 绝对路径：直接返回
         2. package://orcasph/data/models/UnitBox.obj：从 orcasph_client 包加载
-        3. 相对路径：相对于 scene_generator.py 所在目录，如果不存在则尝试从包中加载
+        3. 相对路径：相对于 envs.fluid 包根目录，如果不存在则尝试从包中加载
         
         Args:
             geometry_file: 几何文件路径（可能是相对路径或绝对路径）
@@ -111,7 +113,7 @@ class SceneGenerator:
             else:
                 logger.warning(f"Failed to load package resource: '{geometry_file}'")
         
-        # 相对路径：从 scene_generator.py 所在目录解析
+        # 相对路径：从 envs.fluid 包根目录解析
         abs_path = os.path.abspath(os.path.join(self._base_dir, geometry_file))
         
         # 如果文件不存在，尝试从 orcasph_client 包中加载（fallback）

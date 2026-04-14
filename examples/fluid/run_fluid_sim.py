@@ -228,6 +228,28 @@ def main():
             metavar='H5_FILE',
             help='playback 模式：HDF5 文件路径（与 --h5 等价，可写在命令行末尾）',
         )
+        parser.add_argument(
+            '--trajectory-record',
+            action='store_true',
+            help='live 模式：将人类操作（ctrl/mocap/equality 子集）写入 trajectory_records/*.h5',
+        )
+        parser.add_argument(
+            '--trajectory-record-output',
+            default=None,
+            metavar='PATH',
+            help='live：轨迹 HDF5 路径（默认：脚本目录/trajectory_records/前缀_时间戳.h5）',
+        )
+        parser.add_argument(
+            '--trajectory-record-prefix',
+            default='trajectory_record',
+            help='live 轨迹默认文件名前缀（仅字母数字下划线连字符）',
+        )
+        parser.add_argument(
+            '--trajectory-playback',
+            default=None,
+            metavar='PATH',
+            help='record 模式：从该 HDF5 回放人类操作（在 bridge.step 之后叠加 mocap/eq/ctrl）',
+        )
 
         args = parser.parse_args()
 
@@ -262,7 +284,7 @@ def main():
         
         config = load_config(str(config_path))
 
-        # 与 SPH 侧 particle_render 录制/回放策略（见 sph_sim_config.json、generate_orcasph_config）
+        # 与 SPH 侧 particle_render 录制/回放策略（见 sph_sim_config.json、launch.sph_config.generate_orcasph_config）
         script_dir = Path(__file__).parent
         pr_run = {'mode': args.mode}
         if args.mode == 'record':
@@ -300,6 +322,36 @@ def main():
             pr_run['playback_target'] = args.playback_target
             pr_run['playback_fps'] = args.playback_fps
         config['particle_render_run'] = pr_run
+
+        # MuJoCo 人类操作轨迹（HDF5），见 envs/fluid/Docs/DESIGN_mujoco_human_trajectory_hdf5.md
+        traj_cfg: dict = {}
+        if args.mode == 'live' and args.trajectory_record:
+            prefix = args.trajectory_record_prefix
+            if not re.match(r'^[A-Za-z0-9_-]+$', prefix):
+                print("⚠️  --trajectory-record-prefix 仅允许字母、数字、下划线、连字符，已回退为 trajectory_record")
+                prefix = "trajectory_record"
+            if args.trajectory_record_output:
+                tp = Path(args.trajectory_record_output).expanduser()
+                tp.parent.mkdir(parents=True, exist_ok=True)
+                traj_path = str(tp.resolve())
+            else:
+                tdir = script_dir / "trajectory_records"
+                tdir.mkdir(parents=True, exist_ok=True)
+                traj_path = str((tdir / f"{prefix}_{session_timestamp}.h5").resolve())
+            traj_cfg['enabled'] = True
+            traj_cfg['output_path'] = traj_path
+            traj_cfg['prefix'] = prefix
+            print(f"📝 MuJoCo 轨迹录制: {traj_path}")
+        elif args.mode == 'live':
+            traj_cfg['enabled'] = False
+        if args.mode == 'record' and args.trajectory_playback:
+            tp = Path(args.trajectory_playback).expanduser()
+            if not tp.is_file():
+                print(f"❌ 轨迹回放文件不存在: {tp}")
+                return 1
+            traj_cfg['playback_path'] = str(tp.resolve())
+            print(f"🎞️  MuJoCo 轨迹回放: {traj_cfg['playback_path']}")
+        config['mujoco_trajectory'] = traj_cfg
         
         # 设置 OrcaSPH GUI 参数
         if 'orcasph' in config and config['orcasph'].get('enabled', False):

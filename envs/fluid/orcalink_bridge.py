@@ -11,7 +11,7 @@ import logging
 import uuid
 import re
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, FrozenSet, List, Optional, Tuple
 import sys
 from pathlib import Path
 
@@ -120,7 +120,7 @@ class OrcaLinkBridge:
         try:
             import sys
             print("[PRINT-DEBUG] _prepare_orcalink_config - About to create ConfigGenerator", file=sys.stderr, flush=True)
-            from .config_generator import ConfigGenerator
+            from .utils.config_generator import ConfigGenerator
             
             generator = ConfigGenerator(self.env)
             print("[PRINT-DEBUG] _prepare_orcalink_config - ConfigGenerator created, calling generate_rigid_bodies()", file=sys.stderr, flush=True)
@@ -187,6 +187,15 @@ class OrcaLinkBridge:
                     logger.debug(f"Mapped (body='{body_name}', index={index}) -> mocap='{conn_pt.mocap_name}'")
                 else:
                     logger.warning(f"Cannot extract index from site_name: '{conn_pt.site_name}'")
+
+    @property
+    def sph_coupling_mocap_names(self) -> FrozenSet[str]:
+        """由 OrcaLink 多点耦合更新的 mocap body 名称集合（轨迹录制时排除）。"""
+        names: set[str] = set()
+        for rb in self.rigid_bodies.values():
+            for cp in rb.connection_points:
+                names.add(cp.mocap_name)
+        return frozenset(names)
     
     def connect(self) -> bool:
         """
@@ -582,7 +591,7 @@ class OrcaLinkBridge:
             Exception: 如果生成失败
         """
         try:
-            from scene_generator import SceneGenerator
+            from .utils.scene_generator import SceneGenerator
             
             # 加载或使用默认配置
             if scene_config_path is None:

@@ -3,7 +3,7 @@ Matplotlib subprocess viewer for [PARTICLE_RECORD_STATS] log lines.
 
 Run from OrcaPlayground repo root (PYTHONPATH must include project root)::
 
-    python envs/fluid/particle_record_stats_plot_viewer.py --log ~/.orcagym/tmp/orcasph_XXX.log --interval 5
+    python envs/fluid/utils/particle_record_stats_plot_viewer.py --log ~/.orcagym/tmp/orcasph_XXX.log --interval 5
 
 Uses ``envs.fluid_stats`` for parsing so this does not import ``envs.fluid`` (gymnasium).
 """

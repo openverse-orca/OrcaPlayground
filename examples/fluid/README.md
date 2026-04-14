@@ -90,6 +90,24 @@ python examples/fluid/run_fluid_sim.py --config my_config.json
 python examples/fluid/run_fluid_sim.py --manual-mode
 ```
 
+### MuJoCo 人类操作轨迹（HDF5）
+
+与粒子 HDF5 独立：轨迹文件只记录/回放 **人在 Studio 侧对 ctrl、mocap、equality 等操作**（不含 SPH 耦合用 `*_SPH_MOCAP_*` 体），便于与 `--mode record` 下的粒子录制配合、用同一时间戳配对文件。设计说明见 [`envs/fluid/Docs/DESIGN_mujoco_human_trajectory_hdf5.md`](../../envs/fluid/Docs/DESIGN_mujoco_human_trajectory_hdf5.md)。
+
+**live 模式录制轨迹**（`--mode` 默认为 `live`）：默认写入 `examples/fluid/trajectory_records/<前缀>_<时间戳>.h5`。
+
+```bash
+python examples/fluid/run_fluid_sim.py --trajectory-record
+```
+
+可选：自定义输出路径 `--trajectory-record-output /path/to/out.h5`，或仅改默认文件名前缀 `--trajectory-record-prefix my_run`。
+
+**record 模式使用轨迹**：在录制粒子的同时，按帧叠加已录好的轨迹（先 live 录轨迹，再 record 时回放）。
+
+```bash
+python examples/fluid/run_fluid_sim.py --mode record --trajectory-playback examples/fluid/trajectory_records/trajectory_record_YYYYMMDD_HHMMSS.h5
+```
+
 ### 录制模式与统计窗口（record）
 
 将粒子帧写入 HDF5（不向引擎发粒子流），默认输出到 `examples/fluid/particle_records/`。自动启动 OrcaSPH 时，OrcaSPH 标准输出会写入 `~/.orcagym/tmp/orcasph_<时间戳>.log`，其中包含 `[PARTICLE_RECORD_STATS]` 行，供统计分析使用。
@@ -119,7 +137,7 @@ python examples/fluid/run_fluid_sim.py --mode record --manual-mode --orcasph-log
 单独查看已有日志（需在仓库根目录且 `PYTHONPATH` 含项目根，或已 `pip install -e .` 安装本仓库）：
 
 ```bash
-PYTHONPATH=. python envs/fluid/particle_record_stats_plot_viewer.py --log ~/.orcagym/tmp/orcasph_xxx.log --interval 5 --skip-head 5 --rolling 50
+PYTHONPATH=. python envs/fluid/utils/particle_record_stats_plot_viewer.py --log ~/.orcagym/tmp/orcasph_xxx.log --interval 5 --skip-head 5 --rolling 50
 ```
 
 无显示器环境可设置 `MPLBACKEND=Agg`；若 Tk 后端不可用，子进程会退出并在终端打印提示，主仿真仍可继续。
