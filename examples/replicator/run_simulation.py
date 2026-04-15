@@ -16,7 +16,8 @@ ENV_ENTRY_POINT = {
     "Lights": "examples.replicator.lights_env:LightsEnv",
 }
 
-TIME_STEP = 0.005
+# 1 / 240 * 4 = 1 / 60, keeping the physics/render loop at 60 Hz.
+TIME_STEP = 1.0 / 240.0
 FRAME_SKIP = 4
 REALTIME_STEP = TIME_STEP * FRAME_SKIP
 CONTROL_FREQ = 1 / REALTIME_STEP
