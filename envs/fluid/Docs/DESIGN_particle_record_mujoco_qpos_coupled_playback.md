@@ -24,7 +24,7 @@
 
 **假设**
 
-- 录制与回放使用 **同一关卡、同一 MJCF**，`nq` 及 `qpos` 向量语义不变；回放启动时校验 HDF5 中记录的 `nq` 与当前模型一致。
+- 录制与回放使用 **同一关卡、语义上等价的 MJCF**（关节 **名称** 稳定）。**不**再假设全局 `qpos` 向量在 MuJoCo 内部的 **索引顺序** 跨构建/关卡变体不变；侧车与合并结果以 **`joint_name_packed`**（按关节名切分并固定字典序打包）存储，避免整块 `mjcf_order` 向量错位。
 
 **非目标**
 
@@ -86,14 +86,18 @@ flowchart LR
 
 ### 3.4 临时 HDF5 内部布局（建议）
 
+**当前实现（schema v2，`joint_name_packed`）**：采样时通过 OrcaGym `query_joint_qpos(sorted_joint_names)` 按关节名读取片段，再按 **字典序关节名** 拼接为一行定长向量 `Q = sum(qpos_size[j])`（与全局 `qpos` 向量顺序无关）。
+
 | 路径 | 类型 | 形状 | 说明 |
 |------|------|------|------|
-| `/meta/nq` | 标量 attr 或 dataset | 标量 int | 与 `model.nq` 一致 |
-| `/samples/qpos` | `float64` | `(T, nq)` | 可扩展 chunk；每行一次采样 |
+| `/` attrs | | | `sidecar_schema_version=2`，`qpos_layout="joint_name_packed"`，`packed_q_width=Q`，`nq`（与 `model.nq` 对齐用，软校验） |
+| `/meta/joint_names` | UTF-8 字符串 | `(J,)` | 关节名（与打包顺序一致） |
+| `/meta/joint_qpos_sizes` | `int32` | `(J,)` | 各关节在 `qpos` 中占用长度（FREE 7、BALL 4、HINGE/SLIDE 1） |
+| `/samples/qpos` | `float64` | `(T, Q)` | 可扩展 chunk；每行一次采样（打包向量） |
 | `/samples/sph_record_frame_index` | `uint64` | `(T,)` | 采样瞬间从 cursor 文件读到的值，语义见第 4 节 |
 | `/samples/mujoco_step_index` | `uint64` | `(T,)` | 可选；主循环步计数，便于调试 |
 
-实现可选用 **单组 `samples`** 下多数据集或展平存储，只要合并工具可稳定读取。
+**旧版（schema v1）**：`/samples/qpos` 为 `(T, nq)` 的 **mjcf 顺序** 整块向量；仍可由合并工具读入并写出为 `qpos_layout=mjcf_order` 的粒子文件。
 
 ---
 
@@ -145,16 +149,18 @@ flowchart LR
 
 | 属性 | 说明 |
 |------|------|
-| `mujoco_schema_version` | 整数，从 1 起 |
-| `mujoco_nq` | 与 `samples` / 模型一致 |
-| `qpos_layout` | 固定字符串，如 `"mjcf_order"` |
+| `mujoco_schema_version` | 整数：`1` = 整块 `mjcf_order`；`2` = `joint_name_packed` |
+| `mujoco_nq` | 行宽：v1 与 `model.nq` 一致；v2 为打包宽度 `Q`（通常仍等于 `model.nq`） |
+| `qpos_layout` | `"mjcf_order"` 或 `"joint_name_packed"` |
 | `session_timestamp` | 可选；与 [`run_fluid_sim.py`](../../../examples/fluid/run_fluid_sim.py) 会话时间戳对齐便于追溯 |
 
 **组 `mujoco_frames` 下数据集（与粒子帧对齐）**
 
 | 数据集 | 形状 | 说明 |
 |--------|------|------|
-| `qpos` | `(N_particle, nq)` | `N_particle` = 粒子 `frames` 行数（与 `frame_index` 序列一一对应的方式在实现中固定：通常按 `frame_index` 从 0..N-1 或按行序对齐） |
+| `qpos` | `(N_particle, nq)` 或 `(N_particle, Q)` | v1：`nq=model.nq`；v2：每行为 **关节名打包** 向量，宽 `Q` |
+| `joint_names` | UTF-8 字符串 `(J,)` | 仅 v2；与侧车 `/meta/joint_names` 一致 |
+| `joint_qpos_sizes` | `int32` `(J,)` | 仅 v2；与侧车 `/meta/joint_qpos_sizes` 一致 |
 | `source_mujoco_step` | `(N_particle,)` | 可选 `uint64`；合并时选中行的 MuJoCo 步号 |
 
 ### 5.3 从临时稠密表到 `mujoco_frames/qpos` 的映射规则
@@ -183,9 +189,9 @@ flowchart LR
 对粒子帧索引 `i = 0 .. N_particle-1`：
 
 1. **发送第 `i` 帧粒子**到 OrcaStudio（行为与当前 `run_playback` 一致：gRPC、编码、丢帧策略等）。
-2. **写 MuJoCo 状态**：`data.qpos[:] = mujoco_frames/qpos[i, :]`（注意 dtype 拷贝）；调用 **`mj_forward`**，使依赖 `qpos` 的几何/相机等一致。
+2. **写 MuJoCo 状态**（推荐路径，`qpos_layout=joint_name_packed` / `mujoco_schema_version>=2`）：按 `joint_names` 与 `joint_qpos_sizes` 将 `mujoco_frames/qpos[i, :]` 切片为 `joint_name -> ndarray`，调用 OrcaGym **`env.set_joint_qpos(...)`**，再 **`env.mj_forward()`**。当前模型中不存在的关节名跳过并打日志。**旧版**（`mjcf_order`）：仍可将整行写入 `data.qpos`（deprecated，仅兼容旧文件）。
 3. **不调用** `env.step` / `do_simulation`，避免物理推进。
-4. **视口同步**：调用与 record 相同的 OrcaStudio 同步路径——复用 [`fluid_session._fluid_sync_initial_viewport_to_engine`](../launch/fluid_session.py) 所使用的 `render` / asyncio 模式，或抽取 `env.sync_viewport_to_studio()` 一类接口，避免重复实现。
+4. **视口同步**：调用与 record 相同的 OrcaStudio 同步路径——耦合回放中通过 [`coupled_playback.py`](../launch/coupled_playback.py) 的 `_fluid_render_viewport_to_engine`（来自 [`fluid_session`](../launch/fluid_session.py)）完成 `render` / asyncio 同步。
 
 ### 6.3 与「每 SPH 帧第一个 qpos」的关系
 
@@ -212,7 +218,8 @@ flowchart LR
 
 ### 8.1 启动校验
 
-- `mujoco_nq` 与当前 `SimEnv.model.nq` 一致。
+- **v1（`mjcf_order`）**：`mujoco_frames/qpos` 行宽与当前 `SimEnv.model.nq` 一致。
+- **v2（`joint_name_packed`）**：行宽等于 `sum(joint_qpos_sizes)`；回放时按关节名写入，不要求与 `model.nq` 做硬编码相等校验（通常仍相等）；文件中声明的关节应在当前模型中存在（缺失则跳过并告警）。
 - `mujoco_frames/qpos.shape[0]` 与粒子 `frames` 行数（或选用的 `frame_index` 范围）一致，或符合第 5.3、6.3 的填充/报错策略。
 
 ### 8.2 建议测试
@@ -256,4 +263,4 @@ flowchart LR
 
 ## 11. 小结
 
-本设计在 **同一关卡、不变 `qpos` 布局** 假设下，通过 **SPH 侧 cursor 文件 + 极小 flock 临界区** 将「粒子 HDF5 帧序号」与「MuJoCo 稠密采样」对齐；record 结束后合并为粒子文件中的 **`mujoco_frames`**；playback 在 **既有粒子回放节拍** 下对每帧设置 **`qpos`**、**不物理步进**、仅 **forward + render**，从而在 OrcaStudio 获得 **粒子与 MuJoCo 位形严格同帧** 的离线耦合画面。
+本设计在 **关节名稳定、全局 `qpos` 索引顺序可不依赖** 的前提下，通过 **SPH 侧 cursor 文件 + 极小 flock 临界区** 将「粒子 HDF5 帧序号」与「MuJoCo 稠密采样」对齐；record 以 **`joint_name_packed`** 写入侧车与合并后的 **`mujoco_frames`**；playback 在 **既有粒子回放节拍** 下对每帧 **`set_joint_qpos` + `mj_forward` + render**（旧文件可整块写 `qpos`）、**不物理步进**，从而在 OrcaStudio 获得 **粒子与 MuJoCo 位形严格同帧** 的离线耦合画面。

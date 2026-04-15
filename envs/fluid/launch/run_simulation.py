@@ -486,9 +486,7 @@ def _setup_main_loop_recorders(ctx: FluidSimulationContext) -> None:
             logger.warning("trajectory stats log open (%s): %s", traj_stats_path, e)
             ctx.traj_stats_log_f = None
 
-    ctx.mujoco_qpos_sidecar = maybe_open_sidecar_for_record_config(
-        config, int(env.unwrapped.model.nq)
-    )
+    ctx.mujoco_qpos_sidecar = maybe_open_sidecar_for_record_config(config, env)
     if ctx.mujoco_qpos_sidecar is not None:
         logger.info(
             "MuJoCo qpos sidecar recording: %s",
