@@ -56,4 +56,15 @@ numba  # Numba JIT 编译（orca-gym 的 robosuite 适配器使用，wheeled_cha
 
 sshkeyboard
 
+# ============================================================================
+# SO101 最小运行时依赖（camera_monitor / so101_sim_inference_client）
+# ============================================================================
+av>=14.0.0
+msgpack>=1.1.0
+opencv-python>=4.10.0
+pillow>=11.0.0
+pynput>=1.8.0
+typing-extensions>=4.12.2
+websockets>=15.0.0
+
 orca-sph>=26.3.1; sys_platform == "linux" # 流体仿真依赖，会同时安装orcalink，仅 Ubuntu 支持
