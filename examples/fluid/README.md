@@ -1,122 +1,47 @@
 # Fluid-MuJoCo 耦合仿真示例
 
-SPH 流体与 MuJoCo 刚体耦合仿真，使用 OrcaLink 进行通信。
+SPH 流体与 MuJoCo 刚体耦合，经 OrcaLink 与 OrcaLab / OrcaStudio 通信。
 
-## 📋 前置要求
+## 配置要求
 
-### 1. 启动 OrcaStudio 或 OrcaLab 并加载场景
+- **操作系统**：Ubuntu（本示例未针对 Windows 验证）。
+- **GPU**：支持 **CUDA 12.1 及以上** 的 NVIDIA 显卡及匹配驱动。
 
-**推荐使用 OrcaLab。** 启动后，在**资产库**中订阅 **`water_example`** 场景，并在启动 OrcaLab 时选择该场景。
+## 依赖简述
 
-若使用 OrcaStudio，同样需要加载对应的流体场景。
+- **OrcaLab（推荐）或 OrcaStudio**：用于加载流体场景、接收仿真与（可选）粒子流。
+- **场景**：资产库中订阅并加载 **`water_example`**（或等价带 SPH 标记的流体场景）。
+- **OrcaLink、OrcaSPH**：与根环境一致安装后，默认由本脚本自动拉起；无需在 README 运行步骤里单独执行命令。
+- **Python**：与 OrcaPlayground 其余示例共用环境；本目录 `requirements.txt` 以 `orca-sph`、`orca-gym` 为主；**录制、统计窗口等其余包及用途**见 **[`RECORD_PLAYBACK.md`](RECORD_PLAYBACK.md)**。
 
-```bash
-# 推荐使用 OrcaLab
-orcalab
-```
+完整环境与版本以仓库根目录说明为准：[`OrcaPlayground/README.md`](../../README.md)。
 
-### 2. 系统需求
+## 安装依赖包
 
-运行本示例前请确认环境满足以下要求：
-
-- **操作系统**：仅支持 **Ubuntu**，不支持 Windows。
-- **显卡 / CUDA**：需配备支持 **CUDA 12.1 及以上** 的 NVIDIA 显卡及对应驱动。
-
-### 3. Python 环境
-
-本示例与 OrcaPlayground 其他示例共用同一套依赖，**请先激活你用于 OrcaPlayground / OrcaLab 的 conda 环境**（环境名称以你本机为准，例如 `orcalab`），并在项目根目录完成依赖安装。
-
-**安装 OrcaLab、`pip install -r requirements.txt` 及版本要求等，一律以仓库根目录说明为准**，请参阅：[`OrcaPlayground/README.md`](../../README.md) 中的「快速开始」与「依赖说明」。
-
-## 🚀 基本使用
-
-### 方式 1：使用 OrcaLab 启动（推荐）
-
-在 OrcaLab 中配置了流体仿真启动项，可以直接使用：
-
-配置位置：`.orcalab/config.toml`
-
-```toml
-[[external_programs.programs]]
-name = "fluid_sim"
-display_name = "run_fluid_sim"
-command = "python"
-args = [ "-m", "examples.fluid.run_fluid_sim",]
-description = "启动流体仿真"
-```
-
-在 OrcaLab 中选择 `run_fluid_sim` 即可启动流体耦合仿真。
-
-### 方式 2：命令行启动
-
-**必须先完成 OrcaLab 侧仿真入口：** 已按上文打开 **`water_example`** 场景后，在 OrcaLab 中点击 **「无仿真程序」** **启动仿真**；**未执行此步骤时，仅运行下方命令行脚本通常无法正常运行流体仿真。** 然后再在终端执行：
-
-从项目根目录运行：
+1. 激活你用于 OrcaPlayground / OrcaLab 的 conda 环境（名称以本机为准）。
+2. 在 **OrcaPlayground 仓库根目录** 按根目录 README 完成基础依赖安装（含 `pip install -r requirements.txt` 等）。
+3. 若只需本示例目录声明的最小集合，可再执行：
 
 ```bash
-# 自动模式（推荐）：一键启动 OrcaLink、OrcaSPH 与主循环
-python examples/fluid/run_fluid_sim.py
-
-# 或使用模块方式
-python -m examples.fluid.run_fluid_sim
+pip install -r examples/fluid/requirements.txt
 ```
 
-可选参数示例 (开发者使用)：
+该文件中的其它条目（如录制统计子进程所需库）说明见 **[`RECORD_PLAYBACK.md`](RECORD_PLAYBACK.md)**。
+
+## 运行前（OrcaLab 侧）
+
+1. 启动 OrcaLab，加载 **`water_example`** 场景。
+2. 在界面中将 **「无仿真程序」** 切换为 **启动仿真**，再运行下方命令（否则流体侧通常无法连通）。
+
+## 启动仿真
+
+在仓库根目录进入本示例目录后执行：
 
 ```bash
-# 启用 OrcaSPH GUI
-python examples/fluid/run_fluid_sim.py --gui
-
-# 自定义配置文件（相对于 examples/fluid 目录下的路径或同名默认 fluid_sim_config.json）
-python examples/fluid/run_fluid_sim.py --config my_config.json
-
-# 手动模式：需预先自行启动 orcalink 与 orcasph
-python examples/fluid/run_fluid_sim.py --manual-mode
+cd examples/fluid
+python run_fluid_sim.py
 ```
 
-手动分步调试（开发者使用，与 `--manual-mode` 配合）：
+## 操作、录制与回放
 
-```bash
-# 终端 1：启动 OrcaLink
-orcalink --port 50351
-
-# 终端 2：启动 OrcaSPH（scene 路径以运行时生成的 ~/.orcagym/tmp/sph_scene_*.json 为准）
-orcasph --scene ~/.orcagym/tmp/sph_scene_xxx.json --gui
-
-# 终端 3：运行仿真
-python examples/fluid/run_fluid_sim.py --manual-mode
-```
-
-## ⚙️ 配置文件
-
-### 主配置文件
-
-- **`fluid_sim_config.json`** — MuJoCo / OrcaLink / OrcaSPH 侧主配置（一般仅需关注此文件）
-
-### 关键配置项
-
-```json
-{
-  "orcalink": {
-    "port": 50351,              // OrcaLink 服务器端口
-    "startup_delay": 2          // 启动等待时间（秒）
-  },
-  "orcasph": {
-    "enabled": true,            // 是否自动启动 SPH
-    "config_template": "sph_sim_config.json"
-  }
-}
-```
-
-### 使用自定义配置
-
-```bash
-python examples/fluid/run_fluid_sim.py --config my_config.json
-```
-
-（在项目根目录执行时，配置文件名为相对于 `examples/fluid/` 的路径；亦可在该目录下直接 `python run_fluid_sim.py`。）
-
-## 📞 获取帮助
-
-- 核心模块文档：`envs/fluid/README.md`
-- 提交 Issue：https://github.com/openverse-orca/OrcaGym/issues
+交互操作、HDF5 录制、离线回放及命令行参数说明见同目录 **[`RECORD_PLAYBACK.md`](RECORD_PLAYBACK.md)**。

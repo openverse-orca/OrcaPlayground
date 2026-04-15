@@ -14,6 +14,11 @@ class SpringConstraintMode(ICouplingMode):
     This mode implements bidirectional position coupling with spring constraints:
     - Both SPH and MuJoCo send positions to each other
     - MuJoCo receives target positions from SPH and applies them to mocap bodies
+    
+    MuJoCo 人类操作轨迹回放（HDF5）不在此关闭订阅：主循环始终先执行本模式的
+    ``subscribe_positions`` → ``set_mocap_pos_and_quat``（仅 *_SPH_MOCAP_* 耦合体），
+    再在 ``run_simulation`` 主循环中通过 ``TrajectoryPlayer.push_pending_to_env`` 与
+    ``SimEnv.set_pending_human_trajectory_step`` / ``env.step(None)`` 叠加轨迹里录制的人类 mocap / equality / ctrl。
     """
     
     def __init__(self):
@@ -42,7 +47,7 @@ class SpringConstraintMode(ICouplingMode):
         pass
     
     def step(self) -> bool:
-        """Execute one step"""
+        """Execute one step (SPH→mocap 耦合；轨迹回放的人类 mocap 由 utils 在之后叠加)。"""
         # 1. Receive remote positions (SPH sends target positions)
         self._receive_and_apply_target_positions()
         

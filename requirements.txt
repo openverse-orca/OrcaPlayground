@@ -26,7 +26,8 @@ onnx>=1.15.0  # ONNX 模型格式（用于 convert_sb3_to_onnx.py 和 convert_rl
 pyyaml>=6.0  # YAML 配置文件解析
 
 # 可视化
-matplotlib>=3.7.0  # 绘图工具（用于 plot_rewards.py）
+matplotlib>=3.7.0  # 绘图工具（用于 plot_rewards.py、fluid record 统计窗）
+packaging>=21.0  # matplotlib 等库的常用依赖，最小环境可能未预装
 tensorboard>=2.14.0  # TensorBoard 可视化（用于 SB3 训练日志）
 
 # HTTP 请求

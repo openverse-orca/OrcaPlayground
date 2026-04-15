@@ -201,7 +201,10 @@
       "output_path": "",
       "record_fps": 30.0,
       "record_iframe_only": false,
-      "stats_interval_timesteps": 10
+      "stats_interval_timesteps": 10,
+      "flush_interval_frames": 1,
+      "log_stats": true,
+      "comment": "模板默认不录 HDF5。OrcaPlayground --mode record 会启用录制并写 output_path；粒子 gRPC 默认不向 OrcaStudio 发送，需要预览时 run_fluid_sim.py --render-particle。"
     },
     "voxel_grid": {
       "width": 128,
@@ -247,6 +250,7 @@
 
   "debug": {
     "verbose_logging": false,
+    "log_sph_solver_stdout": false,
     "enable_actuator_force_stats": true,
     "enable_fluid_force_stats": true,
     "enable_passivity_stats": true,
@@ -256,7 +260,7 @@
     "visualize_actuator_connections": true,
     "anchor_particle_size": 0.02,
     "target_position_size": 0.015,
-    "comment": "Debug选项：verbose_logging启用详细日志；enable_actuator_force_stats启用弹簧力/PD控制器统计；enable_fluid_force_stats启用流体力统计；enable_passivity_stats启用无源性控制统计；stats_log_interval统计输出间隔（秒）；visualize_*控制锚点粒子可视化"
+    "comment": "Debug选项：verbose_logging启用详细日志（Python/OrcaLink）；log_sph_solver_stdout启用DFSPH CUDA每步诊断stdout；enable_actuator_force_stats启用弹簧力/PD控制器统计；enable_fluid_force_stats启用流体力统计；enable_passivity_stats启用无源性控制统计；stats_log_interval统计输出间隔（秒）；visualize_*控制锚点粒子可视化。particle_render.recording.log_stats控制[HDF5] PARTICLE_RECORD_STATS行。"
   }
 }
 

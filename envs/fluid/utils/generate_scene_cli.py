@@ -6,10 +6,10 @@
 无需 OrcaGym 环境，适合调试和分析场景配置。
 
 使用方法:
-    python -m envs.fluid.tools.generate_scene_cli <xml_path> <output_json_path> [选项]
+    python -m envs.fluid.utils.generate_scene_cli <xml_path> <output_json_path> [选项]
     
 示例:
-    python -m envs.fluid.tools.generate_scene_cli \\
+    python -m envs.fluid.utils.generate_scene_cli \\
         "/path/to/out.xml" \\
         "scene.json" \\
         --config scene_config.json
@@ -189,7 +189,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
-  python -m envs.fluid.tools.generate_scene_cli \\
+  python -m envs.fluid.utils.generate_scene_cli \\
     "/path/to/out.xml" "scene.json" \\
     --config scene_config.json
         """
