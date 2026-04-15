@@ -23,8 +23,8 @@ def _apply_particle_render_run_mode(orcasph_config: dict, fluid_config: dict) ->
     Apply config['particle_render_run'] to particle_render after template + MJCF overrides.
 
     - live: force recording.enabled false (grpc unchanged from template).
-    - record: recording on, HDF5 output_path and optional record_fps; gRPC to OrcaStudio follows
-      template unless particle_render_run.record_send_to_studio is false (CLI: --no-record-studio).
+    - record: recording on, HDF5 output_path and optional record_fps; gRPC to OrcaStudio only when
+      particle_render_run.record_send_to_studio is true (CLI: run_fluid_sim.py --render-particle).
     """
     pr_run = fluid_config.get("particle_render_run") or {}
     mode = pr_run.get("mode", "live")
@@ -37,13 +37,16 @@ def _apply_particle_render_run_mode(orcasph_config: dict, fluid_config: dict) ->
         return
     if mode == "record":
         rec_path = pr_run.get("record_output_path") or ""
-        send_to_studio = pr_run.get("record_send_to_studio", True)
+        send_to_studio = pr_run.get("record_send_to_studio", False)
         override: Dict[str, Any] = {
             "recording": {
                 "enabled": True,
                 "output_path": rec_path,
             },
         }
+        if rec_path:
+            cursor_path = str(Path(rec_path).resolve()) + ".sph_frame_cursor"
+            override["recording"]["sph_frame_cursor_path"] = cursor_path
         if not send_to_studio:
             override["grpc"] = {"enabled": False}
         _deep_merge(pr, override)
@@ -56,10 +59,14 @@ def _apply_particle_render_run_mode(orcasph_config: dict, fluid_config: dict) ->
             if "grpc" not in pr:
                 pr["grpc"] = {}
             pr["grpc"]["update_rate_hz"] = rf_f
+        log_extra = ""
+        if rec_path:
+            log_extra = f", sph_frame_cursor_path={override['recording'].get('sph_frame_cursor_path')!r}"
         logger.info(
-            "[ParticleRender] run mode record: HDF5 output_path=%r, gRPC to OrcaStudio=%s",
+            "[ParticleRender] run mode record: HDF5 output_path=%r, gRPC to OrcaStudio=%s%s",
             rec_path,
             "on" if send_to_studio else "off",
+            log_extra,
         )
         return
 

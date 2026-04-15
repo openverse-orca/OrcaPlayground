@@ -117,6 +117,39 @@ def _fluid_sync_initial_viewport_to_engine(env) -> None:
         logger.warning(f"gym.render() 同步失败: {e}")
 
 
+def _fluid_render_viewport_to_engine(env) -> None:
+    """Push current MuJoCo state to OrcaSim via gym.render (no reset_simulation). Used for kinematic playback."""
+    import asyncio
+    import concurrent.futures
+
+    unwrapped = env.unwrapped
+    gym_core = getattr(unwrapped, "gym", None)
+    loop = getattr(unwrapped, "loop", None)
+    if gym_core is None or not hasattr(gym_core, "render"):
+        return
+
+    async def _do_render():
+        await gym_core.render()
+
+    def _run_in_thread():
+        new_loop = asyncio.new_event_loop()
+        try:
+            new_loop.run_until_complete(_do_render())
+        finally:
+            new_loop.close()
+
+    try:
+        if loop is None or loop.is_closed():
+            _run_in_thread()
+        elif loop.is_running():
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+                ex.submit(_run_in_thread).result(timeout=5)
+        else:
+            loop.run_until_complete(_do_render())
+    except Exception as e:
+        logger.warning("gym.render() (kinematic playback) failed: %s", e)
+
+
 # 关终端等导致未走 finally 时，解释器退出阶段仍尽力恢复粒子与视口（atexit 不保证在 SIGKILL 下执行）
 _fluid_atexit_state: Dict[str, Any] = {
     "session_active": False,
@@ -281,15 +314,17 @@ def _atexit_fluid_visual_reset() -> None:
 atexit.register(_atexit_fluid_visual_reset)
 
 
-def _run_particle_playback_if_requested(config: Dict) -> bool:
+def run_particle_playback_from_config(config: Dict) -> None:
     """
-    If config['particle_render_run']['mode'] == 'playback', stream the HDF5 to OrcaStudio
-    via orcasph_client.particle_replay and return True so the caller exits without starting
-    MuJoCo / OrcaLink / OrcaSPH.
+    粒子 HDF5 回放入口（由 CLI ``run_fluid_sim --mode playback`` 显式调用）。
+
+    若 ``particle_render_run.mode`` 不是 ``playback``，立即返回（无害空操作）。
+    否则将 HDF5 流式发往 OrcaStudio（``orcasph_client.particle_replay`` 或耦合回放）；
+    出错时 ``sys.exit(1)``。
     """
     pr_run = config.get("particle_render_run") or {}
     if pr_run.get("mode") != "playback":
-        return False
+        return
 
     h5 = pr_run.get("playback_h5")
     if not h5:
@@ -319,6 +354,22 @@ def _run_particle_playback_if_requested(config: Dict) -> bool:
         )
         sys.exit(1)
 
+    from .coupled_playback import particle_h5_has_mujoco_frames, run_coupled_particle_mujoco_playback
+
+    if particle_h5_has_mujoco_frames(h5p):
+        logger.info(
+            "▶️  耦合回放（mujoco_frames + 粒子）: h5=%s",
+            h5p.resolve(),
+        )
+        try:
+            run_coupled_particle_mujoco_playback(config)
+        except KeyboardInterrupt:
+            logger.info("回放已中断")
+        except (ValueError, OSError) as e:
+            logger.error("%s", e)
+            sys.exit(1)
+        return
+
     fps = float(pr_run.get("playback_fps") or 0.0)
     logger.info(
         "▶️  粒子 HDF5 回放: h5=%s target=%s fps=%s",
@@ -333,10 +384,10 @@ def _run_particle_playback_if_requested(config: Dict) -> bool:
             playback_fps=fps,
             start_frame=0,
             max_frames=0,
+            sync_to_render=True,
         )
     except KeyboardInterrupt:
         logger.info("回放已中断")
     except (ValueError, OSError) as e:
         logger.error("%s", e)
         sys.exit(1)
-    return True

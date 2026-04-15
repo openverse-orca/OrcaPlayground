@@ -11,7 +11,7 @@
 
 ### 1.1 问题
 
-在 `--mode record` 下，粒子帧由 OrcaSPH 侧 **ParticleRender** 写入 HDF5（组 `frames`，见 [`ParticleHdf5Recorder.cpp`](../../../../SPlisHSPlasH/Orca/ParticleRender/ParticleRenderBridge/ParticleHdf5Recorder.cpp)）。MuJoCo 侧仍由 [`launch/run_simulation.py`](../launch/run_simulation.py) 主循环推进，并与 SPH 耦合；但 **playback** 时 [`launch/fluid_session.py`](../launch/fluid_session.py) 中 `_run_particle_playback_if_requested` 仅调用 `orca-sph` 的 `run_playback` 向 OrcaStudio **推送粒子**，**不启动** Gym / [`SimEnv`](../sim_env.py)。因此即使另有人类操作轨迹 HDF5（见 [`DESIGN_mujoco_human_trajectory_hdf5.md`](./DESIGN_mujoco_human_trajectory_hdf5.md)），在 **无物理步进、无 SPH 闭环** 的 playback 路径上，也无法得到与录制时一致的 **整模型位形** 与粒子画面的耦合观感。
+在 `--mode record` 下，粒子帧由 OrcaSPH 侧 **ParticleRender** 写入 HDF5（组 `frames`，见 [`ParticleHdf5Recorder.cpp`](../../../../SPlisHSPlasH/Orca/ParticleRender/ParticleRenderBridge/ParticleHdf5Recorder.cpp)）。MuJoCo 侧仍由 [`launch/run_simulation.py`](../launch/run_simulation.py) 主循环推进，并与 SPH 耦合；但 **`--mode playback`** 时由 [`examples/fluid/run_fluid_sim.py`](../../../examples/fluid/run_fluid_sim.py) 分支调用 [`launch/fluid_session.py`](../launch/fluid_session.py) 的 `run_particle_playback_from_config`（纯粒子或耦合回放），**不进入** `run_simulation_with_config`，因而 **不启动** Gym / [`SimEnv`](../sim_env.py)（除非 HDF5 含 `mujoco_frames` 走耦合回放路径）。因此即使另有人类操作轨迹 HDF5（见 [`DESIGN_mujoco_human_trajectory_hdf5.md`](./DESIGN_mujoco_human_trajectory_hdf5.md)），在 **无物理步进、无 SPH 闭环** 的纯粒子 playback 路径上，也无法得到与录制时一致的 **整模型位形** 与粒子画面的耦合观感。
 
 ### 1.2 设计目标
 
@@ -65,11 +65,11 @@ flowchart LR
 
 ---
 
-## 3. record：侧车 MuJoCo HDF5（临时文件）
+## 3. record： MuJoCo HDF5（临时文件）
 
 ### 3.1 启用条件
 
-- `--mode record`，且在配置中显式开启「耦合 qpos 录制」（建议键名：`particle_render_run.record_mujoco_qpos` 或与 [`launch/sph_config.py`](../launch/sph_config.py) 生成到 OrcaSPH JSON 的字段 **同名对齐**；实现阶段以代码为准）。
+- `--mode record`：run_fluid_sim 会写入 `particle_render_run.record_output_path`，并始终启用 MuJoCo qpos （与 [`launch/sph_config.py`](../launch/sph_config.py) 中 `sph_frame_cursor_path` 对齐）。
 
 ### 3.2 临时文件路径
 
@@ -173,7 +173,7 @@ flowchart LR
 
 ### 6.1 入口行为变更
 
-- 当 HDF5 **存在** `mujoco_frames/qpos`（或 CLI 强制「耦合回放」）时，**不再**仅执行 `_run_particle_playback_if_requested` 后进程退出；应进入 **Gym 注册 + `gym.make` SimEnv** 等与 live/record 一致的初始化，直至 `env` 可用于 `render`。
+- 当 HDF5 **存在** `mujoco_frames/qpos`（或 CLI 强制「耦合回放」）时，由 `run_particle_playback_from_config` 内走耦合回放（如 [`coupled_playback.py`](../launch/coupled_playback.py)），**不再**假设仅纯粒子 `run_playback` 后退出；耦合路径应 **Gym 注册 + `gym.make` SimEnv** 等与 live/record 一致的初始化，直至 `env` 可用于 `render`。
 - **不**调用 `OrcaLinkBridge.step`；**不**启动完整 SPH 仿真闭环（粒子由既有回放通道发送）。
 
 ### 6.2 粒子与 MuJoCo 的推进（每粒子帧）
@@ -237,7 +237,7 @@ flowchart LR
 |------|----------------------------------|------|
 | 存储内容 | `ctrl`、人类 mocap、人类 equality 子集 | **完整 `qpos`**（整模型广义坐标） |
 | 典型用途 | live/record 下复现 **手操**，与 SPH 闭环共存 | **playback 无 SPH** 时与粒子帧 **视觉对齐** |
-| 文件形态 | 独立 `trajectory_record_*.h5` | 合并进粒子 HDF5 的 **`mujoco_frames`**（+ record 时临时侧车文件） |
+| 文件形态 | 独立 `trajectory_record_*.h5` | 合并进粒子 HDF5 的 **`mujoco_frames`**（+ record 时临时文件） |
 | 回放时物理 | record 仍 `env.step` + 仿真 | **不** `step`，仅 **kinematic + render** |
 
 二者可同时用于同一项目（例如 record 时既开人类轨迹录又开本文耦合录），但 playback 耦合路径 **只消费** `mujoco_frames`；人类轨迹 HDF5 不解决「无 step 的全局位形」问题。
