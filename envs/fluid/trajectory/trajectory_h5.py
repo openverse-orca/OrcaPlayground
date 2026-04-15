@@ -15,12 +15,14 @@ from typing import Any, Dict, FrozenSet, List, Optional, Tuple
 import mujoco
 import numpy as np
 
+from ..utils.hdf5_chunk_utils import h5py_chunks_if_valid
 from .trajectory_frame import HumanTrajectoryStepConfig
 
 logger = logging.getLogger(__name__)
 
-# 2: equality 端点仅 eq_obj1_name / eq_obj2_name（无 id 列）
-SCHEMA_VERSION = 2
+# 3: nu==0 时不写入 ctrl；帧数以 mocap_pos 时间维为准；chunk 零维用 h5py_chunks_if_valid
+# 2: equality 端点仅 eq_obj1_name / eq_obj2_name（已废弃，请重录）
+SCHEMA_VERSION = 3
 _SPH_MOCAP_PATTERN = re.compile(r"_SPH_MOCAP_")
 
 
@@ -165,7 +167,7 @@ class TrajectoryRecorder:
         )
 
         chunk = min(256, max(1, self._T + 1))
-        # chunks 与零宽 ctrl/eq 维度兼容
+
         def _chunks_1d(width: int) -> tuple:
             return (chunk, width)
 
@@ -174,21 +176,25 @@ class TrajectoryRecorder:
                 return (chunk, self._K, last)
             return (chunk, 0, last)
 
-        self._d_ctrl = g.create_dataset(
-            "ctrl",
-            shape=(0, self._nu),
-            maxshape=(None, self._nu),
-            dtype=np.float32,
-            chunks=_chunks_1d(self._nu),
-            compression="gzip",
-            compression_opts=4,
-        )
+        if self._nu > 0:
+            self._d_ctrl = g.create_dataset(
+                "ctrl",
+                shape=(0, self._nu),
+                maxshape=(None, self._nu),
+                dtype=np.float32,
+                chunks=h5py_chunks_if_valid(_chunks_1d(self._nu)),
+                compression="gzip",
+                compression_opts=4,
+            )
+        else:
+            self._d_ctrl = None
+
         self._d_mpos = g.create_dataset(
             "mocap_pos",
             shape=(0, self._K, 3),
             maxshape=(None, self._K, 3),
             dtype=np.float32,
-            chunks=_chunks_mocap(3),
+            chunks=h5py_chunks_if_valid(_chunks_mocap(3)),
             compression="gzip",
             compression_opts=4,
         )
@@ -197,7 +203,7 @@ class TrajectoryRecorder:
             shape=(0, self._K, 4),
             maxshape=(None, self._K, 4),
             dtype=np.float32,
-            chunks=_chunks_mocap(4),
+            chunks=h5py_chunks_if_valid(_chunks_mocap(4)),
             compression="gzip",
             compression_opts=4,
         )
@@ -206,7 +212,7 @@ class TrajectoryRecorder:
             shape=(0, self._E),
             maxshape=(None, self._E),
             dtype=np.uint8,
-            chunks=_chunks_1d(self._E),
+            chunks=h5py_chunks_if_valid(_chunks_1d(self._E)),
             compression="gzip",
             compression_opts=4,
         )
@@ -216,7 +222,7 @@ class TrajectoryRecorder:
             shape=(0, self._E),
             maxshape=(None, self._E),
             dtype=self._str_dt,
-            chunks=_chunks_1d(self._E),
+            chunks=h5py_chunks_if_valid(_chunks_1d(self._E)),
             compression="gzip",
             compression_opts=4,
         )
@@ -225,7 +231,7 @@ class TrajectoryRecorder:
             shape=(0, self._E),
             maxshape=(None, self._E),
             dtype=self._str_dt,
-            chunks=_chunks_1d(self._E),
+            chunks=h5py_chunks_if_valid(_chunks_1d(self._E)),
             compression="gzip",
             compression_opts=4,
         )
@@ -234,7 +240,7 @@ class TrajectoryRecorder:
             shape=(0, self._E),
             maxshape=(None, self._E),
             dtype=np.int32,
-            chunks=_chunks_1d(self._E),
+            chunks=h5py_chunks_if_valid(_chunks_1d(self._E)),
             compression="gzip",
             compression_opts=4,
         )
@@ -243,7 +249,7 @@ class TrajectoryRecorder:
             shape=(0, self._E, self._eq_w),
             maxshape=(None, self._E, self._eq_w),
             dtype=np.float64,
-            chunks=(chunk, self._E, self._eq_w),
+            chunks=h5py_chunks_if_valid((chunk, self._E, self._eq_w)),
             compression="gzip",
             compression_opts=4,
         )
@@ -293,8 +299,7 @@ class TrajectoryRecorder:
 
         t = self._T
         new_t = t + 1
-        for ds, row in (
-            (self._d_ctrl, ctrl[None, :]),
+        rows: List[Tuple[Any, Any]] = [
             (self._d_mpos, mpos[None, ...]),
             (self._d_mquat, mquat[None, ...]),
             (self._d_eq_a, eq_a[None, :]),
@@ -302,7 +307,10 @@ class TrajectoryRecorder:
             (self._d_n2, n2[None, :]),
             (self._d_eqt, eqt[None, :]),
             (self._d_eqd, eqd[None, ...]),
-        ):
+        ]
+        if self._d_ctrl is not None:
+            rows.insert(0, (self._d_ctrl, ctrl[None, :]))
+        for ds, row in rows:
             ds.resize((new_t,) + ds.shape[1:])
             ds[t] = row[0]
         self._T = new_t
@@ -336,7 +344,7 @@ class TrajectoryPlayer:
         if sv != SCHEMA_VERSION:
             raise ValueError(
                 f"Trajectory file schema_version={sv} expected {SCHEMA_VERSION}; "
-                "re-record with equality body names (schema 2)."
+                "re-record with current OrcaPlayground (human trajectory schema 3)."
             )
 
         self._nu = int(g.attrs["nu"])
@@ -351,16 +359,23 @@ class TrajectoryPlayer:
         else:
             self._eq_indices = [int(x) for x in np.asarray(g.attrs["recorded_eq_indices"])]
 
-        self._T = int(g["ctrl"].shape[0])
-        self._t = 0
-
-        self._ctrl = g["ctrl"]
         self._mpos = g["mocap_pos"]
         self._mquat = g["mocap_quat"]
+        self._T = int(self._mpos.shape[0])
+        self._t = 0
+
+        if self._nu > 0:
+            if "ctrl" not in g:
+                raise ValueError(
+                    "Trajectory HDF5 schema 3 requires dataset 'ctrl' when nu > 0"
+                )
+            self._ctrl = g["ctrl"]
+        else:
+            self._ctrl = None
         self._eq_a = g["eq_active"]
         if "eq_obj1_name" not in g or "eq_obj2_name" not in g:
             raise ValueError(
-                "Trajectory HDF5 missing eq_obj1_name/eq_obj2_name (schema 2 required)."
+                "Trajectory HDF5 missing eq_obj1_name/eq_obj2_name (schema 3 required)."
             )
         self._n1 = g["eq_obj1_name"]
         self._n2 = g["eq_obj2_name"]
@@ -371,6 +386,10 @@ class TrajectoryPlayer:
 
     def _validate_against_env(self) -> None:
         env = self._env
+        if self._ctrl is not None and int(self._ctrl.shape[0]) != self._T:
+            raise ValueError(
+                f"Trajectory ctrl rows {self._ctrl.shape[0]} != mocap_pos time {self._T}"
+            )
         if int(env.model.nu) != self._nu:
             raise ValueError(
                 f"Trajectory nu={self._nu} != env.model.nu={env.model.nu}"
@@ -433,8 +452,13 @@ class TrajectoryPlayer:
             eq_type = np.zeros((0,), dtype=np.int32)
             eq_data = np.zeros((0, self._eq_w), dtype=np.float64)
 
+        if self._ctrl is not None:
+            ctrl_row = np.asarray(self._ctrl[i], dtype=np.float32).reshape(self._nu)
+        else:
+            ctrl_row = np.zeros((0,), dtype=np.float32)
+
         cfg = HumanTrajectoryStepConfig(
-            ctrl=np.array(self._ctrl[i], dtype=np.float32, copy=True),
+            ctrl=ctrl_row,
             mocap_names=list(self._mocap_names),
             mocap_pos=np.array(self._mpos[i], copy=True),
             mocap_quat=np.array(self._mquat[i], copy=True),

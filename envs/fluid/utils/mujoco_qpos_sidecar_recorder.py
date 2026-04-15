@@ -9,6 +9,8 @@ from typing import Any, List, Optional, Tuple
 
 import numpy as np
 
+from .hdf5_chunk_utils import h5py_chunks_if_valid
+
 try:
     import fcntl
 except ImportError:
@@ -135,13 +137,17 @@ class MujocoQposSidecarRecorder:
         )
 
         g = self._fp.create_group("samples")
-        ch = max(1, min(self._packed_q_width, 256))
+        if self._packed_q_width > 0:
+            ch = max(1, min(self._packed_q_width, 256))
+            q_chunks = h5py_chunks_if_valid((1, ch))
+        else:
+            q_chunks = None
         g.create_dataset(
             "qpos",
             shape=(0, self._packed_q_width),
             maxshape=(None, self._packed_q_width),
             dtype="float64",
-            chunks=(1, ch),
+            chunks=q_chunks,
         )
         g.create_dataset(
             "sph_record_frame_index",

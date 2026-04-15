@@ -89,7 +89,7 @@ OrcaLink 设计文档（多点通信命名约定）见：
 
 | 属性 | 说明 |
 |------|------|
-| `schema_version` | 整数；**2** 起等式端点仅存 **body 名**（`eq_obj1_name` / `eq_obj2_name`），不再存 id；旧版仅 id 的文件不再兼容，需重新录制。 |
+| `schema_version` | 整数；当前实现为 **3**：等式端点仅存 **body 名**；**`nu==0` 时不写入 `ctrl` 数据集**；帧数 **`T` 以 `mocap_pos.shape[0]` 为准**；与 schema 2 及更早文件不兼容，需重新录制。 |
 | `session_timestamp` | 与粒子录制对齐的字符串。 |
 | `control_dt` / `realtime_step` | 主循环控制周期（秒）。 |
 | `nu` | `model.nu`。 |
@@ -101,7 +101,7 @@ OrcaLink 设计文档（多点通信命名约定）见：
 
 | 数据集 | 形状 | 说明 |
 |--------|------|------|
-| `ctrl` | `(T, nu)` | float32，与当帧实际下发一致。 |
+| `ctrl` | `(T, nu)`，**仅当 `nu>0`** | float32，与当帧实际下发一致；无 actuator 时省略该数据集，`attrs["nu"]` 仍为 0。 |
 | `mocap_pos` | `(T, K, 3)` | 与 `mocap_body_names` 顺序对齐。 |
 | `mocap_quat` | `(T, K, 4)` | wxyz，与 OrcaGym `set_mocap_pos_and_quat` 一致。 |
 | `eq_active` | `(T, E)` | uint8，仅 `recorded_eq_indices` 对应行。 |

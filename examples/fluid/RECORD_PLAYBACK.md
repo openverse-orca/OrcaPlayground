@@ -24,7 +24,7 @@ python run_fluid_sim.py --mode live
 
 ### 人类操作轨迹（可选）
 
-与粒子 HDF5 独立：记录人在 Studio 侧对 **ctrl / mocap / equality** 等操作（不含 SPH 专用 mocap 体），便于与粒子录制按时间戳配对。设计说明：[`envs/fluid/Docs/DESIGN_mujoco_human_trajectory_hdf5.md`](../../envs/fluid/Docs/DESIGN_mujoco_human_trajectory_hdf5.md)。
+与粒子 HDF5 独立：记录人在 Studio 侧对 **ctrl / mocap / equality** 等操作（不含 SPH 专用 mocap 体），便于与粒子录制按时间戳配对。当前轨迹 HDF5 为 **`schema_version=3`**（无 actuator 时 **`nu==0`** 且不写入 `ctrl` 数据集；帧数见 `mocap_pos` 时间维）。设计说明：[`envs/fluid/Docs/DESIGN_mujoco_human_trajectory_hdf5.md`](../../envs/fluid/Docs/DESIGN_mujoco_human_trajectory_hdf5.md)。
 
 | 参数 | 说明 |
 |------|------|

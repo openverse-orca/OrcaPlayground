@@ -93,7 +93,7 @@ flowchart LR
 | `/` attrs | | | `sidecar_schema_version=2`，`qpos_layout="joint_name_packed"`，`packed_q_width=Q`，`nq`（与 `model.nq` 对齐用，软校验） |
 | `/meta/joint_names` | UTF-8 字符串 | `(J,)` | 关节名（与打包顺序一致） |
 | `/meta/joint_qpos_sizes` | `int32` | `(J,)` | 各关节在 `qpos` 中占用长度（FREE 7、BALL 4、HINGE/SLIDE 1） |
-| `/samples/qpos` | `float64` | `(T, Q)` | 可扩展 chunk；每行一次采样（打包向量） |
+| `/samples/qpos` | `float64` | `(T, Q)` | 可扩展；`Q>0` 时使用显式 chunk `(1, min(Q,256))`；**`Q==0`** 时不设 chunk（避免 HDF5 对零维 chunk 的限制）。 |
 | `/samples/sph_record_frame_index` | `uint64` | `(T,)` | 采样瞬间从 cursor 文件读到的值，语义见第 4 节 |
 | `/samples/mujoco_step_index` | `uint64` | `(T,)` | 可选；主循环步计数，便于调试 |
 
