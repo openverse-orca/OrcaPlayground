@@ -51,8 +51,12 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from envs.fluid import run_simulation_with_config
+<<<<<<< HEAD
 from envs.fluid.launch.fluid_session import run_particle_playback_from_config
 from envs.fluid.launch.sph_config import setup_python_logging
+=======
+from envs.fluid.utils import register_session_log
+>>>>>>> 78204e5 (chore(fluid): 更新 fluid_sim_config.json、scene_generator.py 等多个文件及 SPlisHSPlasH submodule)
 
 
 def load_config(config_path: str) -> dict:
@@ -61,6 +65,7 @@ def load_config(config_path: str) -> dict:
         return json.load(f)
 
 
+<<<<<<< HEAD
 class TeeOutput:
     """同时写入多个流（如控制台 + 日志文件）。"""
 
@@ -82,6 +87,43 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         description="Fluid-MuJoCo 耦合仿真",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
+=======
+def main():
+    # 生成统一时间戳（在所有其他操作之前）
+    session_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    orcagym_tmp_dir = Path.home() / ".orcagym" / "tmp"
+    orcagym_tmp_dir.mkdir(parents=True, exist_ok=True)
+    log_file = orcagym_tmp_dir / f"run_fluid_sim_{session_timestamp}.log"
+    latest_log = register_session_log(log_file, "latest_run_fluid_sim.log")
+    
+    # 设置日志重定向（同时输出到控制台和文件）
+    class TeeOutput:
+        def __init__(self, *files):
+            self.files = files
+        def write(self, obj):
+            for f in self.files:
+                f.write(obj)
+                f.flush()
+        def flush(self):
+            for f in self.files:
+                f.flush()
+    
+    log_handle = open(log_file, 'w', encoding='utf-8', buffering=1)
+    original_stdout = sys.stdout
+    original_stderr = sys.stderr
+    sys.stdout = TeeOutput(sys.stdout, log_handle)
+    sys.stderr = TeeOutput(sys.stderr, log_handle)
+    
+    try:
+        print(f"📝 日志文件: {log_file}")
+        print(f"📝 最新日志入口: {latest_log}")
+        print("=" * 60)
+        
+        parser = argparse.ArgumentParser(
+            description='Fluid-MuJoCo 耦合仿真',
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+            epilog="""
+>>>>>>> 78204e5 (chore(fluid): 更新 fluid_sim_config.json、scene_generator.py 等多个文件及 SPlisHSPlasH submodule)
 【运行前提】
   1. 已启动 OrcaStudio/OrcaLab 并加载场景（live / record）
   2. 场景中包含带 SPH 标记的刚体（live / record）
@@ -430,6 +472,7 @@ def main() -> int:
         _apply_manual_mode_from_args(config, args)
 
         try:
+<<<<<<< HEAD
             if args.mode == "playback":
                 # 与 run_simulation._preflight_session 中耦合路径一致：先按配置设 Python 日志
                 setup_python_logging(config)
@@ -440,6 +483,17 @@ def main() -> int:
                     session_timestamp=session_timestamp,
                     cpu_affinity=cpu_affinity,
                 )
+=======
+<<<<<<< Updated upstream
+            run_simulation_with_config(config, session_timestamp=session_timestamp, cpu_affinity=cpu_affinity)
+=======
+            print("📝 子进程最新日志入口:")
+            print(f"  - OrcaLink: {orcagym_tmp_dir / 'latest_orcalink.log'}")
+            print(f"  - OrcaSPH: {orcagym_tmp_dir / 'latest_orcasph.log'}")
+            print("=" * 60)
+            run_simulation_with_config(config, session_timestamp=session_timestamp, cpu_affinity=args.cpu)
+>>>>>>> Stashed changes
+>>>>>>> 78204e5 (chore(fluid): 更新 fluid_sim_config.json、scene_generator.py 等多个文件及 SPlisHSPlasH submodule)
         except KeyboardInterrupt:
             print("\n✅ 仿真已停止")
         except Exception as e:

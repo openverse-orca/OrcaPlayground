@@ -26,18 +26,18 @@
   },
   "scene_template": {
     "Configuration": {
-      "particleRadius": 0.025,
+      "particleRadius": 0.02,
       "numberOfStepsPerRenderUpdate": 4,
       "density0": 1000,
       "simulationMethod": 4,
       "gravitation": [0, -9.81, 0],
-      "cflMethod": 1,
+      "cflMethod": 0,
       "cflFactor": 1,
-      "cflMaxTimeStepSize": 0.005,
-      "maxIterations": 100,
-      "maxError": 0.05,
-      "maxIterationsV": 100,
-      "maxErrorV": 0.1,
+      "cflMaxTimeStepSize": 0.004,
+      "maxIterations": 80,
+      "maxError": 0.01,
+      "maxIterationsV": 80,
+      "maxErrorV": 0.01,
       "stiffness": 50000,
       "exponent": 7,
       "velocityUpdateMethod": 0,
@@ -58,8 +58,8 @@
     "FluidBlocks": [
       {
         "denseMode": 0,
-        "start": [-0.1, -0.1, -0.1],
-        "end": [0.1, 0.1, 0.1],
+        "start": [-1.0, 0.0, -1.0],
+        "end": [0.0, 1.5, 1.0],
         "translation": [0.0, 0.0, 0.0],
         "scale": [1.0, 1.0, 1.0]
       }

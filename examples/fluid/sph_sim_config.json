@@ -148,7 +148,7 @@
       },
       "gravity": {
         "enable_rigid_body_gravity": false,
-        "enable_rigid_body_collision": false,
+        "enable_rigid_body_collision": true,
         "anchor_particle_mass_ratio": 0.5
       },
       "force_clamping": {

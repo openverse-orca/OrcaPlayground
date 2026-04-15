@@ -13,7 +13,7 @@
     "port": 50351,
     "auto_start": true,
     "startup_delay": 2,
-    "command": "orcalink",
+    "command": "/home/hjadmin/Orca/OrcaLink/bin/orcalink",
     "args": [],
     
     "client": {
@@ -108,7 +108,12 @@
   },
   
   "debug": {
-    "verbose_logging": false
+    "verbose_logging": false,
+    "self_check": {
+      "enabled": true,
+      "interval_steps": 500,
+      "include_channel_stats": true
+    }
   }
 }
 
