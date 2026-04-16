@@ -12,6 +12,7 @@ import logging
 from pathlib import Path
 
 from ..paths import FLUID_PACKAGE_DIR
+from ..launch.sph_config import _deep_merge
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass, asdict
 import sys
@@ -61,13 +62,15 @@ class SceneGenerator:
 
         # particleRadius — authoritative value used throughout scene generation.
         # Initialized from scene_config.json as a safe default; overridden early in
-        # generate_complete_scene() by reading the value from the MJCF bound site
-        # (where ParticleRenderBoundsComponent writes it via user[0]).
+        # generate_complete_scene() by reading the MJCF bound site User[0]/User[1]
+        # (Orca: radius + PRBTransmissionMode tag for particle_render.grpc merge).
         self.particle_radius: float = float(
             self.config.get("scene_template", {})
                         .get("Configuration", {})
                         .get("particleRadius", 0.025)
         )
+        # MJCF *_SPH_PARTICLE_RENDER_BOUNDS site User[1] (PRBTransmissionMode), if present
+        self.particle_render_transmission_tag: Optional[int] = None
 
         # 保存 scene 文件所在的目录（用于相对路径转换）
         self.scene_dir = None  # 在 generate_complete_scene 中设置
@@ -1043,13 +1046,17 @@ class SceneGenerator:
             raise
     
     def _init_particle_radius(self) -> None:
-        """从 MJCF bound site 的 user[0] 字段读取 particleRadius，确保全局统一。
+        """从 MJCF bound site 的 User 向量读取 particleRadius（user[0]）与传输标签（user[1]）。
+
+        - user[0]: particleRadius（与 Orca ParticleRenderBounds 一致）
+        - user[1]: PRBTransmissionMode — 合并到 config particle_render.grpc（与 Editor Transmission Mode 一致）
+          0=particle_frame，1=voxel_grid，2=raw_fp32_batch（particle_frame + payload_format raw_fp32）
 
         必须在 generate_complete_scene() 最开始调用，早于任何依赖 self.particle_radius 的计算。
 
-        读取成功时同步覆盖 self.config 中的默认值，使 SPH scene.json 也用同一个值。
-        读取失败时保留 __init__ 中从 scene_config.json 设置的默认值，并打印警告。
+        仅有 user[0] 的旧 MJCF 保持原有行为；不覆盖 grpc 字段。
         """
+        self.particle_render_transmission_tag = None
         try:
             site_dict = self.env.model.get_site_dict()
             if not site_dict:
@@ -1063,25 +1070,55 @@ class SceneGenerator:
                 return
 
             user_data = site_dict[bounds_site_name].get("User", [])
-            if user_data and len(user_data) >= 1:
-                radius = float(user_data[0])
-                if radius > 0.0:
-                    self.particle_radius = radius
-                    # Keep scene_config in sync so any downstream code reading the dict
-                    # also uses the same authoritative value.
-                    try:
-                        self.config["scene_template"]["Configuration"]["particleRadius"] = radius
-                    except (KeyError, TypeError):
-                        pass
-                    logger.info(
-                        f"particleRadius initialized from MJCF site '{bounds_site_name}': {radius}"
-                    )
-                    return
+            if not user_data or len(user_data) < 1:
+                logger.warning(
+                    f"Bound site '{bounds_site_name}' has no valid user[0] — "
+                    f"falling back to scene_config particleRadius={self.particle_radius}"
+                )
+                return
 
-            logger.warning(
-                f"Bound site '{bounds_site_name}' has no valid user[0] — "
-                f"falling back to scene_config particleRadius={self.particle_radius}"
-            )
+            radius = float(user_data[0])
+            if radius > 0.0:
+                self.particle_radius = radius
+                try:
+                    self.config["scene_template"]["Configuration"]["particleRadius"] = radius
+                except (KeyError, TypeError):
+                    pass
+                logger.info(
+                    f"particleRadius initialized from MJCF site '{bounds_site_name}': {radius}"
+                )
+            else:
+                logger.warning(
+                    f"Bound site '{bounds_site_name}' has non-positive user[0]={radius} — "
+                    f"keeping scene_config particleRadius={self.particle_radius}"
+                )
+
+            if len(user_data) >= 2:
+                try:
+                    tag = int(round(float(user_data[1])))
+                except (TypeError, ValueError):
+                    tag = None
+                if tag is not None:
+                    self.particle_render_transmission_tag = tag
+                    pr = self.config.setdefault("particle_render", {})
+                    grpc = pr.setdefault("grpc", {})
+                    if tag == 0:
+                        grpc["transmission_mode"] = "particle_frame"
+                    elif tag == 1:
+                        grpc["transmission_mode"] = "voxel_grid"
+                    elif tag == 2:
+                        grpc["transmission_mode"] = "particle_frame"
+                        grpc["payload_format"] = "raw_fp32"
+                    else:
+                        logger.warning(
+                            f"Unknown PRBTransmissionMode tag {tag} in site user[1]; "
+                            "not merging particle_render.grpc fields"
+                        )
+                    if tag in (0, 1, 2):
+                        logger.info(
+                            f"particle_render.grpc merged from MJCF site user[1] "
+                            f"(tag={tag}): {dict(grpc)}"
+                        )
         except Exception as e:
             logger.warning(f"_init_particle_radius failed: {e}; using default {self.particle_radius}")
 
@@ -1173,8 +1210,10 @@ class SceneGenerator:
         将米制的 half_extents 逆推为整数格子数（必须为 2 的幂），分别覆盖
         particle_frame.grid_resolution 和 voxel_grid 的 width/height/depth/origin。
 
-        与 ``particle_render.grpc.payload_format`` 无关：``quantized_packed`` 与 ``raw_fp32``
-        均使用同一套 world 包围盒与 origin 推导（Orca 侧 grid_config / 实体局部坐标一致）。
+        另外，若在 generate_complete_scene 中已从 MJCF site user[1] 合并了
+        ``particle_render.grpc``（例如 raw_fp32），会一并写入返回值，供
+        ``generate_orcasph_config`` 写入 orcasph JSON（与仅存在于 scene_config 内存中的
+        模板默认值区分开）。
 
         前置条件：self.particle_radius 已通过 _init_particle_radius() 设置。
 
@@ -1182,8 +1221,8 @@ class SceneGenerator:
             sph_config: 从 sph_sim_config.json 加载的完整 SPH 配置字典。
 
         Returns:
-            dict  — 仅含需要覆盖字段的 particle_render 子字典，可直接 deep-merge 到
-                    最终 orcasph_config；若无 bounds site 则返回 None（不覆盖）。
+            dict  — 需要覆盖的 particle_render 子字典，可直接 deep-merge 到最终 orcasph_config；
+                    若无 bound site 且无 MJCF grpc 覆盖则返回 None。
         """
         import math
 
@@ -1194,76 +1233,94 @@ class SceneGenerator:
             p = int(round(math.log2(x)))
             return int(max(lo, min(hi, 2 ** p)))
 
+        override: Optional[dict] = None
+
         pr_bounds = self._find_particle_render_bounds()
-        if pr_bounds is None:
-            logger.info("generate_particle_render_config: no bound site found, skipping override")
+        if pr_bounds is not None:
+            center_zup, half_zup = pr_bounds
+
+            # Z-up → Y-up 轴置换：[hx, hy, hz]_zup → [hx, hz, hy]_yup
+            half_yup = np.array([half_zup[0], half_zup[2], half_zup[1]], dtype=float)
+            center_yup = np.array(self.convert_local_coord_z_to_y(center_zup), dtype=float)
+
+            pr_section = sph_config.get("particle_render", {})
+
+            # ---- particle_frame ----
+            pf_cfg = pr_section.get("particle_frame", {})
+            vsr_pf = float(pf_cfg.get("voxel_size_ratio", 1.0))
+            voxel_pf = self.particle_radius * vsr_pf
+            # ---- voxel_grid ----
+            vg_cfg = pr_section.get("voxel_grid", {})
+            vsr_vg = float(vg_cfg.get("voxel_size_ratio", 1.0))
+            voxel_vg = self.particle_radius * 2.0 * vsr_vg
+
+            if voxel_pf <= 0:
+                logger.warning(
+                    f"Invalid voxel size for particle_frame ({voxel_pf}), skipping geometry override"
+                )
+            elif voxel_vg <= 0:
+                logger.warning(
+                    f"Invalid voxel size for voxel_grid ({voxel_vg}), skipping geometry override"
+                )
+            else:
+                res_x = _round_to_pow2(half_yup[0] * 2.0 / voxel_pf)
+                res_y = _round_to_pow2(half_yup[1] * 2.0 / voxel_pf)
+                res_z = _round_to_pow2(half_yup[2] * 2.0 / voxel_pf)
+
+                vg_w = _round_to_pow2(half_yup[0] * 2.0 / voxel_vg)
+                vg_h = _round_to_pow2(half_yup[1] * 2.0 / voxel_vg)
+                vg_d = _round_to_pow2(half_yup[2] * 2.0 / voxel_vg)
+
+                override = {
+                    "particle_frame": {
+                        "grid_resolution": {
+                            "x": res_x,
+                            "y": res_y,
+                            "z": res_z,
+                        },
+                        "origin": {
+                            "x": float(center_yup[0]),
+                            "y": float(center_yup[1]),
+                            "z": float(center_yup[2]),
+                        },
+                    },
+                    "voxel_grid": {
+                        "width": vg_w,
+                        "height": vg_h,
+                        "depth": vg_d,
+                        "origin": {
+                            "x": float(center_yup[0]),
+                            "y": float(center_yup[1]),
+                            "z": float(center_yup[2]),
+                        },
+                    },
+                }
+
+                logger.info(
+                    f"particle_render override computed from bound site "
+                    f"(particleRadius={self.particle_radius}):\n"
+                    f"  particle_frame.grid_resolution = {res_x}×{res_y}×{res_z}, "
+                    f"origin={center_yup.tolist()}\n"
+                    f"  voxel_grid = {vg_w}×{vg_h}×{vg_d}, origin={center_yup.tolist()}"
+                )
+        else:
+            logger.info(
+                "generate_particle_render_config: no bound site found, skipping geometry override"
+            )
+
+        mjcf_grpc = (self.config.get("particle_render") or {}).get("grpc")
+        if mjcf_grpc:
+            if override is None:
+                override = {}
+            override.setdefault("grpc", {})
+            _deep_merge(override["grpc"], dict(mjcf_grpc))
+            logger.info(
+                "particle_render.grpc from MJCF merged into OrcaSPH override: %s",
+                dict(override["grpc"]),
+            )
+
+        if override is None:
             return None
-
-        center_zup, half_zup = pr_bounds
-
-        # Z-up → Y-up 轴置换：[hx, hy, hz]_zup → [hx, hz, hy]_yup
-        half_yup = np.array([half_zup[0], half_zup[2], half_zup[1]], dtype=float)
-        center_yup = np.array(self.convert_local_coord_z_to_y(center_zup), dtype=float)
-
-        pr_section = sph_config.get("particle_render", {})
-
-        # ---- particle_frame ----
-        pf_cfg     = pr_section.get("particle_frame", {})
-        vsr_pf     = float(pf_cfg.get("voxel_size_ratio", 1.0))
-        voxel_pf   = self.particle_radius * vsr_pf
-        if voxel_pf <= 0:
-            logger.warning(f"Invalid voxel size for particle_frame ({voxel_pf}), skipping override")
-            return None
-
-        res_x = _round_to_pow2(half_yup[0] * 2.0 / voxel_pf)
-        res_y = _round_to_pow2(half_yup[1] * 2.0 / voxel_pf)
-        res_z = _round_to_pow2(half_yup[2] * 2.0 / voxel_pf)
-
-        # ---- voxel_grid ----
-        vg_cfg     = pr_section.get("voxel_grid", {})
-        vsr_vg     = float(vg_cfg.get("voxel_size_ratio", 1.0))
-        # factor-2 matches C++ formula: voxel_size = particleRadius * 2.0 * voxel_size_ratio
-        voxel_vg   = self.particle_radius * 2.0 * vsr_vg
-        if voxel_vg <= 0:
-            logger.warning(f"Invalid voxel size for voxel_grid ({voxel_vg}), skipping override")
-            return None
-
-        vg_w = _round_to_pow2(half_yup[0] * 2.0 / voxel_vg)
-        vg_h = _round_to_pow2(half_yup[1] * 2.0 / voxel_vg)
-        vg_d = _round_to_pow2(half_yup[2] * 2.0 / voxel_vg)
-
-        override = {
-            "particle_frame": {
-                "grid_resolution": {
-                    "x": res_x,
-                    "y": res_y,
-                    "z": res_z,
-                },
-                "origin": {
-                    "x": float(center_yup[0]),
-                    "y": float(center_yup[1]),
-                    "z": float(center_yup[2]),
-                },
-            },
-            "voxel_grid": {
-                "width":  vg_w,
-                "height": vg_h,
-                "depth":  vg_d,
-                "origin": {
-                    "x": float(center_yup[0]),
-                    "y": float(center_yup[1]),
-                    "z": float(center_yup[2]),
-                },
-            },
-        }
-
-        logger.info(
-            f"particle_render override computed from bound site "
-            f"(particleRadius={self.particle_radius}):\n"
-            f"  particle_frame.grid_resolution = {res_x}×{res_y}×{res_z}, "
-            f"origin={center_yup.tolist()}\n"
-            f"  voxel_grid = {vg_w}×{vg_h}×{vg_d}, origin={center_yup.tolist()}"
-        )
         return override
 
     def generate_complete_scene(self, output_path: str = None, 
