@@ -27,6 +27,7 @@ Fluid-MuJoCo 耦合仿真示例
     python run_fluid_sim.py --mode playback particle_records/foo.h5   # 与 --h5 等价
     python run_fluid_sim.py --config my_config.json
     python run_fluid_sim.py --manual-mode
+    python run_fluid_sim.py --backend cpu   # OrcaSPH 使用 CPU DFSPH（默认 --backend gpu）
 """
 
 from __future__ import annotations
@@ -101,9 +102,10 @@ def _build_arg_parser() -> argparse.ArgumentParser:
   python run_fluid_sim.py --mode record --render-particle  # 同上并向 OrcaStudio 推粒子流预览
   python run_fluid_sim.py --mode playback --h5 particle_records/x.h5
   python run_fluid_sim.py --mode playback particle_records/x.h5
-  python run_fluid_sim.py --gui              # 启用 OrcaSPH GUI
-  python run_fluid_sim.py --config my.json   # 自定义配置
-  python run_fluid_sim.py --manual-mode      # 手动模式
+    python run_fluid_sim.py --gui              # 启用 OrcaSPH GUI
+    python run_fluid_sim.py --backend cpu      # OrcaSPH 使用 CPU DFSPH（默认 gpu）
+    python run_fluid_sim.py --config my.json   # 自定义配置
+    python run_fluid_sim.py --manual-mode      # 手动模式
             """,
     )
 
@@ -165,6 +167,12 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         "--gui",
         action="store_true",
         help="启用 OrcaSPH GUI 可视化界面（默认禁用）",
+    )
+    parser.add_argument(
+        "--backend",
+        choices=("gpu", "cpu"),
+        default="gpu",
+        help="自动启动 OrcaSPH 时传给 orcasph 的 --backend：gpu=CUDA DFSPH（默认），cpu=CPU DFSPH",
     )
     parser.add_argument(
         "--use-all-cpu",
@@ -374,6 +382,26 @@ def _apply_orcasph_gui_from_args(config: dict, gui: bool) -> None:
         print("🎨 OrcaSPH GUI 已启用")
 
 
+def _apply_orcasph_backend_from_args(config: dict, backend: str) -> None:
+    """将 --backend cpu|gpu 写入 orcasph 启动参数（与 orcasph CLI 一致）。"""
+    if "orcasph" not in config or not config["orcasph"].get("enabled", False):
+        return
+    if "args" not in config["orcasph"]:
+        config["orcasph"]["args"] = []
+    args_list = config["orcasph"]["args"]
+    filtered: list[str] = []
+    i = 0
+    while i < len(args_list):
+        if args_list[i] == "--backend" and i + 1 < len(args_list):
+            i += 2
+            continue
+        filtered.append(args_list[i])
+        i += 1
+    filtered.extend(["--backend", backend])
+    config["orcasph"]["args"] = filtered
+    print(f"🔧 OrcaSPH DFSPH 后端: {backend}（将传递 orcasph --backend {backend}）")
+
+
 def _apply_manual_mode_from_args(config: dict, args: argparse.Namespace) -> None:
     if not args.manual_mode:
         return
@@ -383,7 +411,9 @@ def _apply_manual_mode_from_args(config: dict, args: argparse.Namespace) -> None
     print("请确保已手动启动以下服务：")
     print(f"  1. OrcaLink: orcalink --port {config['orcalink']['port']}")
     gui_flag = "--gui" if args.gui else ""
-    print(f"  2. OrcaSPH: orcasph --scene <scene.json> {gui_flag}")
+    print(
+        f"  2. OrcaSPH: orcasph --backend {args.backend} --scene <scene.json> {gui_flag}"
+    )
     print("=" * 60)
     config["orcalink"]["auto_start"] = False
     config["orcasph"]["auto_start"] = False
@@ -427,6 +457,7 @@ def main() -> int:
         if err is not None:
             return err
         _apply_orcasph_gui_from_args(config, args.gui)
+        _apply_orcasph_backend_from_args(config, args.backend)
         _apply_manual_mode_from_args(config, args)
 
         try:
