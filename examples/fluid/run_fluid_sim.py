@@ -7,7 +7,7 @@ Fluid-MuJoCo 耦合仿真示例
 2. 已加载包含 SPH 标记的流体仿真场景（实时 / 录制）
 
 【运行模式】（--mode）
-- live（默认）：粒子经 gRPC 发往 OrcaStudio（与 sph_sim_config.json 中 particle_render 一致）
+- live（默认）：粒子经 gRPC 发往 OrcaStudio（与 sph_sim_config.json 中 particle_render 一致；`particle_render.grpc.payload_format` 为 `quantized_packed` 时走方案三量化帧，`raw_fp32` 时走方案四原始 FP32 多批次帧）
 - record：将粒子帧写入 HDF5；默认不向 OrcaStudio 推粒子流（避免 Studio 挂起；需要预览时加 --render-particle）。默认路径见下方。record 模式始终并行录制 MuJoCo 全 qpos 并在结束时合并入粒子 HDF5
 - playback：不启动 MuJoCo/OrcaSPH，将已有 HDF5 通过 orca-sph 包内 API 发往 OrcaStudio；发下一帧前会等待 Orca 已呈现上一帧（GetRenderedParticleFrame 背压，与 orca-replay-particles --sync-render 一致）
 
