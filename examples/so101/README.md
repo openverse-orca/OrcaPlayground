@@ -91,13 +91,19 @@ git apply /path/to/OrcaPlayground/examples/so101/openpi_patches/so101_openpi.pat
 
 ## 运行方式
 
-注：请先启动orcalab
 
+先在仓库根目录安装本示例依赖：
+
+```bash
+pip install -r requirements.txt
+pip install -r examples/so101/requirements.txt
+```
+注：请先启动orcalab
 ### 1. 启动策略服务
 
 ```bash
 cd openpi
-uv run  –no-sync scripts/serve_policy.py policy:checkpoint \
+uv run --no-sync scripts/serve_policy.py policy:checkpoint \
     --policy.config=pi05_h11_lora \
     --policy.dir=../19999
 ```
@@ -111,7 +117,7 @@ uv run  –no-sync scripts/serve_policy.py policy:checkpoint \
 ### 2. 运行推理客户端
 
 ```bash
-conda activate orcalab
+conda activate orcalab  # 或你的 OrcaLab 环境名称
 cd OrcaPlayground
 python examples/so101/so101_sim_inference_client.py \
     --task "Pick up the blue block"
@@ -131,7 +137,7 @@ python examples/so101/so101_sim_inference_client.py --interactive-task
 ### 3. 运行相机监控
 
 ```bash
-conda activate so101
+conda activate orcalab  # 或你的 OrcaLab 环境名称
 cd OrcaPlayground
 python examples/so101/camera_monitor.py --ports 7070 7090
 ```

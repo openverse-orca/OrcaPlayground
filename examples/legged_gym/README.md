@@ -34,6 +34,15 @@
 
 ## 🚀 基本使用
 
+### 安装依赖
+
+在仓库根目录执行：
+
+```bash
+pip install -r requirements.txt
+pip install -r examples/legged_gym/requirements.txt
+```
+
 ### 训练模式
 
 使用 Stable-Baselines3 (SB3) PPO 算法进行训练。

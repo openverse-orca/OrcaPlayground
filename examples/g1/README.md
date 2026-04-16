@@ -20,6 +20,15 @@
 - 场景中需要且只能有 1 台完整匹配的 G1
 - 机器人实例名不需要固定，脚本会自动绑定真实名称
 - `agent_name` 现在仅作兼容保留，不再决定实际绑定对象
+
+## 安装依赖
+
+在仓库根目录执行：
+
+```bash
+pip install -r requirements.txt
+pip install -r examples/g1/requirements.txt
+```
 ---
 
 相关操作说明如下：

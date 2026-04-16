@@ -12,7 +12,7 @@ SPH 流体与 MuJoCo 刚体耦合，经 OrcaLink 与 OrcaLab / OrcaStudio 通信
 - **OrcaLab（推荐）或 OrcaStudio**：用于加载流体场景、接收仿真与（可选）粒子流。
 - **场景**：资产库中订阅并加载 **`water_example`**（或等价带 SPH 标记的流体场景）。
 - **OrcaLink、OrcaSPH**：与根环境一致安装后，默认由本脚本自动拉起；无需在 README 运行步骤里单独执行命令。
-- **Python**：与 OrcaPlayground 其余示例共用环境；本目录 `requirements.txt` 以 `orca-sph`、`orca-gym` 为主；**录制、统计窗口等其余包及用途**见 **[`RECORD_PLAYBACK.md`](RECORD_PLAYBACK.md)**。
+- **Python**：与 OrcaPlayground 其余示例共用环境；本目录 `requirements.txt` 只保留 fluid 额外依赖；**录制、统计窗口等其余包及用途**见 **[`RECORD_PLAYBACK.md`](RECORD_PLAYBACK.md)**。
 
 完整环境与版本以仓库根目录说明为准：[`OrcaPlayground/README.md`](../../README.md)。
 
@@ -20,7 +20,7 @@ SPH 流体与 MuJoCo 刚体耦合，经 OrcaLink 与 OrcaLab / OrcaStudio 通信
 
 1. 激活你用于 OrcaPlayground / OrcaLab 的 conda 环境（名称以本机为准）。
 2. 在 **OrcaPlayground 仓库根目录** 按根目录 README 完成基础依赖安装（含 `pip install -r requirements.txt` 等）。
-3. 若只需本示例目录声明的最小集合，可再执行：
+3. 再安装本示例额外依赖：
 
 ```bash
 pip install -r examples/fluid/requirements.txt

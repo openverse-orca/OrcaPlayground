@@ -1,70 +1,16 @@
-# OrcaPlayground 依赖
-# ============================================================================
-# 基础依赖（所有示例都需要）
-# ============================================================================
+# OrcaPlayground 基础依赖
+# 只保留大多数示例都会用到的最小运行时。
+#
+# 额外依赖已下沉到各示例目录：
+# - examples/legged_gym/requirements.txt
+# - examples/g1/requirements.txt
+# - examples/xbot/requirements.txt
+# - examples/zq_sa01/requirements.txt
+# - examples/so101/requirements.txt
+# - examples/fluid/requirements.txt
+#
+# 简单示例（character / wheeled_chassis / replicator / drone_driver）
+# 安装本文件即可运行。
 
 orca-lab
-# ============================================================================
-# 基础示例依赖（character, wheeled_chassis, replicator）
-# ============================================================================
-# 这些示例只需要 orca-gym，无需额外依赖
-
-# ============================================================================
-# legged_gym 示例依赖
-# ============================================================================
-# 强化学习框架（用于 RL 训练）
-stable-baselines3>=2.3.2  # SB3 PPO 训练
-sb3-contrib>=2.3.0  # SB3 扩展（TQC 等）
-
-# 模型推理（用于 ONNX 模型推理和转换）
-torch>=2.0.0  # PyTorch（用于模型加载和推理）
-onnxruntime>=1.16.0  # ONNX 模型推理（CPU 版本）
-# onnxruntime-gpu>=1.16.0  # ONNX 模型推理（GPU 版本，可选）
-onnx>=1.15.0  # ONNX 模型格式（用于 convert_sb3_to_onnx.py 和 convert_rllib_to_onnx.py）
-
-# 配置文件
-pyyaml>=6.0  # YAML 配置文件解析
-
-# 可视化
-matplotlib>=3.7.0  # 绘图工具（用于 plot_rewards.py、fluid record 统计窗）
-packaging>=21.0  # matplotlib 等库的常用依赖，最小环境可能未预装
-tensorboard>=2.14.0  # TensorBoard 可视化（用于 SB3 训练日志）
-
-# HTTP 请求
-requests>=2.31.0  # HTTP 客户端库（用于发送训练数据等）
-
-# 分布式 RL 训练（可选，存在依赖冲突）
-# 注意：ray[rllib] 与 orca-gym 的 gymnasium==1.2.1 存在依赖冲突
-# 如需使用 ray[rllib]，请手动安装兼容版本，或使用以下命令：
-# pip install "ray[rllib]>=2.0.0" --no-deps
-# 然后手动解决 gymnasium 版本冲突
-# ray[rllib]>=2.0.0  # Ray RLLib 分布式训练（已注释，存在依赖冲突）
-# tree  # Ray RLLib 的依赖（ray[rllib] 已注释，所以 tree 也不需要）
-
-# ============================================================================
-# xbot 示例依赖
-# ============================================================================
-# xbot 示例需要 torch（已在 legged_gym 部分包含）
-# torch>=2.0.0  # PyTorch（用于模型加载和推理）
-
-# ============================================================================
-# 其他工具依赖
-# ============================================================================
-pygame  # 键盘输入（用于 KeyboardInput PYGAME 模式）
-
-numba  # Numba JIT 编译（orca-gym 的 robosuite 适配器使用，wheeled_chassis 示例可能间接依赖）
-
-sshkeyboard
-
-# ============================================================================
-# SO101 最小运行时依赖（camera_monitor / so101_sim_inference_client）
-# ============================================================================
-av>=14.0.0
-msgpack>=1.1.0
-opencv-python>=4.10.0
-pillow>=11.0.0
-pynput>=1.8.0
-typing-extensions>=4.12.2
-websockets>=15.0.0
-
-orca-sph>=26.3.1; sys_platform == "linux" # 流体仿真依赖，会同时安装orcalink，仅 Ubuntu 支持
+pyyaml>=6.0
