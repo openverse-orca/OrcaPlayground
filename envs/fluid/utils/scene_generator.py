@@ -1173,6 +1173,9 @@ class SceneGenerator:
         将米制的 half_extents 逆推为整数格子数（必须为 2 的幂），分别覆盖
         particle_frame.grid_resolution 和 voxel_grid 的 width/height/depth/origin。
 
+        与 ``particle_render.grpc.payload_format`` 无关：``quantized_packed`` 与 ``raw_fp32``
+        均使用同一套 world 包围盒与 origin 推导（Orca 侧 grid_config / 实体局部坐标一致）。
+
         前置条件：self.particle_radius 已通过 _init_particle_radius() 设置。
 
         Args:
