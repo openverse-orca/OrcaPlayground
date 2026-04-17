@@ -4,8 +4,7 @@ from pathlib import Path
 
 
 EXAMPLES_DIR = Path(__file__).resolve().parent
-REPO_ROOT = EXAMPLES_DIR.parents[1]
-DEFAULT_XML_PATH = REPO_ROOT / "assets" / "so101" / "so101_new_calib.xml"
+DEFAULT_XML_PATH = EXAMPLES_DIR / "so101_new_calib.xml"
 DEFAULT_ORCAGYM_ADDR = "localhost:50051"
 DEFAULT_POLICY_HOST = "localhost"
 DEFAULT_POLICY_PORT = 8000
