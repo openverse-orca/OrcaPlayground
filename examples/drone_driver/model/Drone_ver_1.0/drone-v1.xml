@@ -41,10 +41,11 @@
   <worldbody>
     <light pos="0 0 1000" directional="false" diffuse="0.3 0.3 0.3" specular="0.3 0.3 0.3"/>
 
-    <body name="drone_frame" pos="0 0 0.8">
+    <body name="drone_frame" pos="0 0 0">
       <joint name="drone_free" type="free"/>
-      <camera name="indi_eye_camera"  pos="0.573 -0.275 -0.552" euler="1.570796 0 0.785398" fovy="120"/>
-
+      <body name="camera" pos="-0.5 0 0" euler="0 0 -1.570796">
+      <camera name="indi_eye_camera"  pos="0 0 0"  fovy="90"/>
+      </body>
       <!-- 装配角与网格/USD 一致；推力在 DroneOrcaEnv 中按世界 +Z 换算，不依赖机体系 +Z 竖直。 -->
       <body name="Drone" childclass="drone_driver" pos="0 0 0.06" euler="-1.570796 -0.785398 0">
         <site name="drone_body_center_site" pos="0 0 0" group="3" size="0.008" rgba="1 1 0 0.8"/>

@@ -1,5 +1,5 @@
 <mujoco model="Skydio X2">
-  <compiler autolimits="true" assetdir="assets" texturedir="textures/" meshdir="Meshes/" balanceinertia="true"/>
+  <compiler angle="radian" autolimits="true" assetdir="assets" texturedir="textures/" meshdir="Meshes/" balanceinertia="true"/>
   <option timestep="0.01" density="1.225" viscosity="1.8e-5"/>
   <default>
     <default class="x2">
@@ -12,7 +12,7 @@
         <geom group="3" type="box"/>
       </default>
       <default class="rotor_visual">
-        <geom type="ellipsoid" size=".13 .13 .01" group="2" contype="0" conaffinity="0"/>
+        <geom type="mesh" mesh="tri_blade_propeller" material="propeller_dark" group="2" contype="0" conaffinity="0"/>
       </default>
       <site group="5"/>
     </default>
@@ -25,14 +25,17 @@
     <texture type="2d" file="X2_lowpoly_texture_SpinningProps_1024.png"/>
     <material name="phong3SG" texture="X2_lowpoly_texture_SpinningProps_1024"/>
     <material name="invisible" rgba="0 0 0 0"/>
-    <mesh class="x2" file="X2_lowpoly.obj" scale="0.01 0.01 0.01"/>
+    <material name="propeller_dark" rgba="0.12 0.12 0.12 1"/>
+    <mesh name="X2_lowpoly" class="x2" file="X2_lowpoly_noplates.obj" scale="0.01 0.01 0.01"/>
+    <mesh name="tri_blade_propeller" file="tri_blade_propeller.stl" scale="2.9 2.9 2.9"/>
   </asset>
   <worldbody>
     <light name="spotlight" mode="targetbodycom" target="drone_frame" pos="0 -1 2"/>
-    <body name="drone_frame" pos="0 0 0.1" childclass="x2">
+    <body name="drone_frame" pos="0 0 0" childclass="x2">
       <joint name="drone_free" type="free"/>
-      <camera name="track" pos="-1 0 .5" xyaxes="0 -1 0 1 0 2" mode="trackcom"/>
-      <!-- 把 free joint 对到近似质心，主体质量集中在刚体惯量上，旋翼仅保留可视旋转。 -->
+      <body name="camera" pos="-0.5 0 0" euler="0 0 -1.570796">
+      <camera name="indi_eye_camera"  pos="0 0 0"  fovy="90"/>
+      </body>
       <body name="Drone">
         <inertial pos="0 0 0" mass="1.325" diaginertia="0.022 0.014 0.034"/>
         <site name="imu" pos="0 0 0"/>
