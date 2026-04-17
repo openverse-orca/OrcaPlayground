@@ -159,3 +159,7 @@ examples/so101/
 
 - 检查 `--policy.dir` 指向的 checkpoint 是否存在
 - 示例里的 `../OrcaGym-SO101/models/h11_lora/6000` 只是一个参考路径
+
+
+## openpi 模型训练参考
+模型训练可以参考： [model_train](model_training/README.md) 
