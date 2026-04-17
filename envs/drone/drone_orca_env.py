@@ -565,7 +565,7 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
             command = np.array(
                 [
                     planar_scale * (state["W"] - state["S"]),
-                    planar_scale * (state["A"] - state["D"]),
+                    planar_scale * (state["D"] - state["A"]),
                     state["R"] - state["F"],
                     state["Q"] - state["E"],
                 ],

@@ -9,9 +9,9 @@ from orca_gym.scene.orca_gym_scene_runtime import OrcaGymSceneRuntime
 import orca_gym.utils.rotations as rotations
 
 from orca_gym.log.orca_log import get_orca_logger
-_logger = get_orca_logger()
+from examples.replicator.run_lights import LIGHT_COUNT
 
-LIGHT_COUNT = 3
+_logger = get_orca_logger()
 
 
 class LightsEnv(OrcaGymLocalEnv):
@@ -59,8 +59,8 @@ class LightsEnv(OrcaGymLocalEnv):
         self._light_hue_phase = np.linspace(0.0, 1.0, light_count, endpoint=False, dtype=np.float32)
         self._light_hue_speed = np.random.uniform(0.12, 0.30, size=light_count).astype(np.float32)
         self._light_value_phase = np.random.uniform(0.0, 2.0 * np.pi, size=light_count).astype(np.float32)
-        self._light_intensity_base = np.random.uniform(270.0, 420.0, size=light_count).astype(np.float32)
-        self._light_intensity_amplitude = np.random.uniform(90.0, 210.0, size=light_count).astype(np.float32)
+        self._light_intensity_base = np.random.uniform(600.0, 900.0, size=light_count).astype(np.float32)
+        self._light_intensity_amplitude = np.random.uniform(200.0, 400.0, size=light_count).astype(np.float32)
         self._missing_light_bodies: set[str] = set()
         self._rotatable_lights: list[dict] = []
         self._rotation_bodies_resolved = False
