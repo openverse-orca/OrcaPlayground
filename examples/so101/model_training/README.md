@@ -62,7 +62,7 @@ CUDA_VISIBLE_DEVICES=1
 HF_LEROBOT_HOME=OPENPI_ABSOLUTE_DIR \
   XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 \
   uv run scripts/train.py pi05_h11_lora \
-    --exp-name= pi05_exp_1 \
+    --exp-name=pi05_exp_1 \
     --batch-size 32 \
     --num-train-steps 20000 \
     --lr-schedule.peak-lr 2e-4 \
@@ -70,3 +70,19 @@ HF_LEROBOT_HOME=OPENPI_ABSOLUTE_DIR \
     --lr-schedule.decay-steps 20000 \
     --lr-schedule.decay-lr 2e-5
 ```
+
+---
+
+## ❓ 常见问题
+
+### FFmpeg 缺失
+
+```bash
+sudo apt-get update && sudo apt-get install -y ffmpeg libavcodec-extra libavdevice58 libavutil56
+```
+
+### Out of Memory 问题（最低硬件配置）
+
+| 训练模式 | 显存需求 | 推荐 GPU |
+|----------|----------|----------|
+| LoRA 微调 | ≥ 22.5 GB | RTX 4090 |
