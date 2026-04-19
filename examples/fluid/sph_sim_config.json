@@ -259,9 +259,9 @@
   "debug": {
     "verbose_logging": false,
     "log_sph_solver_stdout": false,
-    "enable_actuator_force_stats": true,
-    "enable_fluid_force_stats": true,
-    "enable_passivity_stats": true,
+    "enable_actuator_force_stats": false,
+    "enable_fluid_force_stats": false,
+    "enable_passivity_stats": false,
     "stats_log_interval": 1.0,
     "visualize_anchor_particles": true,
     "visualize_target_positions": true,
