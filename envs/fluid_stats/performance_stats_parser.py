@@ -79,12 +79,28 @@ def read_new_performance_records(
     # Parse multi-line [TIME_STATS] blocks
     in_stats_block = False
     current_record = {}
+    last_dt_value: Optional[float] = None
     
     for line in chunk.splitlines():
         line = line.strip()
+        
+        # Check for the special H2D stats line and extract dt_s
+        if "[EachtimeStepInH2D]" in line and "dt_s=" in line:
+            try:
+                dt_part = line.split("dt_s=")[1]
+                # dt_s is like "0.001000000x100"
+                dt_str = dt_part.split("x")[0].strip()
+                last_dt_value = float(dt_str)
+            except:
+                pass
+            continue  # Skip this line, don't parse as a stats block
+        
         if STAT_MARKER in line:
             # Start of a new stats block
             if in_stats_block and current_record:
+                # If we have a dt value, add it to the record
+                if last_dt_value is not None:
+                    current_record["_dt_s"] = last_dt_value
                 records.append(current_record)
             in_stats_block = True
             current_record = {}
@@ -114,12 +130,17 @@ def read_new_performance_records(
             else:
                 # End of stats block (line without =)
                 if current_record:
+                    # If we have a dt value, add it to the record
+                    if last_dt_value is not None:
+                        current_record["_dt_s"] = last_dt_value
                     records.append(current_record)
                 in_stats_block = False
                 current_record = {}
     
     # Add the last record if we're still in a block
     if in_stats_block and current_record:
+        if last_dt_value is not None:
+            current_record["_dt_s"] = last_dt_value
         records.append(current_record)
     
     return records
