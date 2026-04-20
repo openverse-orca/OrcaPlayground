@@ -252,7 +252,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--enable-performance-stats",
         action="store_true",
-        help="启用性能统计功能，每100个timestep输出一次单行统计数据",
+        help="启用性能统计功能，每1000个timestep输出一次单行统计数据",
     )
     parser.add_argument(
         "--performance-stats-plot",
