@@ -267,35 +267,45 @@ class SceneGenerator:
                     # 2. 应该直接通过命名规则获取 SPH_MESH 或 SPH_STATIC_MESH
                     # 3. scale 从 mesh 的 Scale 属性获取（从 XML 解析）
                     try:
-                        # 根据类型构造 SPH_MESH 或 SPH_STATIC_MESH 名称
                         if is_static:
                             sph_mesh_name = f"{body_name}_SPH_STATIC_MESH"
                         else:
                             sph_mesh_name = f"{body_name}_SPH_MESH"
                         
-                        # 通过 mesh 名称获取 mesh 信息
                         mesh_info = mesh_dict.get(sph_mesh_name) if mesh_dict else None
+
+                        if mesh_info is None and mesh_dict:
+                            dataid = int(geom_info.get('DataID', -1))
+                            if dataid >= 0:
+                                for mname, minfo in mesh_dict.items():
+                                    if int(minfo.get('ID', -1)) == dataid:
+                                        mesh_info = minfo
+                                        sph_mesh_name = mname
+                                        logger.info(f"Resolved mesh for '{body_name}' via DataID={dataid}: '{mname}'")
+                                        break
                         
                         if mesh_info:
                             mesh_file = mesh_info.get('File', '')
-                            # mesh scale 从 XML 中解析得到
                             mesh_scale = mesh_info.get('Scale', [1.0, 1.0, 1.0])
                             
-                            # 缓存 GeomInfo
                             self._sph_geom_cache[body_name] = GeomInfo(
                                 geom_type='mesh',
                                 mesh_name=mesh_file,
                                 size=[],
-                                scale=list(mesh_scale) if mesh_scale else [1.0, 1.0, 1.0],
+                                scale=[float(x) for x in mesh_scale] if mesh_scale else [1.0, 1.0, 1.0],
                                 is_static=is_static
                             )
                             
                             body_type = "static" if is_static else "dynamic"
                             logger.info(f"Cached {body_type} geom info for '{body_name}': mesh='{sph_mesh_name}', file='{mesh_file}', scale={mesh_scale}")
                         else:
-                            logger.warning(f"SPH_MESH '{sph_mesh_name}' not found in mesh_dict for body '{body_name}'")
+                            logger.warning(f"❌ Cannot resolve mesh for body '{body_name}', removing from SPH bodies")
+                            sph_bodies.discard(body_name)
+                            sph_geoms = [g for g in sph_geoms if g['body'] != body_name]
                     except Exception as e:
-                        logger.warning(f"Failed to cache geom info for '{body_name}': {e}", exc_info=True)
+                        logger.warning(f"❌ Failed to cache geom info for '{body_name}': {e}", exc_info=True)
+                        sph_bodies.discard(body_name)
+                        sph_geoms = [g for g in sph_geoms if g['body'] != body_name]
             
             # 日志输出识别结果
             if sph_geoms:
