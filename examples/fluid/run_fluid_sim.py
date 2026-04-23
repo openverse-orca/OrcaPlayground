@@ -7,7 +7,7 @@ Fluid-MuJoCo 耦合仿真示例
 2. 已加载包含 SPH 标记的流体仿真场景（实时 / 录制）
 
 【运行模式】（--mode）
-- live（默认）：粒子经 gRPC 发往 OrcaStudio（与 sph_sim_config.json 中 particle_render 一致）
+- live（默认）：粒子经 gRPC 发往 OrcaStudio（与 sph_sim_config.json 中 particle_render 一致；`particle_render.grpc.payload_format` 为 `quantized_packed` 时走方案三量化帧，`raw_fp32` 时走方案四原始 FP32 多批次帧）
 - record：将粒子帧写入 HDF5；默认不向 OrcaStudio 推粒子流（避免 Studio 挂起；需要预览时加 --render-particle）。默认路径见下方。record 模式始终并行录制 MuJoCo 全 qpos 并在结束时合并入粒子 HDF5
 - playback：不启动 MuJoCo/OrcaSPH，将已有 HDF5 通过 orca-sph 包内 API 发往 OrcaStudio；发下一帧前会等待 Orca 已呈现上一帧（GetRenderedParticleFrame 背压，与 orca-replay-particles --sync-render 一致）
 
@@ -53,6 +53,10 @@ if project_root not in sys.path:
 from envs.fluid import run_simulation_with_config
 from envs.fluid.launch.fluid_session import run_particle_playback_from_config
 from envs.fluid.launch.sph_config import setup_python_logging
+
+# Performance stats related imports
+import subprocess
+import sys
 
 
 def load_config(config_path: str) -> dict:
@@ -245,6 +249,16 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         metavar="PATH",
         help="record 模式：从该 HDF5 回放人类操作（在 bridge.step 之后叠加 mocap/eq/ctrl）",
     )
+    parser.add_argument(
+        "--enable-performance-stats",
+        action="store_true",
+        help="启用性能统计功能，每1000个timestep输出一次单行统计数据",
+    )
+    parser.add_argument(
+        "--performance-stats-plot",
+        action="store_true",
+        help="启用性能统计图表实时显示",
+    )
     return parser
 
 
@@ -373,6 +387,20 @@ def _apply_orcasph_gui_from_args(config: dict, gui: bool) -> None:
         config["orcasph"]["args"].append("--gui")
         print("🎨 OrcaSPH GUI 已启用")
 
+def _apply_performance_stats_from_args(config: dict, args: argparse.Namespace) -> None:
+    if "orcasph" not in config or not config["orcasph"].get("enabled", False):
+        return
+    if "args" not in config["orcasph"]:
+        config["orcasph"]["args"] = []
+    # 清理现有的性能统计参数
+    config["orcasph"]["args"] = [arg for arg in config["orcasph"]["args"] if not arg.startswith("--performance-stats")]
+    if args.enable_performance_stats:
+        config["orcasph"]["args"].append("--performance-stats")
+        print("📊 性能统计功能已启用")
+        if args.performance_stats_plot:
+            config["orcasph"]["args"].append("--performance-stats-plot")
+            print("📈 性能统计图表实时显示已启用")
+
 
 def _apply_manual_mode_from_args(config: dict, args: argparse.Namespace) -> None:
     if not args.manual_mode:
@@ -427,9 +455,32 @@ def main() -> int:
         if err is not None:
             return err
         _apply_orcasph_gui_from_args(config, args.gui)
+        _apply_performance_stats_from_args(config, args)
         _apply_manual_mode_from_args(config, args)
 
         try:
+            # 启动性能统计图表显示
+            if args.enable_performance_stats and args.performance_stats_plot:
+                # 启动独立的性能统计图表查看器
+                # 注意：OrcaSPH 的日志文件是 orcasph_{session_timestamp}.log，不是 run_fluid_sim_{session_timestamp}.log
+                orcasph_log_file = orcagym_tmp_dir / f"orcasph_{session_timestamp}.log"
+                print(f"📈 启动实时性能统计图表，监控日志文件: {orcasph_log_file}")
+                # 构建性能统计查看器的路径
+                # 使用绝对路径确保正确性
+                project_root = Path(__file__).parent.parent.parent.resolve()
+                stats_viewer_path = project_root / "envs" / "fluid_stats" / "performance_stats_viewer.py"
+                
+                if stats_viewer_path.exists():
+                    # 启动独立的进程运行性能统计查看器
+                    python_exe = sys.executable
+                    subprocess.Popen([
+                        python_exe,
+                        str(stats_viewer_path),
+                        str(orcasph_log_file)
+                    ])
+                else:
+                    print(f"⚠️  性能统计查看器脚本不存在: {stats_viewer_path}")
+            
             if args.mode == "playback":
                 # 与 run_simulation._preflight_session 中耦合路径一致：先按配置设 Python 日志
                 setup_python_logging(config)

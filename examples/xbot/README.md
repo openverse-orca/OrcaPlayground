@@ -26,6 +26,15 @@
 
 ## 🚀 使用方法
 
+### 安装依赖
+
+在仓库根目录执行：
+
+```bash
+pip install -r requirements.txt
+pip install -r examples/xbot/requirements.txt
+```
+
 ### 方式 1：使用 OrcaLab 启动（推荐）
 
 在 OrcaLab 中配置了 XBot 仿真启动项，可以直接使用：

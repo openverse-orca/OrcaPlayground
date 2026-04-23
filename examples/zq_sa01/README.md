@@ -16,6 +16,13 @@
 
 ## 启动示例
 
+先在仓库根目录安装依赖：
+
+```bash
+pip install -r requirements.txt
+pip install -r examples/zq_sa01/requirements.txt
+```
+
 ```bash
 python examples/zq_sa01/run_zqsa01.py
 ```

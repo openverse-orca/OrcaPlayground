@@ -1,5 +1,12 @@
 # Drone Driver 使用说明
 
+## ⚠️ 资产准备
+
+- **资产**：请订阅 **Drone_ver或skydio_x2_nofloor对应布局建议Industry_DataCenter_Plugging_01或者空布局（OrcaLab_day）**。
+- **是否需要手动拖动到布局中**：**是**，需要加载建议布局，将运行前需要先把Drone_ver或skydio_x2_nofloor摆进场景。
+- 运行前可以切换camera视角来获得更优体验
+
+
 本示例当前提供的是一版「**推力驱动的刚体飞行**」原型：
 
 - 根节点使用 **自由关节** `drone_free`，由 MuJoCo 积分刚体动力学
