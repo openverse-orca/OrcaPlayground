@@ -14,3 +14,4 @@
 
 orca-lab
 pyyaml>=6.0
+pygame 
