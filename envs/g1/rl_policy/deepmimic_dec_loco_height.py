@@ -19,6 +19,7 @@ import os
 from orca_gym.log.orca_log import get_orca_logger, OrcaLog
 orca_logger = OrcaLog.get_instance()
 
+from .base_policy import KeyboardInputMode
 from .deepmimic_dec_loco import MotionTrackingDecLocoPolicy
 from ..share_state import ShareState
 
@@ -63,15 +64,20 @@ class MotionTrackingDecLocoHeightPolicy(MotionTrackingDecLocoPolicy):
                  share_state: ShareState,
                  policy_action_scale=0.25, 
                  decimation=4,
-                 use_mocap=False):
+                 use_mocap=False,
+                 orcagym_addr: str | None = None,
+                 keyboard_input: KeyboardInputMode = "orcastudio"):
         super().__init__(config, 
                          loco_model_path,
                          mimic_model_paths, 
                          share_state,
                          policy_action_scale, 
                          decimation,
-                         use_mocap)
-        self.base_height_command = np.array([[0.78]])
+                         use_mocap,
+                         orcagym_addr=orcagym_addr,
+                         keyboard_input=keyboard_input)
+        self.default_base_height_command = np.array([[0.78]])
+        self.base_height_command = self.default_base_height_command.copy()
         # 启动时直接使用策略控制，与按 "]" 后的状态一致
         self.use_policy_action = True
         self.get_ready_state = False
@@ -106,7 +112,7 @@ class MotionTrackingDecLocoHeightPolicy(MotionTrackingDecLocoPolicy):
             self.policy_locomotion_mimic_flag = 0
             self.policy = self.policy_locomotion
             orca_logger.info(f"\rSwitched to Locomotion policy")
-            self.base_height_command = np.array([[0.78]])
+            self.base_height_command = self.default_base_height_command.copy()
             self.end_upper_dof_pos = self.robot_state_data[:, (7+self.num_lower_dofs):(7+self.num_dofs)].copy()
             # zero out the waist roll and pitch
             self.end_upper_dof_pos[:, 1] = 0.0

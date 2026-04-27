@@ -1,12 +1,7 @@
 
 import numpy as np
 import time
-import pygame
 # from std_msgs.msg import Float32MultiArray
-from scipy.spatial.transform import Rotation
-import threading
-# from pynput import keyboard
-from sshkeyboard import listen_keyboard
 import argparse
 import yaml
 from termcolor import colored
@@ -15,7 +10,7 @@ sys.path.append('./rl_policy')
 
 import onnxruntime
 # import torch
-from .base_policy import BasePolicy
+from .base_policy import BasePolicy, KeyboardInputMode
 import os
 from orca_gym.log.orca_log import get_orca_logger, OrcaLog
 orca_logger = OrcaLog.get_instance()
@@ -62,7 +57,9 @@ class MotionTrackingDecLocoPolicy(BasePolicy):
                  share_state: ShareState,
                  policy_action_scale=0.25, 
                  decimation=4,
-                 use_mocap=False):
+                 use_mocap=False,
+                 orcagym_addr: str | None = None,
+                 keyboard_input: KeyboardInputMode = "orcastudio"):
         self.mimic_model_paths = mimic_model_paths
         self.policy_locomotion = None
         self.policies_mimic = []
@@ -95,7 +92,9 @@ class MotionTrackingDecLocoPolicy(BasePolicy):
                          loco_model_path, 
                          share_state,
                          policy_action_scale, 
-                         decimation)
+                         decimation,
+                         orcagym_addr=orcagym_addr,
+                         keyboard_input=keyboard_input)
         self.use_clock_input = False
     
         self.robot_state_data = None
@@ -115,6 +114,28 @@ class MotionTrackingDecLocoPolicy(BasePolicy):
         self.frame_start_time = start_time
         self.frame_last_time = start_time
         self.phase = 0.0
+
+    def _reset_upper_body_reference(self):
+        self.ref_upper_dof_pos = np.zeros((1, self.num_upper_dofs))
+        self.ref_upper_dof_pos[:, 4] = 0.3
+        self.ref_upper_dof_pos[:, 11] = -0.3
+        self.ref_upper_dof_pos[:, 6] = 1.
+        self.ref_upper_dof_pos[:, 13] = 1.
+
+    def _on_sim_reset_requested(self):
+        self.history_handler.reset([0])
+        self.last_action = np.zeros((1, self.num_dofs))
+        self.policy_locomotion_mimic_flag = 0
+        self.policy = self.policy_locomotion
+        self.interpolation_done = False
+        self.interpolation_active = False
+        self.interpolation_emergency = False
+        self.interpolation_progress = 0.0
+        self.phase = 0.0
+        self.frame_idx = 0
+        self.frame_start_time = time.time()
+        self.frame_last_time = self.frame_start_time
+        self._reset_upper_body_reference()
 
     def setup_mimic_policies(self):
         """
@@ -465,7 +486,7 @@ class MotionTrackingDecLocoPolicy(BasePolicy):
     def _handle_keyboard_button_impl(self, keycode):
         """重写父类方法，在信号量保护下处理按键"""
         super()._handle_keyboard_button_impl(keycode)
-        if keycode == "[":
+        if keycode == "3":
             self.history_handler.reset([0])  # 重置 history
             self.last_action = np.zeros((1, self.num_dofs))  # 重置 last_action
             self.policy_locomotion_mimic_flag = 1 - self.policy_locomotion_mimic_flag
@@ -483,13 +504,13 @@ class MotionTrackingDecLocoPolicy(BasePolicy):
                     self.end_upper_dof_pos = self.robot_state_data[:, (7+self.num_lower_dofs):(7+self.num_dofs)].copy()
                     self.ref_upper_dof_pos[0, :] = self.end_upper_dof_pos[0, :].copy()
                 orca_logger.info("Switching back to Locomotion policy mode")
-        elif keycode == ";":
-            # only switch to next policy if current policy is locomotion
+        elif keycode == "4":
+            # 仅在 locomotion 模式下切到下一个 mimic 策略
             if self.policy_locomotion_mimic_flag == 0:
                 self.frame_start_time = time.time()
                 self.next_mimic_policy()
-        elif keycode == "'":
-            # only switch to last policy if current policy is locomotion
+        elif keycode == "5":
+            # 仅在 locomotion 模式下切到上一个 mimic 策略
             if self.policy_locomotion_mimic_flag == 0:
                 self.frame_start_time = time.time()
                 self.last_mimic_policy()

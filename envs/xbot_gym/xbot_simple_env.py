@@ -31,6 +31,7 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
         time_step: float,
         frame_stack: int = 15,
         verbose: bool = True,  # 控制日志输出
+        scene_binding: dict | None = None,
         **kwargs
     ):
         super().__init__(
@@ -42,6 +43,7 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
         )
         
         self.verbose = verbose  # 保存verbose标志
+        self._scene_binding = scene_binding or {}
 
         # 模型信息
         self.nu = int(self.model.nu)
@@ -103,28 +105,7 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
         # 基座名称（用于真实位置查询）
         # 从错误信息看，body名称格式是: XBot-L_usda_base_link
         # 尝试自动检测正确的base_link名称
-        self.base_body_name = None
-        try:
-            all_bodies = self.model.get_body_names()
-            # 尝试几种可能的命名模式
-            candidates = [
-                "XBot-L_usda_base_link",  # USDA导入格式
-                f"{agent_names[0]}_base_link" if len(agent_names) > 0 else None,
-                "base_link",
-            ]
-            for candidate in candidates:
-                if candidate and candidate in all_bodies:
-                    self.base_body_name = candidate
-                    break
-            
-            if self.base_body_name is None:
-                # 搜索包含"base"和"link"的body
-                for body in all_bodies:
-                    if "base" in body.lower() and "link" in body.lower():
-                        self.base_body_name = body
-                        break
-        except:
-            self.base_body_name = "base_link"  # 默认值
+        self.base_body_name = self._resolve_base_body_name(agent_names)
         
         _logger.info(f"[XBotSimpleEnv] Using base body name: {self.base_body_name}")
         
@@ -142,11 +123,6 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
             low=-18.0, high=18.0, shape=(full_obs_dim,), dtype=np.float32
         )
 
-        # 识别 XBot 的关节（匹配前缀 'XBot-L'，与 OrcaPlaygroundAssets 中 XBot-L_usda 导入后命名一致）
-        all_joint_names = list(self.model.get_joint_dict().keys())
-        all_actuator_names = list(self.model.get_actuator_dict().keys())
-        xbot_prefix = "XBot-L"
-
         xbot_joint_base_names = [
             "left_leg_roll_joint", "left_leg_yaw_joint", "left_leg_pitch_joint",
             "left_knee_joint", "left_ankle_pitch_joint", "left_ankle_roll_joint",
@@ -154,76 +130,23 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
             "right_knee_joint", "right_ankle_pitch_joint", "right_ankle_roll_joint"
         ]
 
-        self.xbot_joint_names = []
-        self.xbot_joint_indices = []
-        self.xbot_qpos_indices = []
-        self.xbot_qvel_indices = []
-        self.xbot_actuator_indices = []
+        if self._scene_binding:
+            self.xbot_joint_names = list(self._scene_binding.get("joint_names", []))
+            actuator_names = list(self._scene_binding.get("actuator_names", []))
+            self.xbot_joint_indices = [self.model.joint_name2id(joint_name) for joint_name in self.xbot_joint_names]
+            self.xbot_qpos_indices = [self.gym.jnt_qposadr(joint_name) for joint_name in self.xbot_joint_names]
+            self.xbot_qvel_indices = [self.gym.jnt_dofadr(joint_name) for joint_name in self.xbot_joint_names]
+            self.xbot_actuator_indices = [self.model.actuator_name2id(actuator_name) for actuator_name in actuator_names]
+        else:
+            self._detect_legacy_joint_binding(xbot_joint_base_names)
 
-        for joint_base_name in xbot_joint_base_names:
-            matching_joint = None
-            for joint_name in all_joint_names:
-                if joint_name.startswith(xbot_prefix) and joint_name.endswith("_" + joint_base_name):
-                    matching_joint = joint_name
-                    break
-
-            if matching_joint:
-                try:
-                    joint_id = self.model.joint_name2id(matching_joint)
-                    qpos_addr = self.gym.jnt_qposadr(matching_joint)
-                    qvel_addr = self.gym.jnt_dofadr(matching_joint)
-
-                    actuator_name = matching_joint
-                    if actuator_name in all_actuator_names:
-                        actuator_id = self.model.actuator_name2id(actuator_name)
-                        self.xbot_joint_names.append(matching_joint)
-                        self.xbot_joint_indices.append(joint_id)
-                        self.xbot_qpos_indices.append(qpos_addr)
-                        self.xbot_qvel_indices.append(qvel_addr)
-                        self.xbot_actuator_indices.append(actuator_id)
-                    else:
-                        matching_actuator = None
-                        for actuator_name_candidate in all_actuator_names:
-                            if actuator_name_candidate.startswith(xbot_prefix) and actuator_name_candidate.endswith("_" + joint_base_name):
-                                matching_actuator = actuator_name_candidate
-                                break
-                        if matching_actuator:
-                            actuator_id = self.model.actuator_name2id(matching_actuator)
-                            self.xbot_joint_names.append(matching_joint)
-                            self.xbot_joint_indices.append(joint_id)
-                            self.xbot_qpos_indices.append(qpos_addr)
-                            self.xbot_qvel_indices.append(qvel_addr)
-                            self.xbot_actuator_indices.append(actuator_id)
-                except Exception as e:
-                    _logger.error(f"[XBot] 匹配关节 '{joint_base_name}' 时出错: {e}")
-            else:
-                matching_actuator = None
-                for actuator_name in all_actuator_names:
-                    if actuator_name.startswith(xbot_prefix) and actuator_name.endswith("_" + joint_base_name):
-                        matching_actuator = actuator_name
-                        break
-
-                if matching_actuator:
-                    try:
-                        joint_name = matching_actuator
-                        joint_id = self.model.joint_name2id(joint_name)
-                        actuator_id = self.model.actuator_name2id(matching_actuator)
-                        qpos_addr = self.gym.jnt_qposadr(joint_name)
-                        qvel_addr = self.gym.jnt_dofadr(joint_name)
-                        self.xbot_joint_names.append(joint_name)
-                        self.xbot_joint_indices.append(joint_id)
-                        self.xbot_qpos_indices.append(qpos_addr)
-                        self.xbot_qvel_indices.append(qvel_addr)
-                        self.xbot_actuator_indices.append(actuator_id)
-                    except Exception as e:
-                        _logger.error(f"[XBot] 通过执行器匹配关节 '{joint_base_name}' 时出错: {e}")
-        
-        if len(self.xbot_qpos_indices) < 12:
+        if len(self.xbot_qpos_indices) < len(xbot_joint_base_names):
             _logger.warning(f"[XBot] 只识别到 {len(self.xbot_qpos_indices)} 个关节，使用最后12个作为兜底")
 
             self.xbot_qpos_indices = list(range(max(0, self.nq - 12), self.nq))
             self.xbot_qvel_indices = list(range(max(0, self.nv - 12), self.nv))
             self.xbot_actuator_indices = list(range(max(0, self.nu - 12), self.nu))
+            all_joint_names = list(self.model.get_joint_dict().keys())
             if len(all_joint_names) >= 12:
                 self.xbot_joint_names = all_joint_names[-12:]
             else:
@@ -235,6 +158,86 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
         _logger.info(f"[XBotSimpleEnv] Initialized with frame_stack={frame_stack}")
         _logger.info(f"[XBotSimpleEnv] Action space: {self.action_space.shape}")
         _logger.info(f"[XBotSimpleEnv] Observation space: {self.observation_space.shape}")
+
+    def _resolve_base_body_name(self, agent_names: list) -> str:
+        if self._scene_binding.get("base_body_name"):
+            return self._scene_binding["base_body_name"]
+
+        base_body_name = None
+        try:
+            all_bodies = self.model.get_body_names()
+            candidates = [
+                "XBot-L_usda_base_link",
+                f"{agent_names[0]}_base_link" if len(agent_names) > 0 else None,
+                "base_link",
+            ]
+            for candidate in candidates:
+                if candidate and candidate in all_bodies:
+                    base_body_name = candidate
+                    break
+
+            if base_body_name is None:
+                for body in all_bodies:
+                    if "base" in body.lower() and "link" in body.lower():
+                        base_body_name = body
+                        break
+        except Exception:
+            base_body_name = "base_link"
+
+        return base_body_name
+
+    def _detect_legacy_joint_binding(self, xbot_joint_base_names: list[str]) -> None:
+        all_joint_names = list(self.model.get_joint_dict().keys())
+        all_actuator_names = list(self.model.get_actuator_dict().keys())
+
+        self.xbot_joint_names = []
+        self.xbot_joint_indices = []
+        self.xbot_qpos_indices = []
+        self.xbot_qvel_indices = []
+        self.xbot_actuator_indices = []
+        prefix_joint_matches: Dict[str, Dict[str, str]] = {}
+        prefix_actuator_matches: Dict[str, Dict[str, str]] = {}
+
+        for joint_base_name in xbot_joint_base_names:
+            suffix = f"_{joint_base_name}"
+            for joint_name in all_joint_names:
+                if joint_name == joint_base_name:
+                    prefix = ""
+                elif joint_name.endswith(suffix):
+                    prefix = joint_name[:-len(suffix)]
+                else:
+                    continue
+                prefix_joint_matches.setdefault(prefix, {})[joint_base_name] = joint_name
+
+            for actuator_name in all_actuator_names:
+                if actuator_name == joint_base_name:
+                    prefix = ""
+                elif actuator_name.endswith(suffix):
+                    prefix = actuator_name[:-len(suffix)]
+                else:
+                    continue
+                prefix_actuator_matches.setdefault(prefix, {})[joint_base_name] = actuator_name
+
+        candidate_prefixes = []
+        for prefix, matched_joints in prefix_joint_matches.items():
+            matched_actuators = prefix_actuator_matches.get(prefix, {})
+            if len(matched_joints) == len(xbot_joint_base_names) and len(matched_actuators) == len(xbot_joint_base_names):
+                candidate_prefixes.append(prefix)
+
+        if candidate_prefixes:
+            selected_prefix = sorted(candidate_prefixes)[0]
+            for joint_base_name in xbot_joint_base_names:
+                joint_name = prefix_joint_matches[selected_prefix][joint_base_name]
+                actuator_name = prefix_actuator_matches[selected_prefix][joint_base_name]
+                joint_id = self.model.joint_name2id(joint_name)
+                qpos_addr = self.gym.jnt_qposadr(joint_name)
+                qvel_addr = self.gym.jnt_dofadr(joint_name)
+                actuator_id = self.model.actuator_name2id(actuator_name)
+                self.xbot_joint_names.append(joint_name)
+                self.xbot_joint_indices.append(joint_id)
+                self.xbot_qpos_indices.append(qpos_addr)
+                self.xbot_qvel_indices.append(qvel_addr)
+                self.xbot_actuator_indices.append(actuator_id)
 
     def set_command(self, vx: float = 0.0, vy: float = 0.0, dyaw: float = 0.0):
         """设置运动命令"""

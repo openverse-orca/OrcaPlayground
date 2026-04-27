@@ -9,7 +9,8 @@
     "update_rate_hz": 50,
     "encoding": {
       "i_frame_interval": 30,
-      "change_threshold": 0.001
+      "change_threshold": 0.001,
+      "comment": "OrcaLink 通道编码；与粒子 gRPC 的 particle_render.grpc.payload_format（方案三/四）无关"
     },
     "session": {
       "control_mode": "sync",
@@ -148,7 +149,7 @@
       },
       "gravity": {
         "enable_rigid_body_gravity": false,
-        "enable_rigid_body_collision": false,
+        "enable_rigid_body_collision": true,
         "anchor_particle_mass_ratio": 0.5
       },
       "force_clamping": {
@@ -185,16 +186,29 @@
     "grpc": {
       "server_address": "localhost:50251",
       "enabled": true,
-      "update_rate_hz": 20,
+      "update_rate_hz": 30,
       "realtime_sync": true,
+      "payload_format": "quantized_packed",
+      "comment_payload_format": "quantized_packed=方案三（PackedParticle+I/P）；raw_fp32=方案四（UpdateRawParticleFrame，7×fp32/粒子，无 I/P）。与 OrcaLink 的 encoding 无关。",
       "compression": {
         "enabled": false,
         "show_stats": false
       },
       "quantization": {
-        "enabled": true
+        "enabled": true,
+        "comment": "raw_fp32 模式下由 SPlisHSPlasH 桥接忽略，可保留为 false 以消除歧义"
       },
       "transmission_mode": "particle_frame"
+    },
+    "recording": {
+      "enabled": false,
+      "output_path": "",
+      "record_fps": 30.0,
+      "record_iframe_only": false,
+      "stats_interval_timesteps": 10,
+      "flush_interval_frames": 1,
+      "log_stats": true,
+      "comment": "模板默认不录 HDF5。OrcaPlayground --mode record 会启用录制并写 output_path；粒子 gRPC 默认不向 OrcaStudio 发送，需要预览时 run_fluid_sim.py --render-particle。"
     },
     "voxel_grid": {
       "width": 128,
@@ -215,7 +229,12 @@
         "enabled": false
       }
     },
+    "raw_particle_frame": {
+      "comment": "方案四可选说明：带宽≈28N B/帧（未计 protobuf 头）；多相时每流体类型一个 TypeBatch；HDF5 回放首版仍按方案三 ParticleFrameRequest 解析，raw_fp32 录制仅建议 live 预览或后续回放器升级",
+      "max_types": 16
+    },
     "particle_frame": {
+      "comment": "grid_resolution/origin：与发帧时世界包围盒及位置量化格一致；voxel_size_ratio：Playground 生成场景时用 particle_radius×ratio 估体素尺度；SPlisHSPlasH 桥接里 PARTICLE_FRAME 的世界半宽还依赖同文件 voxel_grid.voxel_size_ratio，两处 ratio 建议保持一致。payload_format=raw_fp32 时仍用此包围盒与 origin；ip_frame 仅对 quantized_packed 生效。",
       "grid_resolution": {
         "x": 512,
         "y": 512,
@@ -228,9 +247,10 @@
       },
       "voxel_size_ratio": 1.0,
       "ip_frame": {
+        "comment": "阈值单位均为打包整数域，非 m / m/s。i_frame_interval：距上次 I 帧至多 N 帧后强制发 I 帧。position_threshold：三轴格点索引（各约 0..gridRes-1）的曼哈顿和 |Δix|+|Δiy|+|Δiz|；单轴近似位移约 > 阈值×(extent_i/gridRes_i) 米（extent_i 为该轴 worldMax−worldMin，由运行时包围盒决定）。velocity_threshold：三轴速度量化字节（各 0..255）差的绝对值之和 |Δbx|+|Δby|+|Δbz|；线性区单轴 |Δv|≈ 阈值×(2×maxSpeed/255) m/s，maxSpeed 见上方 voxel_grid.velocity.max_speed。change_ratio_threshold：(修改+新增+删除) 粒子数 / max(当前数,参考数) 超过此值则本帧改发 I 帧。",
         "i_frame_interval": 30,
-        "position_threshold": 2,
-        "velocity_threshold": 5,
+        "position_threshold": 1,
+        "velocity_threshold": 2,
         "change_ratio_threshold": 0.5
       }
     }
@@ -238,16 +258,17 @@
 
   "debug": {
     "verbose_logging": false,
-    "enable_actuator_force_stats": true,
-    "enable_fluid_force_stats": true,
-    "enable_passivity_stats": true,
+    "log_sph_solver_stdout": false,
+    "enable_actuator_force_stats": false,
+    "enable_fluid_force_stats": false,
+    "enable_passivity_stats": false,
     "stats_log_interval": 1.0,
     "visualize_anchor_particles": true,
     "visualize_target_positions": true,
     "visualize_actuator_connections": true,
     "anchor_particle_size": 0.02,
     "target_position_size": 0.015,
-    "comment": "Debug选项：verbose_logging启用详细日志；enable_actuator_force_stats启用弹簧力/PD控制器统计；enable_fluid_force_stats启用流体力统计；enable_passivity_stats启用无源性控制统计；stats_log_interval统计输出间隔（秒）；visualize_*控制锚点粒子可视化"
+    "comment": "Debug选项：verbose_logging启用详细日志（Python/OrcaLink）；log_sph_solver_stdout启用DFSPH CUDA每步诊断stdout；enable_actuator_force_stats启用弹簧力/PD控制器统计；enable_fluid_force_stats启用流体力统计；enable_passivity_stats启用无源性控制统计；stats_log_interval统计输出间隔（秒）；visualize_*控制锚点粒子可视化。particle_render.recording.log_stats控制[HDF5] PARTICLE_RECORD_STATS行。"
   }
 }
 

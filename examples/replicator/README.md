@@ -4,11 +4,14 @@
 
 ## ⚠️ 重要：资产准备
 
-> **📦 相关资产**：https://simassets.orca3d.cn/ **OrcaPlaygroundAssets资产包**
+> **📦 相关资产**：https://simassets.orca3d.cn/ **OrcaPlaygroundAssets资产包和run_light_night资产包**
 > 
-> **🔧 是否需要手动拖动到布局中**：**否**（脚本会自动创建场景）
+> **🔧 是否需要手动拖动到布局中**：**否**
+>
+
 
 ## 🚀 基本使用
+
 
 ### 方式 1：使用 OrcaLab 启动（推荐）
 

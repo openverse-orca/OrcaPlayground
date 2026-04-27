@@ -1,0 +1,7 @@
+av>=14.0.0
+msgpack>=1.1.0
+opencv-python>=4.10.0
+pillow>=11.0.0
+pynput>=1.8.0
+typing-extensions>=4.12.2
+websockets>=15.0.0

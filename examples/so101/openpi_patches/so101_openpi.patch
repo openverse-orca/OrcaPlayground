@@ -1,0 +1,433 @@
+diff --git a/.python-version b/.python-version
+index 902b2c9..2c07333 100644
+--- a/.python-version
++++ b/.python-version
+@@ -1 +1 @@
+-3.11
+\ No newline at end of file
++3.11
+diff --git a/pyproject.toml b/pyproject.toml
+index c4a06e5..2030da9 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -37,6 +37,9 @@ dependencies = [
+     "transformers==4.53.2",
+     "rich>=14.0.0",
+     "polars>=1.30.0",
++    "grpcio>=1.66.1",
++    "grpcio-tools>=1.66.1",
++    "protobuf>=5.27.2",
+ ]
+ 
+ 
+diff --git a/src/openpi/training/config.py b/src/openpi/training/config.py
+index 4ca47e1..61ddd84 100644
+--- a/src/openpi/training/config.py
++++ b/src/openpi/training/config.py
+@@ -462,6 +462,92 @@ class LeRobotDROIDDataConfig(DataConfigFactory):
+         )
+ 
+ 
++@dataclasses.dataclass(frozen=True)
++class LeRobotS6DataConfig(DataConfigFactory):
++    """
++    Data config for the S6 (SO-101) custom dataset in LeRobot format.
++
++    Remaps the dataset's flat parquet keys to the keys expected by LiberoInputs:
++      observation.images.front  → observation/image
++      observation.images.wrist  → observation/wrist_image
++      observation.state         → observation/state
++      action                    → actions
++    """
++
++    @override
++    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
++        repack_transform = _transforms.Group(
++            inputs=[
++                _transforms.RepackTransform(
++                    {
++                        "observation/image": "observation.images.front",
++                        "observation/wrist_image": "observation.images.wrist",
++                        "observation/state": "observation.state",
++                        "actions": "action",
++                        "prompt": "prompt",
++                    }
++                )
++            ]
++        )
++
++        data_transforms = _transforms.Group(
++            inputs=[libero_policy.LiberoInputs(model_type=model_config.model_type)],
++        )
++
++        model_transforms = ModelTransformFactory()(model_config)
++
++        return dataclasses.replace(
++            self.create_base_config(assets_dirs, model_config),
++            repack_transforms=repack_transform,
++            data_transforms=data_transforms,
++            model_transforms=model_transforms,
++            action_sequence_keys=("action",),
++        )
++
++
++@dataclasses.dataclass(frozen=True)
++class LeRobotH7DataConfig(DataConfigFactory):
++    """
++    Data config for the H7 (SO-101) custom dataset in LeRobot format.
++
++    Remaps the dataset's flat parquet keys to the keys expected by LiberoInputs:
++      observation.images.camera_global  → observation/image
++      observation.images.camera_wrist   → observation/wrist_image
++      observation.state                 → observation/state
++      action                            → actions
++    """
++
++    @override
++    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
++        repack_transform = _transforms.Group(
++            inputs=[
++                _transforms.RepackTransform(
++                    {
++                        "observation/image": "observation.images.camera_global",
++                        "observation/wrist_image": "observation.images.camera_wrist",
++                        "observation/state": "observation.state",
++                        "actions": "action",
++                        "prompt": "prompt",
++                    }
++                )
++            ]
++        )
++
++        data_transforms = _transforms.Group(
++            inputs=[libero_policy.LiberoInputs(model_type=model_config.model_type)],
++        )
++
++        model_transforms = ModelTransformFactory()(model_config)
++
++        return dataclasses.replace(
++            self.create_base_config(assets_dirs, model_config),
++            repack_transforms=repack_transform,
++            data_transforms=data_transforms,
++            model_transforms=model_transforms,
++            action_sequence_keys=("action",),
++        )
++
++
+ @dataclasses.dataclass(frozen=True)
+ class TrainConfig:
+     # Name of the config. Must be unique. Will be used to reference this config.
+@@ -917,6 +1003,313 @@ _CONFIGS = [
+         batch_size=32,
+     ),
+     #
++    # SO-101 (S6) fine-tuning configs.
++    #
++    TrainConfig(
++        name="pi05_s6",
++        # Pi0.5 paper defaults: action_dim=32, action_horizon=50.
++        # The 6-dim robot actions are zero-padded to 32 by PadStatesAndActions,
++        # and stripped back to 6 by S6Outputs during inference.
++        model=pi0_config.Pi0Config(
++            pi05=True,
++            action_dim=32,
++            action_horizon=50,
++            discrete_state_input=False,
++        ),
++        data=LeRobotS6DataConfig(
++            repo_id="s6",
++            base_config=DataConfig(prompt_from_task=True),
++        ),
++        batch_size=64,
++        lr_schedule=_optimizer.CosineDecaySchedule(
++            warmup_steps=1_000,
++            peak_lr=5e-5,
++            decay_steps=20_000,
++            decay_lr=5e-5,
++        ),
++        optimizer=_optimizer.AdamW(clip_gradient_norm=1.0),
++        ema_decay=0.999,
++        # Load pre-trained pi0.5 base weights from GCS (auto-downloaded to ~/.cache/openpi).
++        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
++        num_train_steps=20_000,
++    ),
++    TrainConfig(
++        name="pi05_s6_lora",
++        # LoRA fine-tuning version for lower memory usage.
++        model=pi0_config.Pi0Config(
++            pi05=True,
++            paligemma_variant="gemma_2b_lora",
++            action_expert_variant="gemma_300m_lora",
++            action_dim=32,
++            action_horizon=50,
++            discrete_state_input=False,
++        ),
++        data=LeRobotS6DataConfig(
++            repo_id="s6",
++            base_config=DataConfig(prompt_from_task=True),
++        ),
++        batch_size=32,
++        lr_schedule=_optimizer.CosineDecaySchedule(
++            warmup_steps=1_000,
++            peak_lr=2e-4,
++            decay_steps=20_000,
++            decay_lr=2e-5,
++        ),
++        optimizer=_optimizer.AdamW(clip_gradient_norm=1.0),
++        # LoRA fine-tuning: freeze all non-LoRA LLM weights, turn off EMA.
++        freeze_filter=pi0_config.Pi0Config(
++            pi05=True,
++            paligemma_variant="gemma_2b_lora",
++            action_expert_variant="gemma_300m_lora",
++        ).get_freeze_filter(),
++        ema_decay=None,
++        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
++        num_train_steps=20_000,
++    ),
++    TrainConfig(
++        name="pi05_s8_lora",
++        # LoRA fine-tuning version for lower memory usage.
++        model=pi0_config.Pi0Config(
++            pi05=True,
++            paligemma_variant="gemma_2b_lora",
++            action_expert_variant="gemma_300m_lora",
++            action_dim=32,
++            action_horizon=50,
++            discrete_state_input=False,
++        ),
++        data=LeRobotS6DataConfig(
++            repo_id="s8",
++            base_config=DataConfig(prompt_from_task=True),
++        ),
++        batch_size=32,
++        lr_schedule=_optimizer.CosineDecaySchedule(
++            warmup_steps=1_000,
++            peak_lr=2e-4,
++            decay_steps=20_000,
++            decay_lr=2e-5,
++        ),
++        optimizer=_optimizer.AdamW(clip_gradient_norm=1.0),
++        # LoRA fine-tuning: freeze all non-LoRA LLM weights, turn off EMA.
++        freeze_filter=pi0_config.Pi0Config(
++            pi05=True,
++            paligemma_variant="gemma_2b_lora",
++            action_expert_variant="gemma_300m_lora",
++        ).get_freeze_filter(),
++        ema_decay=None,
++        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
++        num_train_steps=20_000,
++    ),
++    #
++    # SO-101 (H7) fine-tuning configs.
++    #
++    TrainConfig(
++        name="pi05_h7_lora",
++        # LoRA fine-tuning version for lower memory usage.
++        model=pi0_config.Pi0Config(
++            pi05=True,
++            paligemma_variant="gemma_2b_lora",
++            action_expert_variant="gemma_300m_lora",
++            action_dim=32,
++            action_horizon=50,
++            discrete_state_input=False,
++        ),
++        data=LeRobotH7DataConfig(
++            repo_id="h7",
++            base_config=DataConfig(prompt_from_task=True),
++        ),
++        batch_size=32,
++        lr_schedule=_optimizer.CosineDecaySchedule(
++            warmup_steps=1_000,
++            peak_lr=2e-4,
++            decay_steps=20_000,
++            decay_lr=2e-5,
++        ),
++        optimizer=_optimizer.AdamW(clip_gradient_norm=1.0),
++        # LoRA fine-tuning: freeze all non-LoRA LLM weights, turn off EMA.
++        freeze_filter=pi0_config.Pi0Config(
++            pi05=True,
++            paligemma_variant="gemma_2b_lora",
++            action_expert_variant="gemma_300m_lora",
++        ).get_freeze_filter(),
++        ema_decay=None,
++        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
++        num_train_steps=20_000,
++    ),
++    #
++    # SO-101 (H8) fine-tuning configs.
++    #
++    TrainConfig(
++        name="pi05_h8_lora",
++        # LoRA fine-tuning version for lower memory usage.
++        model=pi0_config.Pi0Config(
++            pi05=True,
++            paligemma_variant="gemma_2b_lora",
++            action_expert_variant="gemma_300m_lora",
++            action_dim=32,
++            action_horizon=50,
++            discrete_state_input=False,
++        ),
++        data=LeRobotH7DataConfig(
++            repo_id="h8",
++            base_config=DataConfig(prompt_from_task=True),
++        ),
++        batch_size=32,
++        lr_schedule=_optimizer.CosineDecaySchedule(
++            warmup_steps=1_000,
++            peak_lr=2e-4,
++            decay_steps=20_000,
++            decay_lr=2e-5,
++        ),
++        optimizer=_optimizer.AdamW(clip_gradient_norm=1.0),
++        # LoRA fine-tuning: freeze all non-LoRA LLM weights, turn off EMA.
++        freeze_filter=pi0_config.Pi0Config(
++            pi05=True,
++            paligemma_variant="gemma_2b_lora",
++            action_expert_variant="gemma_300m_lora",
++        ).get_freeze_filter(),
++        ema_decay=None,
++        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
++        num_train_steps=20_000,
++    ),
++    TrainConfig(
++        name="pi05_h9_lora",
++        # LoRA fine-tuning version for lower memory usage.
++        model=pi0_config.Pi0Config(
++            pi05=True,
++            paligemma_variant="gemma_2b_lora",
++            action_expert_variant="gemma_300m_lora",
++            action_dim=32,
++            action_horizon=50,
++            discrete_state_input=False,
++        ),
++        data=LeRobotH7DataConfig(
++            repo_id="h9",
++            base_config=DataConfig(prompt_from_task=True),
++        ),
++        batch_size=32,
++        lr_schedule=_optimizer.CosineDecaySchedule(
++            warmup_steps=1_000,
++            peak_lr=2e-4,
++            decay_steps=20_000,
++            decay_lr=2e-5,
++        ),
++        optimizer=_optimizer.AdamW(clip_gradient_norm=1.0),
++        # LoRA fine-tuning: freeze all non-LoRA LLM weights, turn off EMA.
++        freeze_filter=pi0_config.Pi0Config(
++            pi05=True,
++            paligemma_variant="gemma_2b_lora",
++            action_expert_variant="gemma_300m_lora",
++        ).get_freeze_filter(),
++        ema_decay=None,
++        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
++        num_train_steps=20_000,
++    ),
++    #
++    # SO-101 (H10) fine-tuning configs.
++    #
++    TrainConfig(
++        name="pi05_h10_lora",
++        # LoRA fine-tuning version for lower memory usage.
++        model=pi0_config.Pi0Config(
++            pi05=True,
++            paligemma_variant="gemma_2b_lora",
++            action_expert_variant="gemma_300m_lora",
++            action_dim=32,
++            action_horizon=50,
++            discrete_state_input=False,
++        ),
++        data=LeRobotH7DataConfig(
++            repo_id="h10",
++            base_config=DataConfig(prompt_from_task=True),
++        ),
++        batch_size=32,
++        lr_schedule=_optimizer.CosineDecaySchedule(
++            warmup_steps=1_000,
++            peak_lr=2e-4,
++            decay_steps=20_000,
++            decay_lr=2e-5,
++        ),
++        optimizer=_optimizer.AdamW(clip_gradient_norm=1.0),
++        # LoRA fine-tuning: freeze all non-LoRA LLM weights, turn off EMA.
++        freeze_filter=pi0_config.Pi0Config(
++            pi05=True,
++            paligemma_variant="gemma_2b_lora",
++            action_expert_variant="gemma_300m_lora",
++        ).get_freeze_filter(),
++        ema_decay=None,
++        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
++        num_train_steps=20_000,
++    ),
++    #
++    # SO-101 (H11) fine-tuning configs.
++    #
++    TrainConfig(
++        name="pi05_h11_lora",
++        # LoRA fine-tuning version for lower memory usage.
++        model=pi0_config.Pi0Config(
++            pi05=True,
++            paligemma_variant="gemma_2b_lora",
++            action_expert_variant="gemma_300m_lora",
++            action_dim=32,
++            action_horizon=50,
++            discrete_state_input=False,
++        ),
++        data=LeRobotH7DataConfig(
++            repo_id="h11",
++            base_config=DataConfig(prompt_from_task=True),
++        ),
++        batch_size=32,
++        lr_schedule=_optimizer.CosineDecaySchedule(
++            warmup_steps=1_000,
++            peak_lr=2e-4,
++            decay_steps=20_000,
++            decay_lr=2e-5,
++        ),
++        optimizer=_optimizer.AdamW(clip_gradient_norm=1.0),
++        # LoRA fine-tuning: freeze all non-LoRA LLM weights, turn off EMA.
++        freeze_filter=pi0_config.Pi0Config(
++            pi05=True,
++            paligemma_variant="gemma_2b_lora",
++            action_expert_variant="gemma_300m_lora",
++        ).get_freeze_filter(),
++        ema_decay=None,
++        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
++        num_train_steps=20_000,
++    ),
++    TrainConfig(
++        name="pi05_h12_lora",
++        # LoRA fine-tuning version for lower memory usage.
++        model=pi0_config.Pi0Config(
++            pi05=True,
++            paligemma_variant="gemma_2b_lora",
++            action_expert_variant="gemma_300m_lora",
++            action_dim=32,
++            action_horizon=50,
++            discrete_state_input=False,
++        ),
++        data=LeRobotH7DataConfig(
++            repo_id="h12",
++            base_config=DataConfig(prompt_from_task=True),
++        ),
++        batch_size=32,
++        lr_schedule=_optimizer.CosineDecaySchedule(
++            warmup_steps=1_000,
++            peak_lr=2e-4,
++            decay_steps=20_000,
++            decay_lr=2e-5,
++        ),
++        optimizer=_optimizer.AdamW(clip_gradient_norm=1.0),
++        # LoRA fine-tuning: freeze all non-LoRA LLM weights, turn off EMA.
++        freeze_filter=pi0_config.Pi0Config(
++            pi05=True,
++            paligemma_variant="gemma_2b_lora",
++            action_expert_variant="gemma_300m_lora",
++        ).get_freeze_filter(),
++        ema_decay=None,
++        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
++        num_train_steps=20_000,
++    ),
++    #
+     # ALOHA Sim configs. This config is used to demonstrate how to train on a simple simulated environment.
+     #
+     TrainConfig(

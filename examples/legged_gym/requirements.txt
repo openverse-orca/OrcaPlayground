@@ -1,0 +1,9 @@
+stable-baselines3>=2.3.2
+sb3-contrib>=2.3.0
+torch>=2.0.0
+onnxruntime>=1.16.0
+onnx>=1.15.0
+matplotlib>=3.7.0
+packaging>=21.0
+tensorboard>=2.14.0
+requests>=2.31.0

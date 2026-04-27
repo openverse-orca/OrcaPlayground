@@ -1,0 +1,97 @@
+<mujoco model="drone-v1-local">
+  <compiler angle="radian" meshdir="meshes/"/>
+
+  <asset>
+    <texture name="texplane" type="2d" builtin="flat" rgb1="0.95 0.95 0.95" width="5120" height="5120"/>
+    <material name="MatPlane" texture="texplane" texrepeat="1 1" texuniform="true" reflectance="0"/>
+    <mesh name="Main_body" file="main_body.STL"/>
+    <mesh name="Blade" file="FR_blade.STL"/>
+  </asset>
+
+  <default>
+    <light castshadow="false"/>
+    <geom rgba="0.8 0.8 0.8 1"/>
+
+    <default class="drone_driver">
+      <joint limited="true" range="-1.5 1.5" damping="0.1" armature="0.001"/>
+      <geom contype="1" conaffinity="1" condim="4" group="1" margin="0.001"/>
+
+      <default class="main_body">
+        <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="1 1 1 1" mass="0"/>
+      </default>
+
+      <default class="blade">
+        <geom type="mesh" mesh="Blade" contype="0" conaffinity="0" group="1" rgba="0.3 1 0.3 1" mass="0"/>
+      </default>
+
+      <default class="rotor_joint">
+        <joint type="hinge" limited="false" damping="0.02" armature="0.0005"/>
+      </default>
+
+      <default class="collision">
+        <geom contype="1" conaffinity="1" group="4" rgba="1 0.3 1 0.5" friction="2 0.0005 0.00001"/>
+      </default>
+    </default>
+  </default>
+
+  <visual>
+    <headlight ambient="0.5 0.5 0.5"/>
+  </visual>
+
+  <worldbody>
+    <light pos="0 0 1000" directional="false" diffuse="0.3 0.3 0.3" specular="0.3 0.3 0.3"/>
+
+    <body name="drone_frame" pos="0 0 0">
+      <joint name="drone_free" type="free"/>
+      <body name="camera" pos="-0.5 0 0" euler="0 0 -1.570796">
+      <camera name="indi_eye_camera"  pos="0 0 0"  fovy="90"/>
+      </body>
+      <!-- 装配角与网格/USD 一致；推力在 DroneOrcaEnv 中按世界 +Z 换算，不依赖机体系 +Z 竖直。 -->
+      <body name="Drone" childclass="drone_driver" pos="0 0 0.06" euler="-1.570796 -0.785398 0">
+        <site name="drone_body_center_site" pos="0 0 0" group="3" size="0.008" rgba="1 1 0 0.8"/>
+        <site name="drone_forward_site" pos="0.12 0 0" size="0.006" group="3" rgba="0 1 0 0.8"/>
+        <site name="drone_up_site" pos="0 0.12 0" size="0.006" group="3" rgba="0 0.7 1 0.8"/>
+
+        <geom name="Main_body" class="main_body" mesh="Main_body" rgba="1 0.3 0.3 1"/>
+        <geom name="Main_body_col_1" class="collision" type="box" pos="0.045 0.01 0.005" size="0.01 0.01 0.02" euler="0 -0.785398 0"/>
+        <geom name="Main_body_col_2" class="collision" type="box" pos="-0.045 0.01 -0.005" size="0.01 0.01 0.02" euler="0 -0.785398 0"/>
+        <geom name="Main_body_col_3" class="collision" type="box" pos="0.005 0.01 0.045" size="0.01 0.01 0.02" euler="0 -0.785398 0"/>
+        <geom name="Main_body_col_4" class="collision" type="box" pos="-0.005 0.01 -0.045" size="0.01 0.01 0.02" euler="0 -0.785398 0"/>
+
+        <inertial pos="1.51341e-05 -0.0114215 -1.51759e-05" quat="0.653416 0.270518 0.27062 0.653171" mass="0.153935" diaginertia="0.00022914 0.000122973 0.000121538"/>
+
+        <body name="FL_blade" pos="0.123715 -0.018 0" quat="0 -0.950714 0 -0.310071">
+          <inertial pos="0 0.0025 0" quat="0.5 0.5 0.5 0.5" mass="0.00736933" diaginertia="9.62503e-06 4.82787e-06 4.82787e-06"/>
+          <joint class="rotor_joint" name="FL_joint" pos="0 0 0" axis="0 1 0"/>
+          <site name="rotor_fl_site" pos="0 0 0" size="0.007" rgba="1 0.5 0 0.8"/>
+          <geom class="blade"/>
+          <geom name="FL_blade_col" class="collision" type="cylinder" pos="0 0.0025 0" size="0.045 0.005" euler="1.570796 0 0"/>
+        </body>
+
+        <body name="FR_blade" pos="0 -0.018 -0.123715" quat="0 -0.951214 0 0.308532">
+          <inertial pos="0 0.0025 0" quat="0.707107 0 0 0.707107" mass="0.00736933" diaginertia="9.62503e-06 4.82787e-06 4.82787e-06"/>
+          <joint class="rotor_joint" name="FR_joint" pos="0 0 0" axis="0 1 0"/>
+          <site name="rotor_fr_site" pos="0 0 0" size="0.007" rgba="1 0.5 0 0.8"/>
+          <geom class="blade"/>
+          <geom name="FR_blade_col" class="collision" type="cylinder" pos="0 0.0025 0" size="0.045 0.005" euler="1.570796 0 0"/>
+        </body>
+
+        <body name="BL_blade" pos="0 -0.023 0.123715" quat="0.630389 0 -0.77628 0">
+          <inertial pos="0 -0.0025 0" quat="0.707107 0 0 0.707107" mass="0.00736933" diaginertia="9.62503e-06 4.82787e-06 4.82787e-06"/>
+          <joint class="rotor_joint" name="BL_joint" pos="0 0 0" axis="0 1 0"/>
+          <site name="rotor_bl_site" pos="0 0 0" size="0.007" rgba="1 0.5 0 0.8"/>
+          <geom class="blade"/>
+          <geom name="BL_blade_col" class="collision" type="cylinder" pos="0 0.0025 0" size="0.045 0.005" euler="1.570796 0 0"/>
+        </body>
+
+        <body name="BR_blade" pos="-0.123715 -0.023 0" quat="0.28506 0 -0.95851 0">
+          <inertial pos="0 -0.0025 0" quat="0.707107 0 0 0.707107" mass="0.00736933" diaginertia="9.62503e-06 4.82787e-06 4.82787e-06"/>
+          <joint class="rotor_joint" name="BR_joint" pos="0 0 0" axis="0 1 0"/>
+          <site name="rotor_br_site" pos="0 0 0" size="0.007" rgba="1 0.5 0 0.8"/>
+          <geom class="blade"/>
+          <geom name="BR_blade_col" class="collision" type="cylinder" pos="0 0.0025 0" size="0.045 0.005" euler="1.570796 0 0"/>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+</mujoco>

@@ -1,6 +1,4 @@
 from orca_gym.scene.orca_gym_scene_runtime import OrcaGymSceneRuntime
-from orca_gym.scene.orca_gym_scene import OrcaGymScene, Actor
-from orca_gym.utils.rotations import euler2quat
 import time
 import gymnasium as gym
 import sys
@@ -14,11 +12,13 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+from envs.common.model_scanner import (
+    build_suffix_template,
+    require_complete_matches,
+    scan_scene_for_template,
+)
 from orca_gym.log.orca_log import get_orca_logger
-_logger = get_orca_logger()
-
-# Ackerman 场景 spawn 用资产路径（与机器狗方式一致，脚本自动创建场景）
-ACKERMAN_AGENT_ASSET_PATH = "assets/e071469a36d3c8aa/default_project/prefabs/hummer_h2_usda"
+_logger = get_orca_logger(console_level="WARNING", file_level="INFO", force_reinit=True)
 
 def sceneinfo(
     scene,
@@ -45,30 +45,6 @@ def sceneinfo(
         if toclose:
             scene.close()
 
-def publish_ackerman_scene(orcagym_addr: str, agent_name: str) -> None:
-    """仿照机器狗方式，通过 spawn（replicator）自动创建场景，无需手动拖拽到布局。"""
-    _logger.info("=============> 发布 Ackerman 场景 (spawn)...")
-    temp_scene = OrcaGymScene(orcagym_addr)
-    temp_scene.publish_scene()
-    time.sleep(1)
-    temp_scene.close()
-    time.sleep(1)
-    scene = OrcaGymScene(orcagym_addr)
-    agent = Actor(
-        name=agent_name,
-        asset_path=ACKERMAN_AGENT_ASSET_PATH.replace("//", "/"),
-        position=[0, 0, 0],
-        rotation=euler2quat([0, 0, 0]),
-        scale=1.0,
-    )
-    scene.add_actor(agent)
-    _logger.info(f"    =============> Add agent {agent_name} with path {ACKERMAN_AGENT_ASSET_PATH} ...")
-    scene.publish_scene()
-    time.sleep(3)
-    scene.close()
-    time.sleep(1)
-    _logger.info("=============> 发布 Ackerman 场景完成.")
-
 
 ENV_ENTRY_POINT = {
     "Ackerman": "envs.wheeled_chassis.ackerman_env:AckermanEnv",
@@ -78,15 +54,39 @@ TIME_STEP = 0.001
 FRAME_SKIP = 20
 REALTIME_STEP = TIME_STEP * FRAME_SKIP
 CONTROL_FREQ = 1 / REALTIME_STEP
+ACKERMAN_ACTUATORS = [
+    "m_wheel_fl", "m_wheel_fr", "m_wheel_rl", "m_wheel_rr",
+    "m_spring_fl", "m_spring_fr", "m_spring_rl", "m_spring_rr",
+    "p_steering_turn_fl", "p_steering_turn_fr",
+]
+
+
+def resolve_ackerman_scene_agent_name(orcagym_addr: str) -> str:
+    template = build_suffix_template(
+        model_name="Ackerman",
+        actuators=ACKERMAN_ACTUATORS,
+        bodies=["base_link"],
+    )
+    report = scan_scene_for_template(
+        orcagym_addr=orcagym_addr,
+        time_step=TIME_STEP,
+        template=template,
+    )
+    return require_complete_matches(
+        report,
+        min_count=1,
+        max_count=1,
+        allow_empty_prefix=False,
+        orcagym_addr=orcagym_addr,
+    )[0].agent_name
 
 def register_env(orcagym_addr : str, 
                  env_name : str, 
                  env_index : int, 
-                 agent_name : str, 
+                 agent_names : list[str], 
                  max_episode_steps : int) -> tuple[ str, dict ]:
     orcagym_addr_str = orcagym_addr.replace(":", "-")
     env_id = env_name + "-OrcaGym-" + orcagym_addr_str + f"-{env_index:03d}"
-    agent_names = [f"{agent_name}"]
     kwargs = {'frame_skip': FRAME_SKIP,   
                 'orcagym_addr': orcagym_addr, 
                 'agent_names': agent_names, 
@@ -109,15 +109,16 @@ def run_simulation(orcagym_addr : str,
     env = None  # Initialize env to None
     try:
         _logger.info(f"simulation running... , orcagym_addr:  {orcagym_addr}")
-
-        # 通过 spawn（replicator）自动创建场景，无需手动拖拽
-        publish_ackerman_scene(orcagym_addr, agent_name)
+        if agent_name:
+            _logger.info("agent_name 参数仅作兼容保留；运行时会自动扫描场景中的实际底盘实例名。")
 
         env_index = 0
+        resolved_agent_name = resolve_ackerman_scene_agent_name(orcagym_addr)
+        _logger.info(f"检测到场景中的 Ackerman 实例: {resolved_agent_name}")
         env_id, kwargs = register_env(orcagym_addr, 
                                       env_name, 
                                       env_index, 
-                                      agent_name, 
+                                      [resolved_agent_name], 
                                       sys.maxsize)
         _logger.info(f"Registered environment:  {env_id}")
 
@@ -145,6 +146,8 @@ def run_simulation(orcagym_addr : str,
         print("Simulation stopped")        
         if env is not None:
             env.close()
+    except ValueError:
+        _logger.error("仿真出错")
 
 
 if __name__ == "__main__":

@@ -14,7 +14,7 @@ OrcaGym 示例代码仓库，已集成 OrcaLab 支持。
 pip install orca-lab
 ```
 
-#### 步骤 2：激活 OrcaLab 的 conda 环境并安装依赖
+#### 步骤 2：激活 OrcaLab 的 conda 环境并安装基础依赖
 
 ```bash
 # 激活 OrcaLab 的 conda 环境（根据你的环境名称调整）
@@ -23,8 +23,18 @@ conda activate orcalab  # 或你的 OrcaLab 环境名称
 # 进入项目目录
 cd /path/to/OrcaPlayground
 
-# 安装项目依赖
+# 安装基础依赖
 pip install -r requirements.txt
+```
+
+如果你要运行重依赖样例，再额外安装对应目录下的依赖：
+
+```bash
+# 例如：legged_gym
+pip install -r examples/legged_gym/requirements.txt
+
+# 或使用 setuptools extras（适合源码开发）
+pip install -e ".[legged_gym]"
 ```
 
 #### 步骤 3：在当前目录启动 OrcaLab
@@ -63,8 +73,14 @@ OrcaLab 会自动加载工作目录下的 `.orcalab/config.toml` 配置文件。
 
 
 ```bash
-# 安装依赖
+# 安装基础依赖
 pip install -r requirements.txt
+
+# 按需安装额外依赖（示例）
+pip install -r examples/legged_gym/requirements.txt
+
+# 或使用 setuptools extras（示例）
+pip install -e ".[legged_gym]"
 
 # 运行示例（参考各示例目录下的 README.md）
 python examples/character/run_character.py
@@ -88,7 +104,7 @@ OrcaPlayground/
 │   └── ...            # 更多示例
 ├── .orcalab/          # OrcaLab 配置文件
 │   └── config.toml    # 外部程序配置
-└── requirements.txt   # Python 依赖
+└── requirements.txt   # Python 基础依赖
 ```
 
 ## 📚 示例说明
@@ -143,13 +159,32 @@ pip install -r requirements.txt
 ```
 
 主要依赖：
-- `orca-gym>=25.12.4` - OrcaGym 核心包（包含 numpy, gymnasium, mujoco, grpcio 等）
-- `torch>=2.0.0` - PyTorch（用于模型推理）
-- `stable-baselines3>=2.3.2` - SB3 RL 训练（可选）
-- `onnxruntime>=1.16.0` - ONNX 模型推理（可选）
-- `orca-sph>=26.3.1` - 流体仿真（可选）
+- `orca-lab` - OrcaLab / OrcaGym 基础运行时
+- `pyyaml>=6.0` - 通用 YAML 配置解析
 
-详细依赖说明请查看 `requirements.txt`。
+### 示例额外依赖（按需安装）
+
+安装基础依赖后，再根据你要运行的示例追加安装：
+
+简单示例 `character`、`wheeled_chassis`、`replicator`、`drone_driver` 安装根目录 `requirements.txt` 即可。
+
+如果你是以源码方式开发，也可以直接用 `extras_require`：
+
+```bash
+# 基础可编辑安装
+pip install -e .
+
+# 安装单个样例的额外依赖
+pip install -e ".[legged_gym]"
+pip install -e ".[g1]"
+pip install -e ".[xbot]"
+pip install -e ".[zq_sa01]"
+pip install -e ".[so101]"
+pip install -e ".[fluid]"
+
+# 一次安装所有样例依赖
+pip install -e ".[all]"
+```
 
 ### 运行要求
 
