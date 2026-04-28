@@ -12,7 +12,7 @@ SPH 流体与 MuJoCo 刚体耦合，经 OrcaLink 与 OrcaLab / OrcaStudio 通信
 - **OrcaLab（推荐）或 OrcaStudio**：用于加载流体场景、接收仿真与（可选）粒子流。
 - **场景**：资产库中订阅并加载 **`water_example`**（或等价带 SPH 标记的流体场景）。
 - **OrcaLink、OrcaSPH**：与根环境一致安装后，默认由本脚本自动拉起；无需在 README 运行步骤里单独执行命令。
-- **Python**：与 OrcaPlayground 其余示例共用环境；本目录 `requirements.txt` 只保留 fluid 额外依赖；**录制、统计窗口等其余包及用途**见 **[`RECORD_PLAYBACK.md`](RECORD_PLAYBACK.md)**。
+- **Python**：与 OrcaPlayground 其余示例共用环境；本目录 `requirements.txt` 只保留 fluid 额外依赖。
 
 完整环境与版本以仓库根目录说明为准：[`OrcaPlayground/README.md`](../../README.md)。
 
@@ -41,7 +41,3 @@ pip install -r examples/fluid/requirements.txt
 cd examples/fluid
 python run_fluid_sim.py
 ```
-
-## 操作、录制与回放
-
-交互操作、HDF5 录制、离线回放及命令行参数说明见同目录 **[`RECORD_PLAYBACK.md`](RECORD_PLAYBACK.md)**。
