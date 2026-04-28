@@ -4,11 +4,11 @@
 
 ## ⚠️ 重要：资产准备
 
-> **📦 相关资产**：https://simassets.orca3d.cn/ **RemyLevel资产包**
+> **📦 相关资产**：https://simassets.orca3d.cn/ **Remy资产包**
 > 
-> ** 您可以订阅RemyLevel资产包后加载RemyLevel或者在已经打开的布局拖动Remy进去进行使用 **
+> ** 您可以订阅Remy在已经打开的布局拖动Remy进去进行使用 **
 > 
-> **🔧 是否需要手动拖动到布局中**：**可选**
+> **🔧 是否需要手动拖动到布局中**：**是**
 > 
 > **📝 run_character.py 对应模型模板**：`remy`
 >
