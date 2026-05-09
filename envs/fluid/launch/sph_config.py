@@ -75,6 +75,7 @@ def generate_orcasph_config(
     fluid_config: Dict,
     output_path: Path,
     particle_render_override: Optional[Dict] = None,
+    sphscale: float = 1.0,
 ) -> tuple[Path, bool]:
     """
     动态生成 orcasph 配置文件
@@ -82,6 +83,8 @@ def generate_orcasph_config(
     Args:
         fluid_config: 完整的 fluid_config.json 内容
         output_path: 输出配置文件路径
+        particle_render_override: 从 MJCF bound site 计算的 particle_render 覆盖项
+        sphscale: SPH 世界缩放因子（默认 1.0 = 不缩放）
 
     Returns:
         (生成的配置文件路径, verbose_logging配置值)
@@ -151,6 +154,27 @@ def generate_orcasph_config(
         f"{orcalink_cfg.get('host', 'localhost')}:{orcalink_cfg.get('port', 50351)}"
     )
     orcasph_config["orcalink_client"]["enabled"] = orcalink_cfg.get("enabled", True)
+
+    pr_grpc_go = fluid_config.get("particle_render_grpc_override")
+    if pr_grpc_go and "particle_render" in orcasph_config:
+        _deep_merge(orcasph_config["particle_render"].setdefault("grpc", {}), pr_grpc_go)
+        logger.info("particle_render.grpc 覆盖（来自 fluid_config.particle_render_grpc_override）: %s", pr_grpc_go)
+
+    # sphscale: 写入 orcalink_bridge 供 C++ 端读取
+    orcasph_config.setdefault("orcalink_bridge", {})
+    orcasph_config["orcalink_bridge"]["sphscale"] = sphscale
+    logger.info(f"[SPHSCALE] sphscale={sphscale} written to orcasph_config")
+
+    # 弹簧参数缩放（stiffness × s², damping × s²）
+    if sphscale != 1.0:
+        sc = orcasph_config["orcalink_bridge"].get("spring_constraint", {})
+        if sc:
+            original_stiffness = sc.get("stiffness", 5000.0)
+            original_damping = sc.get("damping", 100.0)
+            sc["stiffness"] = original_stiffness * (sphscale ** 2)
+            sc["damping"] = original_damping * (sphscale ** 2)
+            logger.info(f"[SPHSCALE] Spring stiffness scaling: {original_stiffness} → {sc['stiffness']} (×sphscale²)")
+            logger.info(f"[SPHSCALE] Spring damping scaling: {original_damping} → {sc['damping']} (×sphscale²)")
 
     # 写入文件
     output_path.parent.mkdir(parents=True, exist_ok=True)

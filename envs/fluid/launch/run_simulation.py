@@ -51,6 +51,8 @@ class FluidSimulationContext:
     orcagym_tmp_dir: Path
     process_manager: ProcessManager
     shutdown_event: threading.Event = field(default_factory=threading.Event)
+    # >0 时主循环仅执行这么多步后正常退出（无 GUI 自动跑通、回归检查用；0/None=无限）
+    max_steps: int = 0
 
     env: Any = None
     sph_wrapper: Any = None
@@ -60,6 +62,7 @@ class FluidSimulationContext:
     mujoco_qpos_sidecar: Any = None
     scene_output_path: Optional[Path] = None
     particle_render_override: Any = None
+    sphscale: float = 1.0
     prev_sigterm_handler: Any = None
 
 
@@ -292,6 +295,7 @@ def _maybe_generate_sph_scene(ctx: FluidSimulationContext) -> None:
     ctx.particle_render_override = scene_generator.generate_particle_render_config(
         sph_config
     )
+    ctx.sphscale = scene_generator.sphscale
 
 
 def _start_orcalink_if_configured(ctx: FluidSimulationContext) -> None:
@@ -353,6 +357,7 @@ def _start_orcasph_if_configured(ctx: FluidSimulationContext) -> None:
         config,
         orcasph_config_path,
         particle_render_override=ctx.particle_render_override,
+        sphscale=ctx.sphscale,
     )
 
     orcasph_args = config["orcasph"]["args"].copy()
@@ -573,6 +578,10 @@ def _run_cooperative_main_loop(ctx: FluidSimulationContext) -> None:
         if step_count % 100 == 0:
             logger.info(f"仿真步数: {step_count}")
 
+        if ctx.max_steps and step_count >= ctx.max_steps:
+            logger.info("⏹️  已达 max_steps=%s，正常结束主循环", ctx.max_steps)
+            break
+
     if shutdown_event.is_set():
         logger.info("\n⏹️  收到停止信号（SIGTERM/SIGHUP），协作退出主循环")
 
@@ -656,6 +665,7 @@ def run_simulation_with_config(
     config: Dict,
     session_timestamp: Optional[str] = None,
     cpu_affinity: Optional[str] = None,
+    max_steps: int = 0,
 ) -> None:
     """
     使用配置文件运行仿真
@@ -674,6 +684,7 @@ def run_simulation_with_config(
         config: 配置字典
         session_timestamp: 会话时间戳（用于统一日志文件名），如果为None则自动生成
         cpu_affinity: CPU 亲和性核心列表（传递给 taskset -c），例如 "0-7" 或 "0,2,4,6"，None 表示不限制
+        max_steps: 主循环最大步数；>0 时达到后正常退出（用于无头自动跑与检查）；0 表示不限制
     """
     session_timestamp, orcagym_tmp_dir = _preflight_session(config, session_timestamp)
 
@@ -686,6 +697,7 @@ def run_simulation_with_config(
         cpu_affinity=cpu_affinity,
         orcagym_tmp_dir=orcagym_tmp_dir,
         process_manager=process_manager,
+        max_steps=max(0, int(max_steps or 0)),
     )
 
     # -----------------------------------------------------------------------
