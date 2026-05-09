@@ -250,6 +250,13 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="record 模式：从该 HDF5 回放人类操作（在 bridge.step 之后叠加 mocap/eq/ctrl）",
     )
     parser.add_argument(
+        "--max-steps",
+        type=int,
+        default=0,
+        metavar="N",
+        help="主循环最大步数（达到后正常退出；0=无限）。无 --gui 时推荐与自动 OrcaLink 联调用以做短程检查",
+    )
+    parser.add_argument(
         "--enable-performance-stats",
         action="store_true",
         help="启用性能统计功能，每1000个timestep输出一次单行统计数据",
@@ -402,6 +409,52 @@ def _apply_performance_stats_from_args(config: dict, args: argparse.Namespace) -
             print("📈 性能统计图表实时显示已启用")
 
 
+def _print_sph_run_sanity_check(
+    orcagym_tmp_dir: Path, session_timestamp: str, max_steps: int
+) -> None:
+    """
+    根据当次会话日志做粗粒度「SPH 是否参与计算」检查（非物理精度证明）。
+    """
+    if max_steps <= 0:
+        return
+    run_log = orcagym_tmp_dir / f"run_fluid_sim_{session_timestamp}.log"
+    olink = orcagym_tmp_dir / f"orcalink_{session_timestamp}.log"
+    osph = orcagym_tmp_dir / f"orcasph_{session_timestamp}.log"
+    print("\n" + "=" * 60)
+    print("SPH 链路粗检（基于日志关键词）")
+    print("=" * 60)
+    if not run_log.is_file():
+        print(f"⚠️  未找到: {run_log}")
+        return
+    text = run_log.read_text(encoding="utf-8", errors="replace")
+    if "SPH 集成已禁用" in text or "Session ready timeout" in text:
+        print("❌ MuJoCo↔OrcaLink 未在时限内凑齐双客户端，或 SPH 集成被关闭。请用无 --gui 或提高 ready_timeout。")
+    elif "Session is ready" in text or "sph_wrapper.connect() returned: True" in text:
+        print("✅ OrcaLink 会话已就绪，Python 侧 bridge 已连接。")
+    else:
+        print("⚠️  未在 run_fluid_sim 日志中明确看到 Session ready / connect True，请人工打开日志核对。")
+    bad = ("NaN", "diverg", "Error: [OrcaLinkBridge]", "FATAL")
+    for p in orcagym_tmp_dir.glob(f"orcasph_{session_timestamp}.log*"):
+        if not p.is_file():
+            continue
+        raw = p.read_text(encoding="utf-8", errors="replace")
+        hits = [b for b in bad if b in raw]
+        if hits:
+            print(f"⚠️  {p.name} 含可疑关键词: {', '.join(hits)}（需结合全文判断是否影响步进）")
+        else:
+            print(f"✅ {p.name} 未命中常见错误关键词 {bad[:3]}…")
+        break
+    else:
+        print(f"⚠️  未找到 orcasph_{session_timestamp}.log")
+    if olink.is_file():
+        ot = olink.read_text(encoding="utf-8", errors="replace")
+        if "SPlisHSPlasH" in ot or "splishsplas" in ot.lower():
+            print("✅ orcalink 日志中出现 SPH 侧客户端名（双端之一已注册）。")
+        elif "mujoco_client" in ot and "2 clients" not in ot and "Session" in ot:
+            print("ℹ️  请搜 orcalink 日志是否仅 mujoco_client（若如此为双端未齐）。")
+    print("=" * 60 + "\n")
+
+
 def _apply_manual_mode_from_args(config: dict, args: argparse.Namespace) -> None:
     if not args.manual_mode:
         return
@@ -490,6 +543,10 @@ def main() -> int:
                     config,
                     session_timestamp=session_timestamp,
                     cpu_affinity=cpu_affinity,
+                    max_steps=max(0, int(args.max_steps or 0)),
+                )
+                _print_sph_run_sanity_check(
+                    orcagym_tmp_dir, session_timestamp, max(0, int(args.max_steps or 0))
                 )
         except KeyboardInterrupt:
             print("\n✅ 仿真已停止")
