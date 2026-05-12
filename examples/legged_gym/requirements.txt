@@ -1,9 +1,24 @@
-stable-baselines3>=2.3.2
-sb3-contrib>=2.3.0
-torch>=2.0.0
-onnxruntime>=1.16.0
-onnx>=1.15.0
-matplotlib>=3.7.0
+# Legged Gym 示例依赖
+# 配套 orca-gym==26.4.3 / orca-lab==26.4.3
+#
+# 核心依赖链（由 orca-gym==26.4.3 锁定）：
+#   gymnasium==1.2.1
+#   mujoco==3.5.0
+#   numpy==2.2.6
+#   scipy==1.16.2
+#   grpcio==1.66.1
+#   grpcio-tools==1.66.1
+#   aiofiles==25.1.0
+#
+# SB3 训练
+stable-baselines3>=2.8.0
+sb3-contrib>=2.8.0
+torch>=2.3.0
+# ONNX 推理
+onnxruntime>=1.22.0
+onnx>=1.17.0
+# 可视化 & 日志
+matplotlib>=3.10.0
 packaging>=21.0
 tensorboard>=2.14.0
-requests>=2.31.0
+requests>=2.32.0

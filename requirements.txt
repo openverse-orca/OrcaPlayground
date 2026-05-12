@@ -12,7 +12,7 @@
 # 简单示例（character / wheeled_chassis / replicator / drone_driver）
 # 安装本文件即可运行。
 
-orca-lab
+orca-lab==26.4.3
 pyyaml>=6.0
-pygame 
+pygame
 numba

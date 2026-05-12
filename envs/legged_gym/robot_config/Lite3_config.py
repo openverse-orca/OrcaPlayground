@@ -185,7 +185,7 @@ Lite3Config = {
         "push_robots" :             True,
         "push_interval_s" :         15,
         "max_push_vel_xy" :         1.0,
-        "pos_random_range" :        0.1,    # reduce x/y spawn randomization to avoid over-high resets on uneven ground
+        "pos_random_range" :        0.5,    # randomize the x,y position of the robot in each episode
         
         # Config for ccurriculum learning
         "curriculum_learning" :     True,
@@ -217,7 +217,7 @@ Lite3Config = {
 
         # Config for rllib
         "fcnet_hiddens": [512, 256, 128],
-        "rollout_fragment_length" : 4,  # 每个rollout的片段长度(rllib)
+        "rollout_fragment_length" : 16,  # 每个rollout的片段长度(rllib)
         "train_batch_size" : 32768,  # 训练批次大小  (rllib)
         "circular_buffer_num_batches" : 4,
         "circular_buffer_iterations_per_batch" : 2,
@@ -232,7 +232,7 @@ Lite3Config = {
             "end_fraction": 0.2,
             "final_value": 0.005,
         },
-        "clip_param": 0.1, # 裁剪参数(rllib)
+        "clip_param": 0.2, # 裁剪参数(rllib)
         "grad_clip" : 1.0, # 梯度裁剪(rllib)
         "grad_clip_by" : "global_norm", # 梯度裁剪方式(rllib)
         "vf_loss_coeff" : 0.5,
@@ -242,5 +242,5 @@ Lite3Config = {
         "lstm_cell_size" : 256,
         "max_seq_len" : 64,
         "conv_filters" : None,
-        "free_log_std" : False,
+        "free_log_std" : True,
     }

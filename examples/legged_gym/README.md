@@ -1,11 +1,11 @@
 # Legged Gym 使用指南
 
-足式机器人强化学习训练和测试示例。
+足式机器人强化学习训练和测试示例。支持 **SB3 PPO**（单机）和 **RLlib APPO**（分布式）两套训练框架，共享同一套环境与奖励代码。
 
 ## ⚠️ 重要：场景与机器人准备
 
 > **📦 相关资产**：https://simassets.orca3d.cn/ **OrcaPlaygroundAssets资产包**
-> 
+>
 > **🔧 是否需要手动拖动到布局中**：**是**
 >
 > **启动前必须先把机器人摆进场景**
@@ -14,7 +14,7 @@
 >
 > **完全匹配才会继续运行；匹配不全会直接退出**
 >
-> **`run_legged_rl.py`**：按 `config.agent_name` 选择模板，`SB3 training/test/play` 都不再 `spawn`
+> **`run_legged_rl.py`**：按 `config.agent_name` 选择模板，**所有模式（training/test/play）都不再 spawn，统一通过扫描场景获取机器人**
 >
 > **`run_legged_sim.py`**：当前只支持 `Lite3`、`go2`、`g1`
 
@@ -24,32 +24,91 @@
 
 1. 在资产面板里搜索中文名称，例如Lite3或对应型号。
 2. 将 actor 拖入布局，并先摆好初始位置、朝向和与地形/障碍物的相对关系。
-3. 选中该 actor，打开“资产详情”，确认路径与下面的模板路径一致。
+3. 选中该 actor，打开"资产详情"，确认路径与下面的模板路径一致。
 4. 启动脚本；脚本只会扫描并绑定场景里的完整匹配实例，不再主动 `spawn` 机器人。
 
 说明：
 - `run_legged_rl.py` 会根据 `config.agent_name` 选择模板，但真实绑定对象仍以场景扫描结果为准。
 - `run_legged_sim.py` 当前只支持 `Lite3`、`go2`、`g1`，请确保拖入的 actor 与配置中的型号一致。
-- 若你的资产包版本不同，请以 UI 中“资产详情”显示的实际路径为准，但必须保证模型类型和关节后缀模板一致。
+- 若你的资产包版本不同，请以 UI 中"资产详情"显示的实际路径为准，但必须保证模型类型和关节后缀模板一致。
 
-## 🚀 基本使用
+## 🚀 快速开始
 
 ### 安装依赖
 
 在仓库根目录执行：
 
 ```bash
+# 基础依赖（orca-gym + orca-lab）
 pip install -r requirements.txt
+
+# Legged Gym 依赖（SB3 + ONNX）
 pip install -r examples/legged_gym/requirements.txt
 ```
 
-### 训练模式
+如需使用 RLlib APPO 分布式训练，额外安装：
 
-使用 Stable-Baselines3 (SB3) PPO 算法进行训练。
+```bash
+# 先确保 orca-gym 已安装（锁定 gymnasium==1.2.1）
+pip install orca-gym==26.4.3
 
-#### 方式 1：使用 OrcaLab 启动（推荐）
+# 再安装 RLlib（会将 gymnasium 升级到 1.2.2，API 完全兼容，可安全忽略警告）
+pip install "ray[rllib]>=2.54.0" "torch>=2.3.0"
+```
 
-在 OrcaLab 中配置了训练启动项，可以直接使用：
+### 版本配套表（orca-gym==26.4.3）
+
+| 包 | 版本 | 说明 |
+|---|---|---|
+| `orca-gym` | 26.4.3 | 核心仿真库 |
+| `orca-lab` | 26.4.3 | OrcaStudio 客户端 |
+| `orca-sph` | 26.4.3 | SPH 流体（可选） |
+| `gymnasium` | 1.2.1 | 由 orca-gym 锁定 |
+| `mujoco` | 3.5.0 | 由 orca-gym 锁定 |
+| `numpy` | 2.2.6 | 由 orca-gym 锁定 |
+| `scipy` | 1.16.2 | 由 orca-gym 锁定 |
+| `grpcio` | 1.66.1 | 由 orca-gym 锁定 |
+| `aiofiles` | 25.1.0 | 由 orca-gym 锁定 |
+| `stable-baselines3` | >=2.8.0 | SB3 训练 |
+| `sb3-contrib` | >=2.8.0 | SB3 扩展算法 |
+| `torch` | >=2.3.0 | PyTorch |
+| `ray[rllib]` | >=2.54.0 | RLlib 分布式训练 |
+| `onnxruntime` | >=1.22.0 | ONNX 推理 |
+| `onnx` | >=1.17.0 | ONNX 序列化 |
+| `matplotlib` | >=3.10.0 | 可视化 |
+
+> ⚠️ **gymnasium 版本说明**：`orca-gym==26.4.3` 要求 `gymnasium==1.2.1`，而 `ray[rllib]>=2.54` 要求 `gymnasium==1.2.2`。两者 API 完全兼容（补丁级差异），安装时 pip 可能报版本冲突警告，但不影响使用。推荐先安装 `orca-gym`，再安装 `ray[rllib]`。
+
+### 验证安装
+
+```bash
+python -c "import orca_gym; print(f'orca-gym: {orca_gym.__version__}')"
+python -c "import gymnasium; print(f'gymnasium: {gymnasium.__version__}')"
+python -c "import mujoco; print(f'mujoco: {mujoco.__version__}')"
+python -c "import ray; print(f'Ray {ray.__version__}')"
+python -c "import torch; print(f'PyTorch {torch.__version__}, CUDA: {torch.cuda.is_available()}')"
+python -c "from envs.legged_gym.legged_config import LeggedRobotConfig; print(f'Robots: {list(LeggedRobotConfig.keys())}')"
+```
+
+## 🧭 两条训练链路一览
+
+`run_legged_rl.py` 是统一入口，通过配置文件中的 `framework` 字段选择训练框架：
+
+| | SB3 PPO | RLlib APPO ⚠️ |
+|---|---|---|
+| **适用场景** | 单机训练、快速迭代 | 多机分布式、大规模并行 |
+| **配置文件** | `configs/sb3_ppo_config.yaml` | `configs/rllib_appo_config.yaml` |
+| **framework** | `"sb3"` | `"rllib"` |
+| **并行方式** | Subenv 向量化 | Ray env_runner 分布式 |
+| **模型格式** | `.zip` | Ray checkpoint |
+| **ONNX 转换** | `convert_sb3_to_onnx.py` | `convert_rllib_to_onnx.py` |
+| **步态效果** | ✅ 可训练出稳定行走步态 | ⚠️ 参数调优中，暂未取得较好步态 |
+
+两条链路共享 `envs/legged_gym/` 下的环境代码（观测、奖励、PD 控制等），区别仅在于 RL 框架适配层。
+
+## 🏋️ SB3 PPO 训练
+
+### 方式 1：使用 OrcaLab 启动（推荐）
 
 配置位置：`.orcalab/config.toml`
 
@@ -59,12 +118,12 @@ name = "legged_train"
 display_name = "run_legged_rl_train"
 command = "python"
 args = [ "-m", "examples.legged_gym.run_legged_rl", "--config", "examples/legged_gym/configs/sb3_ppo_config.yaml", "--train","--visualize"]
-description = "启动legged_gym训练"
+description = "启动legged_gym训练(SB3 PPO)"
 ```
 
 在 OrcaLab 中选择 `run_legged_rl_train` 即可启动训练。
 
-#### 方式 2：命令行启动
+### 方式 2：命令行启动
 
 ```bash
 python examples/legged_gym/run_legged_rl.py \
@@ -83,7 +142,7 @@ python examples/legged_gym/run_legged_rl.py \
 
 当前 `legged_gym` 训练链路更接近主流做法：把很多机器人样本并行跑起来，但尽量让每个样本彼此独立，而不是让它们在同一个训练环境里频繁互相碰撞。主要原因有：
 
-- **吞吐更高**：并行 RL 框架（如 Isaac Gym / Isaac Lab 这一类）本来就是按“多个物理独立环境批量并行”来优化的。
+- **吞吐更高**：并行 RL 框架（如 Isaac Gym / Isaac Lab 这一类）本来就是按"多个物理独立环境批量并行"来优化的。
 - **训练更稳定**：一旦机器人之间真实碰撞，环境会变成强耦合多智能体系统；其他机器人策略不断变化，会让单个机器人看到的环境更不稳定。
 - **奖励更难归因**：摔倒、减速或偏航，很难判断是自己动作差，还是被别的机器人撞到了。
 - **重置和课程学习更麻烦**：一台机器人出错后的 reset、curriculum 切换、随机化处理都可能干扰其他机器人。
@@ -91,14 +150,14 @@ python examples/legged_gym/run_legged_rl.py \
 
 因此，如果目标是先把单机运动能力、地形适应和恢复能力训稳，主流做法通常是先避免机器人之间的真实物理互撞；只有任务本身就是多机器人协作/避碰时，才会专门引入多智能体交互训练。
 
-#### 为什么训练开 `--visualize` 后会隔几秒看起来“卡顿”
+#### 为什么训练开 `--visualize` 后会隔几秒看起来"卡顿"
 
-这通常不是程序挂住，而是 PPO 训练节拍本来就会出现“采样一段，再停下来更新一次模型”的现象；开了可视化之后，这种节拍切换会更明显。
+这通常不是程序挂住，而是 PPO 训练节拍本来就会出现"采样一段，再停下来更新一次模型"的现象；开了可视化之后，这种节拍切换会更明显。
 
 训练大致会循环执行：
 
 1. 环境并行采样一段 rollout（此时你看到机器人连续运动）
-2. 停下来做一次 PPO 更新（此时画面会像“卡一下”）
+2. 停下来做一次 PPO 更新（此时画面会像"卡一下"）
 3. 继续下一轮 rollout
 
 当前配置下，这种停顿会被下面几类操作放大：
@@ -110,7 +169,7 @@ python examples/legged_gym/run_legged_rl.py \
 
 所以：
 
-- **隔几秒有一次短暂停顿**：通常是正常的 PPO “采样 -> 更新”节拍。
+- **隔几秒有一次短暂停顿**：通常是正常的 PPO "采样 -> 更新"节拍。
 - **每逢固定 iteration 卡得更明显**：通常还叠加了 checkpoint 保存或 curriculum 切换。
 - **想追求训练速度和流畅度**：建议训练时关闭 `--visualize`，把可视化观察放到 `--test` 或 `--play` 阶段。
 
@@ -123,22 +182,126 @@ python examples/legged_gym/run_legged_rl.py \
 - 如果你想本地保留一份可复现样例，最多保留 **1 个完整目录** 即可：目录里至少应包含 `config.json` 和最终 checkpoint `*.zip`。
 - 只有中间快照（如 `*_iteration_300.zip`）或只有 `config.json` 的目录，通常都可以清理。
 
-### 测试/运行模式
+## 🌐 RLlib APPO 分布式训练
 
-使用已训练的模型进行策略回放或交互式运行。
+> ⚠️ **实验性功能**：RLlib APPO 链路的训练参数仍在调优中，当前配置暂未取得较好的行走步态。如需训练可用的行走策略，建议优先使用 SB3 PPO 链路。欢迎参与参数调优并反馈结果。
 
-#### 使用自己的训练模型
+RLlib APPO 适合多机分布式训练，通过 Ray 集群调度大量 env_runner 并行采样，适合需要更大 batch size 和更高吞吐的场景。
 
-在 `--test` / `--play` 之前，请先把目标型号机器人放到场景里，并调整好初始位置。脚本会启动后自动扫描场景中的机器人名字，再绑定对应的关节和驱动器。
+### 方式 1：使用 OrcaLab 启动
 
-说明：
-- `--test`：按 checkpoint 做策略回放，不启用键盘控制。
-- `--play`：仍然使用 `run_legged_rl.py` / `LeggedGymEnv.play` 这条链路，启用场景内键盘控制。
-- `--play` / `--test` 都会先扫描场景中的完整匹配机器人，并以扫描结果覆盖配置里的 `agent_num`。
-- `--play` 如果扫描到多台机器人，只有**第一台**会接收键盘控制，其余机器人仍会一起运行；如果你想得到真正的单机器人交互，请在场景中只保留 1 台匹配机器人。
-- 训练、测试、运行阶段的扫描结果、绑定信息和失败原因，都会打印到终端；请点击左下角**终端按钮**查看输出。
+配置位置：`.orcalab/config.toml`
 
-训练完成后，使用训练生成的配置文件进行测试：
+```toml
+[[external_programs.programs]]
+name = "legged_rllib_train"
+display_name = "run_legged_rllib_train"
+command = "python"
+args = [ "-m", "examples.legged_gym.run_legged_rl", "--config", "examples/legged_gym/configs/rllib_appo_config.yaml", "--train"]
+description = "启动legged_gym训练(RLlib APPO)"
+```
+
+在 OrcaLab 中选择 `run_legged_rllib_train` 即可启动训练。
+
+### 方式 2：命令行启动
+
+```bash
+# 基础训练
+python examples/legged_gym/run_legged_rl.py \
+    --config examples/legged_gym/configs/rllib_appo_config.yaml \
+    --train
+
+# 可视化训练
+python examples/legged_gym/run_legged_rl.py \
+    --config examples/legged_gym/configs/rllib_appo_config.yaml \
+    --train --visualize
+
+# 指定远程 OrcaStudio
+python examples/legged_gym/run_legged_rl.py \
+    --config examples/legged_gym/configs/rllib_appo_config.yaml \
+    --train --remote 192.168.1.100:50051
+```
+
+### RLlib 配置说明
+
+配置文件：`configs/rllib_appo_config.yaml`
+
+```yaml
+framework: "rllib"
+orcagym_addresses: ["localhost:50051"]
+agent_name: "Lite3"
+task: "flat_terrain"
+env_name: "LeggedGym"
+
+agents_per_env: 32           # 参考值，运行时会被场景扫描结果覆盖
+use_robot_locator: false     # 是否启用动态机器人发现
+
+training:
+  max_episode_steps: 1000
+  num_env_runners: 0                    # 0 = 自动分配
+  num_envs_per_env_runner: 32
+  num_learners: 1
+  num_gpus_per_learner: 0.6
+  async_env_runner: true
+  iter: 2000
+  # ...
+```
+
+关键配置项：
+
+| 配置项 | 说明 | 默认值 |
+|--------|------|--------|
+| `agents_per_env` | 每个 MuJoCo 实例中的机器人数量（参考值，运行时由场景扫描覆盖） | 32 |
+| `use_robot_locator` | 启用动态机器人发现（扫描场景） | false |
+| `num_env_runners` | Ray env_runner 数量，0 自动分配 | 0 |
+| `num_envs_per_env_runner` | 每个 runner 并行环境数 | 32 |
+| `num_learners` | Learner 数量（每张卡 1 个） | 1 |
+| `num_gpus_per_learner` | 每个 Learner GPU 占用 | 0.6 |
+
+> 💡 **训练前必须先在场景中拖入机器人**。脚本启动后会扫描场景中的机器人数量，并自动更新 `agents_per_env`。`agents_per_env` 在配置文件中只是一个参考值，确保 `num_envs_per_env_runner` 是它的整数倍即可。
+
+### 两种机器人发现模式
+
+**模式 1：扫描模式**（`use_robot_locator: false`，默认）
+
+- 启动时扫描 OrcaStudio 场景中已拖入的机器人
+- 自动获取机器人名称和数量，覆盖配置中的 `agents_per_env`
+- 适用于大多数场景，与 SB3 操作方式一致
+
+**模式 2：动态发现模式**（`use_robot_locator: true`）
+
+- 每个 Ray env_runner worker 独立扫描场景
+- 适用于多型号混合、动态增减机器人的场景
+- 需要配置 `robot_model_name`
+
+### RLlib 训练流水线
+
+```
+run_legged_rl.py (framework="rllib")   # 统一入口：解析配置、初始化 Ray
+  └── rllib_appo_rl.py                 # 核心：构建 APPOConfig、启动 Tuner
+        ├── LeggedGymEnvRunner         # 自定义 EnvRunner
+        │     └── LeggedGymVectorEnv   # 动态多机器人向量环境
+        │           └── LeggedGymEnv   # Gym 环境
+        │                 └── LeggedRobot  # 机器人 Agent
+        ├── OrcaMetricsCallback        # 训练指标回调
+        └── DictAPPOCatalog            # Dict 观测空间支持
+```
+
+### 与 OrcaGym 原始实现的差异
+
+| 特性 | OrcaGym | OrcaPlayground |
+|------|---------|----------------|
+| 机器人数量 | 硬编码 32/实例 | `agents_per_env` 可配置 |
+| 场景发现 | 无 | `robot_locator` 动态发现 |
+| EnvRunner | `OrcaGymAsyncSingleAgentEnvRunner` | `LeggedGymEnvRunner` |
+| VectorEnv | `OrcaGymVectorEnv` | `LeggedGymVectorEnv` |
+| 多型号支持 | 单一型号 | 动态发现多型号 |
+
+## 🧪 测试 / 交互运行
+
+使用已训练的模型进行策略回放或交互式运行。SB3 和 RLlib 的测试/play 命令格式相同，只是配置文件和 checkpoint 路径不同。
+
+### SB3 测试 / Play
 
 ```bash
 # 测试模式（策略回放，无键盘控制）
@@ -154,13 +317,57 @@ python examples/legged_gym/run_legged_rl.py \
     --ckpt trained_models_tmp/Lite3_flat_terrain_YYYY-MM-DD_HH-MM-SS/Lite3_flat_terrain.zip
 ```
 
-补充说明：
+### RLlib 测试 / Play
+
+```bash
+# 测试模式
+python examples/legged_gym/run_legged_rl.py \
+    --config examples/legged_gym/configs/rllib_appo_config.yaml \
+    --test \
+    --ckpt /path/to/rllib_checkpoint
+
+# 交互式运行模式
+python examples/legged_gym/run_legged_rl.py \
+    --config examples/legged_gym/configs/rllib_appo_config.yaml \
+    --play \
+    --ckpt /path/to/rllib_checkpoint
+```
+
+### 通用说明
+
+在 `--test` / `--play` 之前，请先把目标型号机器人放到场景里，并调整好初始位置。脚本会启动后自动扫描场景中的机器人名字，再绑定对应的关节和驱动器。
+
+- `--test`：按 checkpoint 做策略回放，不启用键盘控制。
+- `--play`：启用场景内键盘控制。
+- `--play` / `--test` 都会先扫描场景中的完整匹配机器人，并以扫描结果覆盖配置里的 `agent_num`。
+- `--play` 如果扫描到多台机器人，只有**第一台**会接收键盘控制，其余机器人仍会一起运行；如果你想得到真正的单机器人交互，请在场景中只保留 1 台匹配机器人。
+- 训练、测试、运行阶段的扫描结果、绑定信息和失败原因，都会打印到终端；请点击左下角**终端按钮**查看输出。
 - `--test` / `--play` 需要 `--ckpt` 指向真实存在的 checkpoint 文件。
 - 训练导出的 `config.json` 可以直接用于 `--test` / `--play`。
 - `--play` 的键盘速度范围优先取机器人配置里的 `curriculum_commands.move_medium`；如果没有该字段，会自动退回到 `max_cmd_vel`。
 
+## 🔄 模型转换
 
-### 交互式仿真运行
+### SB3 → ONNX
+
+```bash
+python examples/legged_gym/scripts/convert_sb3_to_onnx.py \
+    --model_path /path/to/model.zip \
+    --output_path lite3_policy.onnx
+```
+
+### RLlib → ONNX
+
+```bash
+python examples/legged_gym/scripts/convert_rllib_to_onnx.py \
+    --checkpoint_path /path/to/rllib_checkpoint \
+    --orcagym_addr localhost:50051 \
+    --agent_name Lite3 \
+    --task flat_terrain \
+    --output_path lite3_policy.onnx
+```
+
+## 🎮 交互式仿真运行
 
 使用 `run_legged_sim.py` 进行交互式仿真，支持 `sb3` / `onnx` / `grpc` 三种推理后端。
 
@@ -203,7 +410,140 @@ python examples/legged_gym/run_legged_sim.py \
 - `Keyboard command updated` 键盘命令变化
 - `Sim heartbeat` 心跳信息（当前地形、模型类型、动作范数等）
 
-### 命令行参数说明
+## 📋 配置文件说明
+
+配置文件采用 YAML 格式，通过 `framework` 字段选择训练框架。
+
+### SB3 PPO 配置
+
+```yaml
+framework: "sb3"
+orcagym_addresses: ["localhost:50051"]
+agent_name: "Lite3"
+training_episode: 100
+task: "flat_terrain"
+
+training:
+  total_envs_target: 1024       # 自动折算 subenv_num
+  subenv_num: 1
+  agent_num: 1
+  render_mode: "none"
+  terrain_asset_paths: {...}
+  curriculum_list: {...}
+
+testing:
+  subenv_num: 1
+  agent_num: 1
+  render_mode: "human"
+
+play:
+  subenv_num: 1
+  agent_num: 1
+  render_mode: "human"
+```
+
+### RLlib APPO 配置
+
+```yaml
+framework: "rllib"
+orcagym_addresses: ["localhost:50051"]
+agent_name: "Lite3"
+task: "flat_terrain"
+env_name: "LeggedGym"
+
+agents_per_env: 32           # 参考值，运行时由场景扫描覆盖
+use_robot_locator: false
+
+training:
+  max_episode_steps: 1000
+  num_env_runners: 0                    # 0 = 自动分配
+  num_envs_per_env_runner: 32
+  num_learners: 1
+  num_cpus_per_learner: 8
+  num_gpus_per_learner: 0.6
+  async_env_runner: true
+  iter: 2000
+  render_mode: none
+  frame_skip: 5
+  action_skip: 4
+  time_step: 0.001
+  terrain_asset_paths: {...}
+  curriculum_list: {...}
+
+testing:
+  agent_name: "Lite3_000"
+  max_episode_steps: 1000
+  render_mode: human
+  num_env_runners: 1
+  num_envs_per_env_runner: 1
+  num_learners: 1
+  async_env_runner: true
+
+play:
+  agent_name: "Lite3_000"
+  max_episode_steps: 1000
+  render_mode: human
+  num_env_runners: 1
+  num_envs_per_env_runner: 1
+  num_learners: 1
+  async_env_runner: true
+```
+
+参考示例配置文件：
+- `configs/sb3_ppo_config.yaml` - SB3 PPO 训练配置
+- `configs/rllib_appo_config.yaml` - RLlib APPO 训练配置
+- `configs/lite3_sim_config.yaml` - Lite3 仿真配置
+
+说明：
+- `configs/go2_sim_config.yaml` 仍可作为 `run_legged_sim.py` 的 go2 模板入口
+- `agent_asset_path` 已废弃，不再需要。所有模式统一通过扫描场景获取机器人
+- 两条链路都会在运行前扫描场景中的完整匹配实例，并动态决定实际机器人数量
+
+## 📂 目录结构
+
+```
+examples/legged_gym/                   # 用户入口与配置
+├── run_legged_rl.py                   # 统一训练/测试入口（SB3 + RLlib）
+├── run_legged_sim.py                  # 交互式仿真入口
+├── configs/
+│   ├── sb3_ppo_config.yaml            # SB3 PPO 配置
+│   ├── rllib_appo_config.yaml         # RLlib APPO 配置
+│   ├── lite3_sim_config.yaml          # Lite3 仿真配置
+│   └── go2_sim_config.yaml            # Go2 仿真配置
+└── scripts/
+    ├── sb3_ppo_vecenv_rl.py           # SB3 PPO 训练/测试核心逻辑
+    ├── rllib_appo_rl.py               # RLlib APPO 训练/测试核心逻辑
+    ├── convert_sb3_to_onnx.py         # SB3 checkpoint → ONNX
+    ├── convert_rllib_to_onnx.py       # RLlib checkpoint → ONNX
+    └── scene_util.py                  # 场景管理（发布地形/机器人/高度图）
+
+envs/legged_gym/                       # 环境核心代码（两条链路共享）
+├── legged_gym_env.py                  # Gym 环境（OrcaGymAsyncEnv 子类）
+├── legged_sim_env.py                  # 仿真环境（OrcaGymLocalEnv 子类）
+├── legged_robot.py                    # 机器人 Agent（观测/奖励/PD控制）
+├── legged_config.py                   # 全局配置（环境/观测/课程/机器人映射表）
+├── legged_utils.py                    # 坐标变换等工具函数
+├── robot_locator.py                   # 动态机器人发现（扫描场景关节/驱动器后缀匹配）
+│
+├── adapters/rllib/                    # RLlib 适配层
+│   ├── legged_vector_env.py           # 动态多机器人向量化环境
+│   ├── legged_env_runner.py           # 自定义 RLlib EnvRunner
+│   ├── appo_catalog.py                # Dict 观测空间 APPO Catalog
+│   └── metrics_callback.py            # 训练指标回调
+│
+├── robot_config/                      # 机器人型号配置
+│   ├── Lite3_config.py                # Lite3 四足机器人
+│   ├── go2_config.py                  # Go2 四足机器人
+│   ├── g1_config.py                   # G1 双足机器人
+│   ├── A01B_config.py                 # A01B 机器人
+│   └── AzureLoong_config.py           # AzureLoong 机器人
+│
+└── utils/                             # ONNX 推理工具
+    ├── onnx_policy.py                 # ONNX 策略加载与推理
+    └── lite3_obs_helper.py            # Lite3 45维观测计算辅助
+```
+
+## 🎛️ 命令行参数说明
 
 `run_legged_rl.py` 参数：
 
@@ -215,7 +555,7 @@ python examples/legged_gym/run_legged_sim.py \
 - `--remote`：OrcaStudio 远程地址（可选，默认：localhost:50051）
 - `--visualize`：可视化训练过程（可选）
 
-### Windows 与 Linux 差异说明（简述）
+## 💻 Windows 与 Linux 差异说明（简述）
 
 - **进程启动机制差异**：Linux 通常使用 `fork`，Windows 使用 `spawn`。`spawn` 会让每个子进程重新导入一次 Python 模块，启动开销和内存占用更高。
 - **并发训练体验差异**：在同样配置下，Windows 对高并发 `subenv_num` 和 `--visualize` 更敏感，初始化更慢、卡住概率更高；Linux 通常能承受更高并发。
@@ -228,45 +568,37 @@ python examples/legged_gym/run_legged_sim.py \
 - **运行层保护**：在 Windows + 训练场景下，增加并发限流保护逻辑，避免高并发配置直接触发 `spawn` 风暴。
 - **编码与资源容错**：统一配置文件 UTF-8 读写，减少跨平台环境差异导致的启动失败。
 
-## 📋 配置文件说明
+## ❓ 常见问题
 
-配置文件采用 YAML 格式，主要包含以下部分：
+### Q: SB3 和 RLlib 可以共存吗？
 
-```yaml
-framework: "sb3"  # 当前仅保留 sb3
-orcagym_addresses: ["localhost:50051"]  # OrcaStudio 地址
-agent_name: "Lite3"  # 机器人模板类型
-training_episode: 100  # 训练回合数
-task: "flat_terrain"  # 任务类型
+可以。两条链路共享 `envs/legged_gym/` 下的环境代码，通过配置文件的 `framework` 字段区分。同一个 `run_legged_rl.py` 入口同时支持两种框架。
 
-training:  # 训练模式配置（运行时会用扫描结果覆盖 agent_num，并可按 total_envs_target 自动折算 subenv_num）
-  total_envs_target: 1024
-  subenv_num: 1
-  agent_num: 1
-  render_mode: "none"
-  terrain_asset_paths: {...}
-  curriculum_list: {...}
+### Q: 如何切换机器人型号？
 
-testing:  # 测试模式配置（运行时会用扫描结果覆盖 agent_num）
-  subenv_num: 1
-  agent_num: 1
-  render_mode: "human"
-  terrain_asset_paths: {...}
+修改配置文件中的 `agent_name` 字段，支持 `Lite3`、`go2`、`g1`、`A01B`、`AzureLoong`。
 
-play:  # 交互式运行模式配置（运行时会用扫描结果覆盖 agent_num）
-  subenv_num: 1
-  agent_num: 1
-  render_mode: "human"
-  terrain_asset_paths: {...}
+### Q: RLlib 训练时 GPU 内存不足？
+
+降低 `num_envs_per_env_runner` 或 `num_gpus_per_learner`。也可以减少 `agents_per_env`。
+
+### Q: 如何使用动态发现模式？
+
+1. 在 OrcaStudio 中拖入机器人
+2. 配置 `use_robot_locator: true`
+3. 设置 `robot_model_name` 为目标型号（如 `Lite3`）
+4. 脚本会自动扫描场景并匹配
+
+### Q: RLlib checkpoint 目录结构是什么？
+
+```
+checkpoint_000XXX/
+├── learner_group/
+│   └── learner/
+│       └── rl_module/
+│           └── default_policy/    # RLModule 权重
+├── episode_runner_group/          # EnvRunner 状态
+└── ...
 ```
 
-参考示例配置文件：
-- `configs/sb3_ppo_config.yaml` - SB3 PPO 训练配置
-- `configs/lite3_sim_config.yaml` - Lite3 仿真配置
-
-说明：
-- `configs/go2_sim_config.yaml` 仍可作为 `run_legged_sim.py` 的 go2 模板入口
-- `agent_asset_path` 已可完全省略，当前主线配置文件中不再需要它
-- `SB3` 链路会在运行前扫描场景中的完整匹配实例，并动态决定 `agent_num`
-
----
+测试时 `--ckpt` 指向 `checkpoint_000XXX` 目录即可。
