@@ -77,8 +77,6 @@ cd /path/to/OrcaPlayground
 pip install -r requirements.txt
 ```
 
-这会安装 `orca-lab==26.4.3`（自动拉取 `orca-gym==26.4.3` 及其锁定依赖）。
-
 ### 2. Legged Gym 依赖（SB3 + ONNX）
 
 ```bash

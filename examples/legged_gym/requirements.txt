@@ -1,5 +1,4 @@
 # Legged Gym 示例依赖
-# 配套 orca-gym==26.4.3 / orca-lab==26.4.3
 #
 # 核心依赖链（由 orca-gym==26.4.3 锁定）：
 #   gymnasium==1.2.1
