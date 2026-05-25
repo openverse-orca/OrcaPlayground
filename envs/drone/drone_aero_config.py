@@ -182,6 +182,10 @@ DRONE_MODEL_PROFILES: dict[str, DroneModelProfile] = {
     "Drone_ver_1.0": DroneModelProfile(
         key="Drone_ver_1.0",
         display_name="Drone_ver_1.0",
+        full_mode=FullModeControlConfig(
+            planar_forward_axis_body=(-1.0, 0.0, 0.0),
+            planar_right_axis_body=(0.0, -1.0, 0.0),
+        ),
     ),
     "x2": DroneModelProfile(
         key="x2",

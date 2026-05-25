@@ -559,7 +559,7 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         if self._autoplay_enabled:
             command = self._build_autoplay_command()
         else:
-            # 以带横纹的一侧为机头：W前/S后/A左/D右。
+            # 横纹/相机侧为机头（-X）：W前/S后/A左/D右。
             # 手动模式下把 WASD 平移杆量收半档，避免横向/纵向都过快。
             planar_scale = 0.5
             command = np.array(

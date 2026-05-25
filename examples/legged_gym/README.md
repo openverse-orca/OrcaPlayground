@@ -42,9 +42,40 @@
 # 基础依赖（orca-gym + orca-lab）
 pip install -r requirements.txt
 
-# Legged Gym 依赖（SB3 + ONNX）
+# Legged Gym 依赖（SB3 + ONNX，不含 torch）
 pip install -r examples/legged_gym/requirements.txt
 ```
+
+> ⚠️ **`requirements.txt` 中已注释掉 `torch`，需要手动安装**。因为 `pip install torch` 默认安装 CUDA 12.8 版本，如果你的 NVIDIA 驱动较旧会报错 `RuntimeError: The NVIDIA driver on your system is too old`。请根据下方的驱动兼容表选择正确的安装命令。
+
+### NVIDIA 驱动与 PyTorch 兼容性
+
+先查看你的驱动版本：
+
+```bash
+nvidia-smi | head -3
+# 输出示例：Driver Version: 550.54.15    CUDA Version: 12.4
+```
+
+然后根据驱动版本选择对应的 PyTorch 安装命令：
+
+| NVIDIA 驱动版本 | 支持的最高 CUDA | PyTorch 安装命令 |
+|---|---|---|
+| ≥ 570 | 12.8+ | `pip install torch>=2.7.0` |
+| ≥ 560 | 12.6+ | `pip install torch>=2.7.0 --index-url https://download.pytorch.org/whl/cu126` |
+| ≥ 550 | 12.4+ | `pip install "torch>=2.6.0,<2.7" --index-url https://download.pytorch.org/whl/cu124` |
+| ≥ 530 | 12.1+ | `pip install "torch>=2.3.0,<2.5" --index-url https://download.pytorch.org/whl/cu121` |
+| ≥ 520 | 11.8+ | `pip install "torch>=2.3.0,<2.5" --index-url https://download.pytorch.org/whl/cu118` |
+
+> 💡 **原则**：驱动版本决定了你能使用的最高 CUDA 版本。高版本驱动向下兼容低版本 CUDA，但低版本驱动无法运行高版本 CUDA。安装 PyTorch 时选择的 CUDA 版本不能超过驱动支持的最高 CUDA 版本。
+
+安装后验证：
+
+```bash
+python -c "import torch; print(f'PyTorch {torch.__version__}, CUDA {torch.version.cuda}, GPU available: {torch.cuda.is_available()}')"
+```
+
+如果 `GPU available: False`，说明 PyTorch 编译的 CUDA 版本高于驱动支持的最高版本，请按上表重新安装匹配的版本。
 
 如需使用 RLlib APPO 分布式训练，额外安装：
 
@@ -53,7 +84,7 @@ pip install -r examples/legged_gym/requirements.txt
 pip install orca-gym==26.4.3
 
 # 再安装 RLlib（会将 gymnasium 升级到 1.2.2，API 完全兼容，可安全忽略警告）
-pip install "ray[rllib]>=2.54.0" "torch>=2.3.0"
+pip install "ray[rllib]>=2.54.0"
 ```
 
 ### 版本配套表（orca-gym==26.4.3）
@@ -71,7 +102,7 @@ pip install "ray[rllib]>=2.54.0" "torch>=2.3.0"
 | `aiofiles` | 25.1.0 | 由 orca-gym 锁定 |
 | `stable-baselines3` | >=2.8.0 | SB3 训练 |
 | `sb3-contrib` | >=2.8.0 | SB3 扩展算法 |
-| `torch` | >=2.3.0 | PyTorch |
+| `torch` | ≥2.3.0 | PyTorch（需按驱动版本手动安装，见上方兼容表） |
 | `ray[rllib]` | >=2.54.0 | RLlib 分布式训练 |
 | `onnxruntime` | >=1.22.0 | ONNX 推理 |
 | `onnx` | >=1.17.0 | ONNX 序列化 |
@@ -569,6 +600,18 @@ envs/legged_gym/                       # 环境核心代码（两条链路共享
 - **编码与资源容错**：统一配置文件 UTF-8 读写，减少跨平台环境差异导致的启动失败。
 
 ## ❓ 常见问题
+
+### Q: 报错 `RuntimeError: The NVIDIA driver on your system is too old` 怎么办？
+
+这是 PyTorch 编译的 CUDA 版本高于你的 NVIDIA 驱动支持的版本导致的。例如驱动版本 550（支持 CUDA 12.4），但 `pip install torch` 默认安装了 CUDA 12.8 版本。
+
+解决方法：
+
+1. 查看驱动版本：`nvidia-smi | head -3`
+2. 根据上方的 **NVIDIA 驱动与 PyTorch 兼容性** 表格，选择匹配的安装命令重新安装 PyTorch
+3. 卸载旧版本：`pip uninstall torch`
+4. 按表格安装对应版本，例如驱动 550：`pip install "torch>=2.6.0,<2.7" --index-url https://download.pytorch.org/whl/cu124`
+5. 验证：`python -c "import torch; print(torch.cuda.is_available())"` 应输出 `True`
 
 ### Q: SB3 和 RLlib 可以共存吗？
 
