@@ -47,28 +47,7 @@ envs/legged_gym/
 
 ## 安装
 
-### 版本配套表（orca-gym==26.4.3）
 
-| 包 | 版本 | 说明 |
-|---|---|---|
-| `orca-gym` | 26.4.3 | 核心仿真库 |
-| `orca-lab` | 26.4.3 | OrcaStudio 客户端 |
-| `orca-sph` | 26.4.3 | SPH 流体（可选） |
-| `gymnasium` | 1.2.1 | 由 orca-gym 锁定 |
-| `mujoco` | 3.5.0 | 由 orca-gym 锁定 |
-| `numpy` | 2.2.6 | 由 orca-gym 锁定 |
-| `scipy` | 1.16.2 | 由 orca-gym 锁定 |
-| `grpcio` | 1.66.1 | 由 orca-gym 锁定 |
-| `aiofiles` | 25.1.0 | 由 orca-gym 锁定 |
-| `stable-baselines3` | >=2.8.0 | SB3 训练 |
-| `sb3-contrib` | >=2.8.0 | SB3 扩展算法 |
-| `torch` | >=2.3.0 | PyTorch |
-| `ray[rllib]` | >=2.54.0 | RLlib 分布式训练 |
-| `onnxruntime` | >=1.22.0 | ONNX 推理 |
-| `onnx` | >=1.17.0 | ONNX 序列化 |
-| `matplotlib` | >=3.10.0 | 可视化 |
-
-> ⚠️ **gymnasium 版本说明**：`orca-gym==26.4.3` 要求 `gymnasium==1.2.1`，而 `ray[rllib]>=2.54` 要求 `gymnasium==1.2.2`。两者 API 完全兼容（补丁级差异），安装时 pip 可能报版本冲突警告，但不影响使用。推荐先安装 `orca-gym`，再安装 `ray[rllib]`。
 
 ### 1. 基础依赖
 
@@ -91,11 +70,9 @@ pip install -e ".[legged_gym]"
 
 ### 3. RLlib 额外依赖
 
-```bash
-# 先确保 orca-gym 已安装（锁定 gymnasium==1.2.1）
-pip install orca-gym==26.4.3
 
-# 再安装 RLlib（会将 gymnasium 升级到 1.2.2，API 完全兼容，可安全忽略警告）
+
+# 安装 RLlib（会将 gymnasium 升级到 1.2.2，API 完全兼容，可安全忽略警告）
 pip install "ray[rllib]>=2.54.0" "torch>=2.3.0"
 ```
 

@@ -1,14 +1,4 @@
 # Legged Gym 示例依赖
-#
-# 核心依赖链（由 orca-gym==26.4.3 锁定）：
-#   gymnasium==1.2.1
-#   mujoco==3.5.0
-#   numpy==2.2.6
-#   scipy==1.16.2
-#   grpcio==1.66.1
-#   grpcio-tools==1.66.1
-#   aiofiles==25.1.0
-#
 # ⚠️ PyTorch 安装说明：
 #   pip install torch 默认安装 CUDA 12.8 版本，需要 NVIDIA 驱动 ≥ 570。
 #   如果你的驱动较旧，请根据下表选择对应的安装命令：

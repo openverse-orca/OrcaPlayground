@@ -313,6 +313,22 @@ def run_rllib_appo_rl(
     remote: str,
     visualize: bool,
 ):
+    if os.name == "nt":
+        print("=" * 60)
+        print("RLlib APPO 暂不支持 Windows")
+        print("=" * 60)
+        print("Ray 在 Windows 上使用 spawn 模式创建子进程，")
+        print("与 RLlib 分布式训练的 fork 模式存在根本差异，")
+        print("会导致 worker 初始化超时、模块找不到等兼容性问题。")
+        print()
+        print("建议：")
+        print("  - Windows 用户请使用 SB3 PPO 框架训练")
+        print("    (--config configs/sb3_ppo_config.yaml)")
+        print("  - 如需 RLlib 分布式训练，请在 Linux上运行")
+        print("=" * 60)
+        sys.stdout.flush()
+        os._exit(1)
+
     import ray
     import torch
     from examples.legged_gym.scripts import rllib_appo_rl

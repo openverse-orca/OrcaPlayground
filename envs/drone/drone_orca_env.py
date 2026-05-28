@@ -168,7 +168,7 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         if vertical_keyboard_xy_force_factor is not None:
             bvz = replace(bvz, keyboard_world_xy_force_factor=float(vertical_keyboard_xy_force_factor))
         if bool(vertical_z_only_physics):
-            bvz = replace(bvz, apply_translational_force=True)
+            bvz = replace(bvz, apply_thrust_at_free_frame=False)
         vz_cfg = replace(
             bvz,
             enabled=bool(vertical_z_only_physics),

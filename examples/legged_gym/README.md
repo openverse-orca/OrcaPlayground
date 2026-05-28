@@ -81,34 +81,11 @@ python -c "import torch; print(f'PyTorch {torch.__version__}, CUDA {torch.versio
 
 ```bash
 # 先确保 orca-gym 已安装（锁定 gymnasium==1.2.1）
-pip install orca-gym==26.4.3
-
 # 再安装 RLlib（会将 gymnasium 升级到 1.2.2，API 完全兼容，可安全忽略警告）
 pip install "ray[rllib]>=2.54.0"
 ```
 
-### 版本配套表（orca-gym==26.4.3）
 
-| 包 | 版本 | 说明 |
-|---|---|---|
-| `orca-gym` | 26.4.3 | 核心仿真库 |
-| `orca-lab` | 26.4.3 | OrcaStudio 客户端 |
-| `orca-sph` | 26.4.3 | SPH 流体（可选） |
-| `gymnasium` | 1.2.1 | 由 orca-gym 锁定 |
-| `mujoco` | 3.5.0 | 由 orca-gym 锁定 |
-| `numpy` | 2.2.6 | 由 orca-gym 锁定 |
-| `scipy` | 1.16.2 | 由 orca-gym 锁定 |
-| `grpcio` | 1.66.1 | 由 orca-gym 锁定 |
-| `aiofiles` | 25.1.0 | 由 orca-gym 锁定 |
-| `stable-baselines3` | >=2.8.0 | SB3 训练 |
-| `sb3-contrib` | >=2.8.0 | SB3 扩展算法 |
-| `torch` | ≥2.3.0 | PyTorch（需按驱动版本手动安装，见上方兼容表） |
-| `ray[rllib]` | >=2.54.0 | RLlib 分布式训练 |
-| `onnxruntime` | >=1.22.0 | ONNX 推理 |
-| `onnx` | >=1.17.0 | ONNX 序列化 |
-| `matplotlib` | >=3.10.0 | 可视化 |
-
-> ⚠️ **gymnasium 版本说明**：`orca-gym==26.4.3` 要求 `gymnasium==1.2.1`，而 `ray[rllib]>=2.54` 要求 `gymnasium==1.2.2`。两者 API 完全兼容（补丁级差异），安装时 pip 可能报版本冲突警告，但不影响使用。推荐先安装 `orca-gym`，再安装 `ray[rllib]`。
 
 ### 验证安装
 
@@ -133,6 +110,7 @@ python -c "from envs.legged_gym.legged_config import LeggedRobotConfig; print(f'
 | **并行方式** | Subenv 向量化 | Ray env_runner 分布式 |
 | **模型格式** | `.zip` | Ray checkpoint |
 | **ONNX 转换** | `convert_sb3_to_onnx.py` | `convert_rllib_to_onnx.py` |
+| **Windows 支持** | ✅ 支持 | 🚫 暂不支持 |
 | **步态效果** | ✅ 可训练出稳定行走步态 | ⚠️ 参数调优中，暂未取得较好步态 |
 
 两条链路共享 `envs/legged_gym/` 下的环境代码（观测、奖励、PD 控制等），区别仅在于 RL 框架适配层。
@@ -216,6 +194,8 @@ python examples/legged_gym/run_legged_rl.py \
 ## 🌐 RLlib APPO 分布式训练
 
 > ⚠️ **实验性功能**：RLlib APPO 链路的训练参数仍在调优中，当前配置暂未取得较好的行走步态。如需训练可用的行走策略，建议优先使用 SB3 PPO 链路。欢迎参与参数调优并反馈结果。
+
+> 🚫 **暂不支持 Windows**：Ray 在 Windows 上使用 `spawn` 模式创建子进程，与 RLlib 分布式训练的 `fork` 模式存在根本差异，会导致 worker 初始化超时、模块找不到等兼容性问题。Windows 用户请使用 SB3 PPO 框架训练；如需 RLlib 分布式训练，请在 Linux 上运行。脚本会在 Windows 上自动拦截并提示。
 
 RLlib APPO 适合多机分布式训练，通过 Ray 集群调度大量 env_runner 并行采样，适合需要更大 batch size 和更高吞吐的场景。
 
