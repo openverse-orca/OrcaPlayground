@@ -1,0 +1,163 @@
+# D12 仓库场景 — 物体坐标系轨迹（支持随机化）
+# 运行时动态解析物体位置，物体移动后轨迹自动追踪
+#
+# 关键字段说明:
+#   l_object_frame / r_object_frame: 要追踪的物体 body 名称（模糊匹配）
+#   l_target_o / r_target_o: 相对物体的目标位置 [x, y, z]（米）
+#   l_quat_o / r_quat_o: 相对物体的目标姿态 [x, y, z, w]
+#   l_frame_offset_euler_deg / r_frame_offset_euler_deg: 物体坐标系旋转补偿（度）
+#   l_target_b / r_target_b: 基座系绝对坐标（与 _o 互斥）
+
+gripper_open: 0.0
+gripper_close: 220.0
+
+segments:
+  - steps: 300
+    l_object_frame: c12c_1
+    l_target_o: [-0.2, 0.0, 0.4]
+    l_quat_o: [0.0, 0.0, 0.0, 1.0]
+    r_object_frame: barcode_01_1
+    r_frame_offset_euler_deg: [0.0, 0.0, 90.0]
+    r_target_o: [-0.1, 0.0, 0.3]
+    r_quat_o: [0.0, 0.0, 0.0, 1.0]
+    gripper_l: open
+    gripper_r: open
+
+  - steps: 200
+    l_object_frame: c12c_1
+    l_target_o: [-0.05, 0.0, 0.05]
+    l_quat_o: [0.0, 0.0, 0.0, 1.0]
+    r_object_frame: barcode_01_1
+    r_frame_offset_euler_deg: [0.0, 0.0, 90.0]
+    r_target_o: [0.03, 0.01, 0.02]
+    r_quat_o: [0, 0.258819, 0, 0.9659258]
+    gripper_l: open
+    gripper_r: open
+
+  - steps: 100
+    l_hold: true
+    r_hold: true
+    gripper_l: close
+    gripper_r: close
+
+  - steps: 200
+    l_target_b: [0.45, 0.39, 0.55]
+    r_target_b: [0.5, -0.39, 0.55]
+    r_quat_b: [0, 0.5, 0, 0.8660254]
+    gripper_l: close
+    gripper_r: close
+
+  - steps: 200
+    l_target_b: [0.5, 0.15, 0.55]
+    l_quat_b: [0, 0, -0.3826834, 0.9238795]
+    r_target_b: [0.47, -0.08, 0.53]
+    r_quat_b: [0, 0, 0.3826834, 0.9238795]
+    gripper_l: close
+    gripper_r: close
+
+  - steps: 200
+    l_hold: true
+    r_hold: true
+    gripper_l: close
+    gripper_r: close
+
+  - steps: 300
+    l_object_frame: cardboardbox_01_1_cardboardbox_01
+    l_target_o: [-0.15, 0.0, 0.5]
+    l_frame_offset_euler_deg: [0.0, 0.0, 90.0]
+    l_quat_o: [0, 0, -0.258819, 0.9659258]
+    r_target_b: [0.45, -0.4, 0.5]
+    r_quat_b: [0.0, 0.0, 0.0, 1.0]
+    gripper_l: close
+    gripper_r: close
+
+  - steps: 200
+    l_hold: true
+    r_target_b: [0.45, -0.4, 0.25]
+    r_quat_b: [0, 0.5, 0, 0.8660254]
+    gripper_l: open
+    gripper_r: close
+
+  - steps: 100
+    l_hold: true
+    r_hold: true
+    gripper_l: open
+    gripper_r: open
+
+  - steps: 300
+    l_object_frame: cardboardbox_01_1_cardboardbox_01
+    l_target_o: [0.0, 0.35, 0.15]
+    l_frame_offset_euler_deg: [0.0, 0.0, 90.0]
+    l_quat_o: [0.0, 0.0, 0.0, 1.0]
+    r_object_frame: cardboardbox_01_1_cardboardbox_01
+    r_target_o: [0.0, -0.35, 0.15]
+    r_frame_offset_euler_deg: [0.0, 0.0, 90.0]
+    r_quat_o: [0.0, 0.0, 0.0, 1.0]
+    gripper_l: open
+    gripper_r: open
+
+  - steps: 200
+    l_object_frame: cardboardbox_01_1_cardboardbox_01
+    l_target_o: [0.0, 0.17, 0.15]
+    l_frame_offset_euler_deg: [0.0, 0.0, 90.0]
+    l_quat_o: [0, 0, -0.3826834, 0.9238795]
+    r_object_frame: cardboardbox_01_1_cardboardbox_01
+    r_target_o: [0.0, -0.17, 0.15]
+    r_frame_offset_euler_deg: [0.0, 0.0, 90.0]
+    r_quat_o: [0, 0, 0.3826834, 0.9238795]
+    gripper_l: open
+    gripper_r: open
+
+  - steps: 150
+    l_object_frame: cardboardbox_01_1_cardboardbox_01
+    l_target_o: [0.0, 0.17, 0.25]
+    l_frame_offset_euler_deg: [0.0, 0.0, 90.0]
+    l_quat_o: [0, 0, -0.3826834, 0.9238795]
+    r_object_frame: cardboardbox_01_1_cardboardbox_01
+    r_target_o: [0.0, -0.17, 0.25]
+    r_frame_offset_euler_deg: [0.0, 0.0, 90.0]
+    r_quat_o: [0, 0, 0.3826834, 0.9238795]
+    gripper_l: open
+    gripper_r: open
+
+  - steps: 150
+    l_object_frame: cardboardbox_01_1_cardboardbox_01
+    l_target_o: [0.0, 0.17, 0.35]
+    l_frame_offset_euler_deg: [0.0, 0.0, 90.0]
+    l_quat_o: [0, 0, -0.3826834, 0.9238795]
+    r_object_frame: cardboardbox_01_1_cardboardbox_01
+    r_target_o: [0.0, -0.17, 0.35]
+    r_frame_offset_euler_deg: [0.0, 0.0, 90.0]
+    r_quat_o: [0, 0, 0.3826834, 0.9238795]
+    gripper_l: open
+    gripper_r: open
+
+  - steps: 150
+    l_object_frame: cardboardbox_01_1_cardboardbox_01
+    l_target_o: [0.0, 0.07, 0.35]
+    l_frame_offset_euler_deg: [0.0, 0.0, 90.0]
+    l_quat_o: [0, 0, -0.3826834, 0.9238795]
+    r_object_frame: cardboardbox_01_1_cardboardbox_01
+    r_target_o: [0.0, -0.07, 0.35]
+    r_frame_offset_euler_deg: [0.0, 0.0, 90.0]
+    r_quat_o: [0, 0, 0.3826834, 0.9238795]
+    gripper_l: open
+    gripper_r: open
+
+  - steps: 150
+    l_object_frame: cardboardbox_01_1_cardboardbox_01
+    l_target_o: [0.0, 0.07, 0.22]
+    l_frame_offset_euler_deg: [0.0, 0.0, 90.0]
+    l_quat_o: [0, 0, -0.3826834, 0.9238795]
+    r_object_frame: cardboardbox_01_1_cardboardbox_01
+    r_target_o: [0.0, -0.07, 0.22]
+    r_frame_offset_euler_deg: [0.0, 0.0, 90.0]
+    r_quat_o: [0, 0, 0.3826834, 0.9238795]
+    gripper_l: open
+    gripper_r: open
+
+  - steps: 100
+    l_hold: true
+    r_hold: true
+    gripper_l: hold
+    gripper_r: hold
