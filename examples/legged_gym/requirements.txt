@@ -1,9 +1,30 @@
-stable-baselines3>=2.3.2
-sb3-contrib>=2.3.0
-torch>=2.0.0
-onnxruntime>=1.16.0
-onnx>=1.15.0
-matplotlib>=3.7.0
+# Legged Gym 示例依赖
+# ⚠️ PyTorch 安装说明：
+#   pip install torch 默认安装 CUDA 12.8 版本，需要 NVIDIA 驱动 ≥ 570。
+#   如果你的驱动较旧，请根据下表选择对应的安装命令：
+#
+#   NVIDIA 驱动版本    最低 CUDA 版本    安装命令
+#   ──────────────────────────────────────────────────────────────────────────
+#   ≥ 570             CUDA 12.8         pip install torch>=2.7.0
+#   ≥ 560             CUDA 12.6         pip install torch>=2.7.0 --index-url https://download.pytorch.org/whl/cu126
+#   ≥ 550             CUDA 12.4         pip install torch>=2.6.0,<2.7 --index-url https://download.pytorch.org/whl/cu124
+#   ≥ 530             CUDA 12.1         pip install torch>=2.3.0,<2.5 --index-url https://download.pytorch.org/whl/cu121
+#   ≥ 520             CUDA 11.8         pip install torch>=2.3.0,<2.5 --index-url https://download.pytorch.org/whl/cu118
+#
+#   查看驱动版本：nvidia-smi | head -3
+#   查看当前 CUDA 版本：python -c "import torch; print(torch.version.cuda)"
+#
+# SB3 训练
+stable-baselines3>=2.8.0
+sb3-contrib>=2.8.0
+# ⚠️ 不要直接 pip install torch，请参考上方表格根据驱动版本选择安装命令
+# torch>=2.3.0
+# ONNX 推理
+onnxruntime>=1.22.0
+onnx>=1.17.0
+# 可视化 & 日志
+matplotlib>=3.10.0
 packaging>=21.0
 tensorboard>=2.14.0
-requests>=2.31.0
+requests>=2.32.0
+ray[rllib]>=2.54.0

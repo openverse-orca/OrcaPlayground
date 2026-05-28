@@ -13,7 +13,7 @@
 - 默认键盘指令映射为作用在 **drone_frame 刚体** 上的 **集体推力 + 姿态/偏航控制**（`xfrc_applied`），表现为一版可调的四旋翼 full 模式
 - 附带 `drone_aero_config` 中的 **线性/二次阻尼** 与简易 **地面效应**（按高度放大局部升力），便于稳定与近地表现
 - 四个旋翼关节仍主要承担 **转速动画**（每步写关节相位），**模型中不再为桨挂 position 执行器**，避免与脚本驱动冲突导致桨自由度上出现数千量级的 `qacc`
-- 运行链路仍然走 `OrcaStudio` / gRPC
+- 运行链路仍然走 `OrcaLab` / gRPC
 
 其中“**集体推力**”指四旋翼总升力的集总控制量，主要由 `R/F` 调节；当前默认 full 模式**不包含位置闭环**，也不是“给定目标高度/目标位置后自动跟踪”的位控。
 
@@ -24,16 +24,15 @@
 - `run_drone_orca.py`：入口脚本，负责扫描场景、注册环境并驱动仿真循环
 - `model/Drone_ver_1.0/drone-v1.xml`：无人机 MuJoCo 模型（根为 `drone_free`）
 - `model/skydio_x2_nofloor/x2.xml`：按当前框架重构后的 `Skydio X2` 示例模型
-- `envs/drone/drone_orca_env.py`：推力物理环境，读取 `OrcaStudio` 键盘并施加外力/力矩
+- `envs/drone/drone_orca_env.py`：推力物理环境，读取 `OrcaLab` 键盘并施加外力/力矩
 - `envs/drone/drone_aero_config.py`：气动阻尼、full 模式控制参数与机型 profile
 
 ## 运行前准备
 
-- 先将 **更新后的** `drone-v1.xml` 导入 `OrcaStudio`（若仍使用旧的 `Tx…Rz` 根关节，场景扫描会失败）
 - 将对应 actor 手动拖入当前场景
 - 场景中需要且只能有 1 台完整匹配的无人机实例
 - 实例名不需要固定，脚本会根据关节、执行器、body、site 后缀自动绑定
-- 键盘输入来自 `OrcaStudio`，不依赖终端焦点
+- 键盘输入来自 `OrcaLab`，不依赖终端焦点
 
 手动拖入资产的通用流程可参考项目根目录 `README.md`。
 

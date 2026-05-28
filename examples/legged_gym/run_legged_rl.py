@@ -50,7 +50,7 @@ patch_orca_logger_for_windows()
 from envs.legged_gym.legged_config import LeggedEnvConfig, LeggedRobotConfig
 from envs.legged_gym.robot_locator import locate_scene_robot
 from orca_gym.utils.dir_utils import create_tmp_dir
-from examples.legged_gym.scripts.scene_util import generate_height_map_file, clear_scene, publish_terrain, publish_scene
+from examples.legged_gym.scripts.scene_util import generate_height_map_file
 
 TIME_STEP = LeggedEnvConfig["TIME_STEP"]
 FRAME_SKIP = LeggedEnvConfig["FRAME_SKIP"]
@@ -89,51 +89,6 @@ def process_scene(
     )
     return height_map_file, scene_binding
 
-
-def process_training_scene(
-    orcagym_addresses: list[str],
-    agent_name: str,
-    agent_asset_path: str | None,
-    agent_num: int,
-    terrain_asset_paths: list[str],
-    run_mode: str,
-    skip_terrain: bool = False,
-):
-    if run_mode == "training":
-        clear_scene(
-            orcagym_addresses=orcagym_addresses,
-        )
-        if not skip_terrain:
-            publish_terrain(
-                orcagym_addresses=orcagym_addresses,
-                terrain_asset_paths=terrain_asset_paths,
-            )
-            print("Waiting for MuJoCo to initialize after terrain publishing...")
-            time.sleep(5)
-        else:
-            print("Skipping terrain publishing (training scene setup)")
-            time.sleep(2)
-
-        height_map_file = generate_height_map_file(
-            orcagym_addresses=orcagym_addresses,
-        )
-
-        publish_scene(
-            orcagym_addresses=orcagym_addresses,
-            agent_name=agent_name,
-            agent_asset_path=agent_asset_path,
-            agent_num=agent_num,
-            terrain_asset_paths=terrain_asset_paths,
-            skip_terrain=skip_terrain,
-        )
-        return height_map_file, None
-
-    return process_scene(
-        orcagym_addresses=orcagym_addresses,
-        agent_name=agent_name,
-        agent_asset_path=agent_asset_path,
-        run_mode=run_mode,
-    )
 
 def sceneinfo(
     scene,
@@ -351,13 +306,270 @@ def run_sb3_ppo_rl(
     )
 
 
+def run_rllib_appo_rl(
+    config: dict,
+    run_mode: str,
+    ckpt: str,
+    remote: str,
+    visualize: bool,
+):
+    if os.name == "nt":
+        print("=" * 60)
+        print("RLlib APPO 暂不支持 Windows")
+        print("=" * 60)
+        print("Ray 在 Windows 上使用 spawn 模式创建子进程，")
+        print("与 RLlib 分布式训练的 fork 模式存在根本差异，")
+        print("会导致 worker 初始化超时、模块找不到等兼容性问题。")
+        print()
+        print("建议：")
+        print("  - Windows 用户请使用 SB3 PPO 框架训练")
+        print("    (--config configs/sb3_ppo_config.yaml)")
+        print("  - 如需 RLlib 分布式训练，请在 Linux上运行")
+        print("=" * 60)
+        sys.stdout.flush()
+        os._exit(1)
+
+    import ray
+    import torch
+    from examples.legged_gym.scripts import rllib_appo_rl
+
+    if rllib_appo_rl.setup_cuda_environment():
+        print("CUDA 环境验证通过")
+    else:
+        print("CUDA 环境设置失败，GPU 加速可能不可用")
+
+    rllib_appo_rl.verify_pytorch_cuda()
+
+    if "ray_cluster_address" in config and config["ray_cluster_address"]:
+        print(f"连接到Ray集群: {config['ray_cluster_address']}")
+        ray.init()
+    else:
+        print("使用本地Ray实例")
+        ray.init(
+            ignore_reinit_error=True,
+            num_gpus=torch.cuda.device_count() if torch.cuda.is_available() else 0,
+        )
+
+    print(f"Ray集群状态: {ray.is_initialized()}")
+    print(f"可用节点数量: {len(ray.nodes())}")
+    print(f"可用资源: {ray.available_resources()}")
+
+    if torch.cuda.is_available():
+        print(f"PyTorch检测到GPU数量: {torch.cuda.device_count()}")
+        for i in range(torch.cuda.device_count()):
+            print(f"GPU {i}: {torch.cuda.get_device_name(i)}")
+
+    num_cpus_available = int(ray.available_resources()["CPU"])
+    print(f"Ray集群检测到的CPU数量: {num_cpus_available}")
+
+    num_node_cpus = {}
+    num_node_cpus_max = 0
+    for node in ray.nodes():
+        num_node_cpus[node["NodeID"]] = node["Resources"]["CPU"]
+        num_node_cpus_max = max(num_node_cpus_max, node["Resources"]["CPU"])
+    print(f"Ray集群检测到的每个节点的CPU数量: {num_node_cpus}")
+
+    num_gpus_available = rllib_appo_rl.detect_ray_gpu_resources()
+    print(f"Ray集群检测到的GPU数量: {num_gpus_available}")
+
+    if remote is not None:
+        orcagym_addresses = [remote]
+    else:
+        orcagym_addresses = config["orcagym_addresses"]
+
+    agent_name = config["agent_name"]
+    agent_asset_path = config.get("agent_asset_path")
+    task = config["task"]
+
+    agents_per_env = config.get("agents_per_env", 32)
+    use_robot_locator = config.get("use_robot_locator", False)
+
+    run_mode_config = config[run_mode]
+    num_env_runners = int(run_mode_config["num_env_runners"])
+    num_envs_per_env_runner = int(run_mode_config["num_envs_per_env_runner"])
+
+    num_learners = int(run_mode_config.get("num_learners", 1))
+    num_cpus_per_learner = run_mode_config.get("num_cpus_per_learner", 4)
+    num_gpus_per_learner = run_mode_config.get("num_gpus_per_learner", 0.5)
+
+    num_cpus_per_env_runner = run_mode_config.get("num_cpus_per_env_runner", 1)
+    num_gpus_per_env_runner = run_mode_config.get("num_gpus_per_env_runner", 0)
+
+    frame_skip = run_mode_config.get("frame_skip", FRAME_SKIP)
+    action_skip = run_mode_config.get("action_skip", ACTION_SKIP)
+    time_step = run_mode_config.get("time_step", TIME_STEP)
+
+    if num_env_runners == 0:
+        num_env_runners = int(
+            (num_cpus_available - num_learners * num_cpus_per_learner - 1) // 4 * 4
+        )
+
+    assert (
+        num_env_runners * num_cpus_per_env_runner
+        + num_learners * num_cpus_per_learner
+        <= num_cpus_available - 1
+    ), (
+        f"Ray集群设置的env_runners数量和learner数量之和不能超过Ray集群的CPU数量-1，"
+        f"当前设置的env_runners数量: {num_env_runners}, learner数量: {num_learners}, "
+        f"Ray集群的CPU数量: {num_cpus_available}"
+    )
+
+    assert (
+        num_env_runners * num_gpus_per_env_runner + num_learners * num_gpus_per_learner
+        <= num_gpus_available
+    ), (
+        f"Ray集群设置的env_runners数量和learner数量之和不能超过Ray集群的GPU数量，"
+        f"当前设置的env_runners数量: {num_env_runners}, learner数量: {num_learners}, "
+        f"Ray集群的GPU数量: {num_gpus_available}"
+    )
+
+    print(f"Ray集群设置的env_runners数量: {num_env_runners}")
+    print(f"Ray集群设置的learner数量: {num_learners}")
+
+    if visualize:
+        render_mode = "human"
+    else:
+        render_mode = run_mode_config["render_mode"]
+
+    height_map_file, scene_binding = process_scene(
+        orcagym_addresses=orcagym_addresses,
+        agent_name=agent_name,
+        agent_asset_path=agent_asset_path,
+        run_mode=run_mode,
+    )
+    scanned_agent_num = len(scene_binding.agent_names)
+    agents_per_env = scanned_agent_num
+    print(f"场景扫描到 {scanned_agent_num} 台机器人，agents_per_env 已更新为 {agents_per_env}")
+
+    if run_mode == "play" and scanned_agent_num > 1:
+        print(
+            f"[play] 场景中匹配到 {scanned_agent_num} 台机器人。"
+            "只有第一台会接收键盘控制，其余机器人仍会一起运行。"
+            "如果你想要真正的单机器人交互，请在场景中只保留 1 台匹配机器人。"
+        )
+
+    if num_envs_per_env_runner % agents_per_env != 0:
+        new_num_envs = (num_envs_per_env_runner // agents_per_env) * agents_per_env
+        if new_num_envs == 0:
+            new_num_envs = agents_per_env
+        print(
+            f"num_envs_per_env_runner ({num_envs_per_env_runner}) 不是 agents_per_env ({agents_per_env}) 的整数倍，"
+            f"已调整为 {new_num_envs}"
+        )
+        num_envs_per_env_runner = new_num_envs
+
+    model_dir, model_file = process_model_dir(
+        config=config,
+        run_mode=run_mode,
+        ckpt=ckpt,
+        subenv_num=num_env_runners,
+        agent_num=num_envs_per_env_runner,
+        agent_name=agent_name,
+        task=task,
+    )
+
+    max_episode_steps = run_mode_config["max_episode_steps"]
+    total_steps = run_mode_config["iter"] * num_env_runners * num_envs_per_env_runner * max_episode_steps
+
+    if run_mode == "training":
+        sceneinfo(
+            scene=None,
+            stage="preparescene",
+            framework="rllib",
+            run_mode=run_mode,
+            orcagym_addresses=orcagym_addresses,
+        )
+        sceneinfo(
+            scene=None,
+            stage="beginscene",
+            framework="rllib",
+            run_mode=run_mode,
+            orcagym_addresses=orcagym_addresses,
+        )
+        print(
+            f"Start Training! task: {task}, agents_per_env: {agents_per_env}, "
+            f"use_robot_locator: {use_robot_locator}, agent_name: {agent_name}, "
+            f"iter: {run_mode_config['iter']}"
+        )
+        print(
+            f"Total Steps: {total_steps}, Max Episode Steps: {max_episode_steps}, "
+            f"Frame Skip: {frame_skip}, Action Skip: {action_skip}"
+        )
+        print(f"环境运行器数量: {num_env_runners}, 每个运行器的环境数量: {num_envs_per_env_runner}")
+
+        rllib_appo_rl.run_training(
+            orcagym_addr=orcagym_addresses[0],
+            env_name=config["env_name"],
+            agent_name=agent_name,
+            agent_config=LeggedRobotConfig[agent_name],
+            task=task,
+            max_episode_steps=max_episode_steps,
+            num_learners=num_learners,
+            num_env_runners=num_env_runners,
+            num_envs_per_env_runner=num_envs_per_env_runner,
+            num_gpus_available=num_gpus_available,
+            num_node_cpus=num_node_cpus,
+            num_cpus_per_learner=num_cpus_per_learner,
+            num_gpus_per_learner=num_gpus_per_learner,
+            num_cpus_per_env_runner=num_cpus_per_env_runner,
+            num_gpus_per_env_runner=num_gpus_per_env_runner,
+            async_env_runner=run_mode_config["async_env_runner"],
+            iter=run_mode_config["iter"],
+            total_steps=total_steps,
+            render_mode=render_mode,
+            height_map_file=height_map_file,
+            frame_skip=frame_skip,
+            action_skip=action_skip,
+            time_step=time_step,
+            agents_per_env=agents_per_env,
+            use_robot_locator=use_robot_locator,
+            model_dir=model_dir,
+            agent_names=scene_binding.agent_names,
+            robot_config=scene_binding.robot_config,
+        )
+        sceneinfo(
+            scene=None,
+            stage="endscene",
+            framework="rllib",
+            run_mode=run_mode,
+            orcagym_addresses=orcagym_addresses,
+        )
+    elif run_mode in ("testing", "play"):
+        if not ckpt:
+            raise ValueError("Checkpoint path must be provided for testing / play.")
+        rllib_appo_rl.test_model(
+            checkpoint_path=ckpt,
+            orcagym_addr=orcagym_addresses[0],
+            env_name=config["env_name"],
+            agent_name=agent_name,
+            max_episode_steps=max_episode_steps,
+            use_onnx_for_inference=False,
+            explore_during_inference=False,
+            render_mode=render_mode,
+            async_env_runner=run_mode_config["async_env_runner"],
+            height_map_file=height_map_file,
+            task=task,
+            frame_skip=frame_skip,
+            action_skip=action_skip,
+            time_step=time_step,
+        )
+    else:
+        raise ValueError("Invalid run mode. Use 'training', 'testing', or 'play'.")
+
+    if ray.is_initialized():
+        ray.shutdown()
+
+
 def run_rl(config: dict, run_mode: str, ckpt: str, remote: str, visualize: bool):
     framework = config.get('framework', 'sb3')
-    if framework != 'sb3':
+    if framework == 'sb3':
+        run_sb3_ppo_rl(config, run_mode, ckpt, remote, visualize)
+    elif framework == 'rllib':
+        run_rllib_appo_rl(config, run_mode, ckpt, remote, visualize)
+    else:
         raise ValueError(
-            f"examples/legged_gym 当前仅保留 SB3 链路，收到 framework={framework!r}。"
+            f"Unsupported framework: {framework!r}. Supported: 'sb3', 'rllib'."
         )
-    run_sb3_ppo_rl(config, run_mode, ckpt, remote, visualize)
 
 
 if __name__ == "__main__":

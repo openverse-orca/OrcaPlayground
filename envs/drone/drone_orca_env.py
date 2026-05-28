@@ -167,6 +167,8 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         bvz = self._model_profile.aero.vertical_z_only
         if vertical_keyboard_xy_force_factor is not None:
             bvz = replace(bvz, keyboard_world_xy_force_factor=float(vertical_keyboard_xy_force_factor))
+        if bool(vertical_z_only_physics):
+            bvz = replace(bvz, apply_thrust_at_free_frame=False)
         vz_cfg = replace(
             bvz,
             enabled=bool(vertical_z_only_physics),
@@ -559,7 +561,7 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         if self._autoplay_enabled:
             command = self._build_autoplay_command()
         else:
-            # 以带横纹的一侧为机头：W前/S后/A左/D右。
+            # 横纹/相机侧为机头（-X）：W前/S后/A左/D右。
             # 手动模式下把 WASD 平移杆量收半档，避免横向/纵向都过快。
             planar_scale = 0.5
             command = np.array(

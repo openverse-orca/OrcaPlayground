@@ -26,7 +26,14 @@ name = "legged_train"
 display_name = "run_legged_rl_train"
 command = "python"
 args = [ "-m", "examples.legged_gym.run_legged_rl", "--config", "examples/legged_gym/configs/sb3_ppo_config.yaml", "--train"]
-description = "启动legged_gym训练"
+description = "启动legged_gym训练(SB3 PPO)"
+
+[[external_programs.programs]]
+name = "legged_rllib_train"
+display_name = "run_legged_rllib_train"
+command = "python"
+args = [ "-m", "examples.legged_gym.run_legged_rl", "--config", "examples/legged_gym/configs/rllib_appo_config.yaml", "--train"]
+description = "启动legged_gym训练(RLlib APPO)"
 
 [[external_programs.programs]]
 name = "wheeled_chassis"
