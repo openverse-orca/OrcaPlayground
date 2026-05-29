@@ -106,6 +106,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
   python run_fluid_sim.py --mode playback --h5 particle_records/x.h5
   python run_fluid_sim.py --mode playback particle_records/x.h5
   python run_fluid_sim.py --gui              # 启用 OrcaSPH GUI
+  python run_fluid_sim.py --mujoco-gui       # 启用 MuJoCo 原生查看器
+  python run_fluid_sim.py --gui --mujoco-gui # 同时启用 SPH GUI + MuJoCo GUI
   python run_fluid_sim.py --config my.json   # 自定义配置
   python run_fluid_sim.py --manual-mode      # 手动模式
             """,
@@ -167,8 +169,15 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--gui",
+        "--sph-gui",
         action="store_true",
-        help="启用 OrcaSPH GUI 可视化界面（默认禁用）",
+        dest="gui",
+        help="启用 SPlisHSPlasH / OrcaSPH GUI 可视化界面（默认禁用）",
+    )
+    parser.add_argument(
+        "--mujoco-gui",
+        action="store_true",
+        help="启用 MuJoCo 原生查看器窗口（mujoco.viewer.launch_passive，默认禁用）",
     )
     parser.add_argument(
         "--use-all-cpu",
@@ -255,6 +264,13 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default=0,
         metavar="N",
         help="主循环最大步数（达到后正常退出；0=无限）。无 --gui 时推荐与自动 OrcaLink 联调用以做短程检查",
+    )
+    parser.add_argument(
+        "--max-sim-time",
+        type=float,
+        default=0,
+        metavar="SEC",
+        help="SPH仿真最大仿真时间（秒）；达到后SPH与MuJoCo均退出（0=无限）",
     )
     parser.add_argument(
         "--enable-performance-stats",
@@ -394,6 +410,13 @@ def _apply_orcasph_gui_from_args(config: dict, gui: bool) -> None:
         config["orcasph"]["args"].append("--gui")
         print("🎨 OrcaSPH GUI 已启用")
 
+def _apply_mujoco_gui_from_args(config: dict, mujoco_gui: bool) -> None:
+    if mujoco_gui:
+        config["mujoco_gui"] = True
+        print("🖥️  MuJoCo 原生查看器已启用（--mujoco-gui）")
+    else:
+        config["mujoco_gui"] = False
+
 def _apply_performance_stats_from_args(config: dict, args: argparse.Namespace) -> None:
     if "orcasph" not in config or not config["orcasph"].get("enabled", False):
         return
@@ -452,6 +475,17 @@ def _print_sph_run_sanity_check(
             print("✅ orcalink 日志中出现 SPH 侧客户端名（双端之一已注册）。")
         elif "mujoco_client" in ot and "2 clients" not in ot and "Session" in ot:
             print("ℹ️  请搜 orcalink 日志是否仅 mujoco_client（若如此为双端未齐）。")
+    recv_m = re.search(r"\[ANCHOR_VERIFY\] RECV (\d+) SPH anchor", text)
+    if recv_m and int(recv_m.group(1)) > 0:
+        print(f"✅ Python 已收到 SPH 锚点位置: [ANCHOR_VERIFY] RECV {recv_m.group(1)} 条/帧。")
+    else:
+        print("ℹ️  run_fluid_sim 日志未见 [ANCHOR_VERIFY]（当前多点力耦合不再接收 SPH 锚点位置，此为正常现象）。")
+    if re.search(r"SPH:\s+n_pts=[1-9]\d*", text):
+        print("✅ [CENTROID_CHECK] 已出现 SPH n_pts>0（锚点与 SITE 分组成功）。")
+    else:
+        print("ℹ️  [CENTROID_CHECK] 未见 SPH n_pts>0（可能步数过少或该场景无多点锚点日志）。")
+    if "[ANCHOR_VIEWER]" in text:
+        print("✅ MuJoCo 原生查看器已写入黑色锚点球标记日志 [ANCHOR_VIEWER]（需曾加 --mujoco-gui）。")
     print("=" * 60 + "\n")
 
 
@@ -508,6 +542,7 @@ def main() -> int:
         if err is not None:
             return err
         _apply_orcasph_gui_from_args(config, args.gui)
+        _apply_mujoco_gui_from_args(config, args.mujoco_gui)
         _apply_performance_stats_from_args(config, args)
         _apply_manual_mode_from_args(config, args)
 
@@ -544,6 +579,7 @@ def main() -> int:
                     session_timestamp=session_timestamp,
                     cpu_affinity=cpu_affinity,
                     max_steps=max(0, int(args.max_steps or 0)),
+                    max_sim_time=max(0.0, float(args.max_sim_time or 0)),
                 )
                 _print_sph_run_sanity_check(
                     orcagym_tmp_dir, session_timestamp, max(0, int(args.max_steps or 0))

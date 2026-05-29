@@ -12,7 +12,7 @@ print("[AUTO_START] === OrcaStudio Auto-Start Script ===")
 print(f"[AUTO_START] Target level: {LEVEL_NAME}")
 
 print(f"[AUTO_START] Step 1: Waiting {EDITOR_INIT_WAIT_SEC}s for editor initialization...")
-gen.idle_wait(EDITOR_INIT_WAIT_SEC)
+gen.idle_wait(float(EDITOR_INIT_WAIT_SEC))
 
 print(f"[AUTO_START] Step 2: Opening level '{LEVEL_NAME}'...")
 result = gen.open_level_no_prompt(LEVEL_NAME)
@@ -22,14 +22,14 @@ if not result:
 print(f"[AUTO_START] Level open request sent successfully")
 
 print(f"[AUTO_START] Step 3: Waiting {SCENE_LOAD_WAIT_SEC}s for scene to load...")
-gen.idle_wait(SCENE_LOAD_WAIT_SEC)
+gen.idle_wait(float(SCENE_LOAD_WAIT_SEC))
 
 print(f"[AUTO_START] Step 4: Entering game mode (Run -> Start)...")
 gen.enter_game_mode()
 print(f"[AUTO_START] Game mode request sent")
 
 print(f"[AUTO_START] Step 5: Waiting {GAME_MODE_SETTLE_SEC}s for MuJoCo to initialize and ports to open...")
-gen.idle_wait(GAME_MODE_SETTLE_SEC)
+gen.idle_wait(float(GAME_MODE_SETTLE_SEC))
 
 print(f"[AUTO_START] === Auto-start complete ===")
 print(f"[AUTO_START] OrcaGym port (50051) should now be open and MuJoCo ready")

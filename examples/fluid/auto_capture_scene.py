@@ -58,7 +58,7 @@ def main():
     print(f"[AUTO_CAPTURE] Capture duration: {CAPTURE_DURATION}s")
 
     print(f"[AUTO_CAPTURE] Step 1: Waiting {EDITOR_INIT_WAIT_SEC}s for editor initialization...")
-    gen.idle_wait(EDITOR_INIT_WAIT_SEC)
+    gen.idle_wait(float(EDITOR_INIT_WAIT_SEC))
 
     print(f"[AUTO_CAPTURE] Step 2: Opening level '{LEVEL_NAME}'...")
     result = gen.open_level_no_prompt(LEVEL_NAME)
@@ -68,14 +68,14 @@ def main():
     print(f"[AUTO_CAPTURE] Level open request sent successfully")
 
     print(f"[AUTO_CAPTURE] Step 3: Waiting {SCENE_LOAD_WAIT_SEC}s for scene to load...")
-    gen.idle_wait(SCENE_LOAD_WAIT_SEC)
+    gen.idle_wait(float(SCENE_LOAD_WAIT_SEC))
 
     print(f"[AUTO_CAPTURE] Step 4: Entering game mode (Run -> Start)...")
     gen.enter_game_mode()
     print(f"[AUTO_CAPTURE] Game mode request sent")
 
     print(f"[AUTO_CAPTURE] Step 5: Waiting {GAME_MODE_SETTLE_SEC}s for MuJoCo to initialize...")
-    gen.idle_wait(GAME_MODE_SETTLE_SEC)
+    gen.idle_wait(float(GAME_MODE_SETTLE_SEC))
 
     print(f"[AUTO_CAPTURE] Step 6: Starting frame capture for {CAPTURE_DURATION}s at {CAPTURE_FPS} FPS...")
     capturer = ScreenshotCapture(CAPTURE_DIR)

@@ -32,13 +32,38 @@ from .fluid_session import (
     _try_start_record_stats_plot_viewer,
     resolve_record_stats_orcasph_log_path,
 )
+from .orcasph_log_utils import log_fluid_particle_count_to_terminal
+from .water_jug_trajectory_hook import apply_water_jug_trajectory, setup_water_jug_trajectory
 from .process_utils import ProcessManager, is_tcp_port_accepting_connections
 from .sph_config import generate_orcasph_config, setup_python_logging
+from .steering_torque_recorder import SteeringTorqueRecorder
+from .steer_coupling_recorder import SteerCouplingRecorder
+from .generic_body_track_recorder import GenericCouplingRecorder, GenericTorqueBalanceRecorder
+from ..csv_numeric import fmt_f
 
 logger = logging.getLogger(__name__)
 
 # 主循环控制周期（秒）；与 mujoco_trajectory 录制 meta 等一致。
 REALTIME_STEP = 0.02
+
+
+def _log_sph_scene_clock_fields(scene_data: Dict[str, Any], scene_path: Path) -> None:
+    """排查用：记录 scene.json 中与仿真停止/暂停相关的 Configuration 字段。"""
+    cfg = scene_data.get("Configuration")
+    if not isinstance(cfg, dict):
+        logger.info("SPH 排查: scene 无 Configuration 字典，path=%s", scene_path)
+        return
+    keys = ("stopAt", "pauseAt")
+    present = {k: cfg[k] for k in keys if k in cfg}
+    if present:
+        logger.info("SPH 排查: scene Configuration 时间控制项 %s（path=%s）", present, scene_path)
+    else:
+        logger.info(
+            "SPH 排查: scene Configuration 未含 %s（SPlisHSPlasH 缺省 stopAt<0 表示不按该时间停止）。"
+            "若 sph_monitor 中 sim_time 仍在约 5s 截断，请查本会话 orcasph_*.log 是否出现 stopAt/--stopAt，"
+            "并勿将 time_sync.csv 的 sph_sim_time（sequence/Hz）与 monitor 的物理 sim_time 混读。",
+            keys,
+        )
 
 
 @dataclass
@@ -53,9 +78,11 @@ class FluidSimulationContext:
     shutdown_event: threading.Event = field(default_factory=threading.Event)
     # >0 时主循环仅执行这么多步后正常退出（无 GUI 自动跑通、回归检查用；0/None=无限）
     max_steps: int = 0
+    max_sim_time: float = 0.0
 
     env: Any = None
     sph_wrapper: Any = None
+    mujoco_viewer: Any = None
     traj_rec: Any = None
     traj_player: Any = None
     traj_stats_log_f: Any = None
@@ -64,6 +91,11 @@ class FluidSimulationContext:
     particle_render_override: Any = None
     sphscale: float = 1.0
     prev_sigterm_handler: Any = None
+    water_jug_driver: Any = None
+    # water_jug_trajectory：轨迹期间不向 MuJoCo 水壶写 SPH 力；step 后是否再对齐 qpos
+    water_jug_skip_sph_forces_on_mujoco: bool = False
+    water_jug_reapply_after_step: bool = False
+    water_jug_clear_external_forces: bool = False
 
 
 def _resolve_cli_binary(command_name: str, pip_install_hint: str) -> Path:
@@ -246,6 +278,94 @@ def _create_and_reset_gym_env(config: Dict) -> Any:
     return env
 
 
+def _maybe_launch_mujoco_viewer(ctx: FluidSimulationContext) -> None:
+    if not ctx.config.get("mujoco_gui", False):
+        return
+    try:
+        import mujoco
+        import mujoco.viewer
+        import numpy as np
+
+        env = ctx.env
+        unwrapped = env.unwrapped
+        mj_model = unwrapped.gym._mjModel
+        mj_data = unwrapped.gym._mjData
+
+        mujoco.mj_forward(mj_model, mj_data)
+
+        logger.info(
+            "🖥️  MuJoCo 模型信息: ngeom=%d, nbody=%d, nmesh=%d, nlight=%d",
+            mj_model.ngeom, mj_model.nbody, mj_model.nmesh, mj_model.nlight,
+        )
+
+        valid_positions = []
+        for i in range(mj_model.nbody):
+            name = mujoco.mj_id2name(mj_model, mujoco.mjtObj.mjOBJ_BODY, i) or ""
+            if "dummy" not in name.lower() and "manipulator" not in name.lower():
+                valid_positions.append(mj_data.xpos[i].copy())
+        if valid_positions:
+            vp = np.array(valid_positions)
+            scene_center = vp.mean(axis=0)
+            scene_extent = float(np.linalg.norm(vp.max(axis=0) - vp.min(axis=0)))
+        else:
+            scene_center = mj_model.stat.center[:].copy()
+            scene_extent = float(mj_model.stat.extent)
+
+        logger.info(
+            "🖥️  场景中心(排除dummy): %s, 范围: %.2f",
+            scene_center, scene_extent,
+        )
+
+        if mj_model.nmat == 0:
+            logger.info("🖥️  模型无材质定义，增强光照参数并分配 geom 颜色")
+            mj_model.vis.headlight.ambient[:] = [0.5, 0.5, 0.5]
+            mj_model.vis.headlight.diffuse[:] = [0.9, 0.9, 0.9]
+            mj_model.vis.headlight.specular[:] = [0.5, 0.5, 0.5]
+            mj_model.vis.global_.offwidth = 1920
+            mj_model.vis.global_.offheight = 1080
+
+            _palette = np.array([
+                [0.85, 0.33, 0.10, 1.0],
+                [0.10, 0.60, 0.85, 1.0],
+                [0.20, 0.75, 0.30, 1.0],
+                [0.90, 0.75, 0.10, 1.0],
+                [0.70, 0.20, 0.70, 1.0],
+                [0.10, 0.75, 0.70, 1.0],
+                [0.85, 0.55, 0.10, 1.0],
+                [0.40, 0.40, 0.85, 1.0],
+                [0.85, 0.20, 0.40, 1.0],
+                [0.55, 0.80, 0.20, 1.0],
+            ], dtype=np.float32)
+            body_color_idx = {}
+            for gi in range(mj_model.ngeom):
+                bid = mj_model.geom_bodyid[gi]
+                if bid not in body_color_idx:
+                    body_color_idx[bid] = len(body_color_idx) % len(_palette)
+                mj_model.geom_rgba[gi] = _palette[body_color_idx[bid]]
+
+        mj_model.vis.map.znear = 0.0005
+        mj_model.vis.map.zfar = 100.0
+        mj_model.stat.extent = max(scene_extent, 1.0)
+        mj_model.stat.center[:] = scene_center
+
+        ctx.mujoco_viewer = mujoco.viewer.launch_passive(
+            mj_model, mj_data, show_left_ui=True, show_right_ui=True
+        )
+
+        with ctx.mujoco_viewer.lock():
+            ctx.mujoco_viewer.cam.azimuth = 135.0
+            ctx.mujoco_viewer.cam.elevation = -25.0
+            ctx.mujoco_viewer.cam.distance = max(5.0, scene_extent * 1.5)
+            ctx.mujoco_viewer.cam.lookat[:] = scene_center
+            ctx.mujoco_viewer.opt.flags[mujoco.mjtVisFlag.mjVIS_LIGHT] = 1
+            ctx.mujoco_viewer.opt.flags[mujoco.mjtVisFlag.mjVIS_TRANSPARENT] = 0
+
+        logger.info("🖥️  MuJoCo 原生查看器已启动")
+    except Exception as e:
+        logger.warning(f"MuJoCo 原生查看器启动失败: {e}")
+        ctx.mujoco_viewer = None
+
+
 def _maybe_generate_sph_scene(ctx: FluidSimulationContext) -> None:
     ctx.particle_render_override = None
     config = ctx.config
@@ -291,6 +411,7 @@ def _maybe_generate_sph_scene(ctx: FluidSimulationContext) -> None:
     )
     logger.info(f"✅ scene.json 已生成: {ctx.scene_output_path}")
     logger.info(f"   - RigidBodies: {len(scene_data.get('RigidBodies', []))} 个\n")
+    _log_sph_scene_clock_fields(scene_data, ctx.scene_output_path)
 
     ctx.particle_render_override = scene_generator.generate_particle_render_config(
         sph_config
@@ -364,6 +485,19 @@ def _start_orcasph_if_configured(ctx: FluidSimulationContext) -> None:
     orcasph_args.extend(["--config", str(orcasph_config_path)])
     orcasph_args.extend(["--scene", str(ctx.scene_output_path)])
 
+    max_t = float(ctx.max_sim_time or 0.0)
+    if max_t > 0.0 and "--stopAt" not in orcasph_args:
+        orcasph_args.extend(["--stopAt", f"{max_t:.6g}"])
+        logger.info(
+            "SPH 排查: 已将主循环 max_sim_time=%.6g s 映射为 OrcaSPH 追加参数 --stopAt（与引擎提前退出条件一致）",
+            max_t,
+        )
+    elif max_t > 0.0 and "--stopAt" in orcasph_args:
+        logger.info(
+            "SPH 排查: orcasph.args 已含 --stopAt，未自动覆盖；主循环仍按 max_sim_time=%.6g s 退出",
+            max_t,
+        )
+
     if verbose_logging:
         orcasph_args.extend(["--log-level", "DEBUG"])
         logger.info("🔍 启用 DEBUG 日志级别 (verbose_logging=true)")
@@ -384,8 +518,8 @@ def _start_orcasph_if_configured(ctx: FluidSimulationContext) -> None:
         orcasph_args,
         log_file,
     )
-    logger.info("⏳ 等待 OrcaSPH 初始化（2 秒）...")
-    time.sleep(2)
+    logger.info("⏳ 等待 OrcaSPH 初始化并读取流体粒子数量...")
+    log_fluid_particle_count_to_terminal(log_file, logger, timeout_sec=30.0)
     logger.info("✅ OrcaSPH 已启动\n")
 
 
@@ -508,6 +642,24 @@ def _run_cooperative_main_loop(ctx: FluidSimulationContext) -> None:
     logger.debug("[DEBUG] Entering main loop (cooperative shutdown on SIGTERM/SIGHUP)...")
     step_count = 0
 
+    _steer_rec = SteeringTorqueRecorder.from_env()
+    _steer_couple = SteerCouplingRecorder.from_env()
+    _cup_couple = GenericCouplingRecorder.from_env_cup()
+    _cup_torque = GenericTorqueBalanceRecorder.from_env_cup()
+    _steer_mj_cycle = 0
+
+    _mj_state_csv = None
+    _mj_state_header_written = False
+    _mj_monitor_bodies = []
+    _time_sync_csv = None
+    _time_sync_header_written = False
+    if config["orcasph"]["enabled"] and ctx.sph_wrapper is not None:
+        try:
+            for rb_config in ctx.sph_wrapper.rigid_bodies.values():
+                _mj_monitor_bodies.append(rb_config.mujoco_body)
+        except Exception:
+            pass
+
     while not shutdown_event.is_set():
         start_time = datetime.now()
 
@@ -520,6 +672,8 @@ def _run_cooperative_main_loop(ctx: FluidSimulationContext) -> None:
 
         if step_count == 0:
             logger.debug("[DEBUG] First iteration - before SPH sync")
+
+        apply_water_jug_trajectory(ctx)
 
         should_step = True
         if config["orcasph"]["enabled"] and ctx.sph_wrapper is not None:
@@ -554,14 +708,116 @@ def _run_cooperative_main_loop(ctx: FluidSimulationContext) -> None:
                         logger.warning("trajectory stats log write: %s", e)
             else:
                 env.step(None)
+            if ctx.water_jug_reapply_after_step:
+                apply_water_jug_trajectory(ctx)
             # §3.3：仅在执行 env.step 之后追加行（与 traj_rec 同控制帧）
             if ctx.mujoco_qpos_sidecar is not None:
                 ctx.mujoco_qpos_sidecar.append_row(env, step_count)
             if ctx.traj_rec is not None:
                 ctx.traj_rec.append_frame()
+
+            _steer_mj_cycle += 1
+            if _steer_rec is not None:
+                try:
+                    _steer_rec.record_row(ctx, env, _steer_mj_cycle)
+                except Exception as e:
+                    logger.debug("steering torque CSV (方案甲): %s", e, exc_info=True)
+            if _steer_couple is not None:
+                try:
+                    _steer_couple.record_row(ctx, env, _steer_mj_cycle)
+                except Exception as e:
+                    logger.debug("steer couple CSV: %s", e, exc_info=True)
+            if _cup_couple is not None:
+                try:
+                    _cup_couple.record_row(ctx, env, _steer_mj_cycle)
+                except Exception as e:
+                    logger.debug("cup couple CSV: %s", e, exc_info=True)
+            if _cup_torque is not None:
+                try:
+                    _cup_torque.record_row(ctx, env, _steer_mj_cycle)
+                except Exception as e:
+                    logger.debug("cup torque CSV: %s", e, exc_info=True)
+
+            # [MONITOR] Record MuJoCo body state for comparison with SPH
+            if _mj_monitor_bodies and step_count >= 0:
+                try:
+                    env.unwrapped.mj_forward()
+                    xpos_flat, _, xquat_flat = env.unwrapped.get_body_xpos_xmat_xquat(_mj_monitor_bodies)
+                    n = len(_mj_monitor_bodies)
+                    xpos_arr = xpos_flat.reshape(n, 3)
+                    xquat_arr = xquat_flat.reshape(n, 4)
+                    if _mj_state_csv is None:
+                        import os
+                        _csv_path = os.environ.get('ORCA_MJ_STATE_CSV', '/tmp/orca_mj_state_monitor.csv')
+                        _mj_state_csv = open(_csv_path, 'a')
+                    if not _mj_state_header_written:
+                        _mj_state_csv.write("wall_time,cycle,sim_time,body_name,mj_xpos_x,mj_xpos_y,mj_xpos_z,mj_xquat_w,mj_xquat_x,mj_xquat_y,mj_xquat_z\n")
+                        _mj_state_header_written = True
+                    import time as time_module
+                    wall_ts = time_module.time()
+                    sim_time = step_count * 0.02
+                    for i, bname in enumerate(_mj_monitor_bodies):
+                        p = xpos_arr[i]
+                        q = xquat_arr[i]
+                        _mj_state_csv.write(
+                            f"{fmt_f(wall_ts)},{step_count},{fmt_f(sim_time)},{bname},"
+                            f"{fmt_f(p[0])},{fmt_f(p[1])},{fmt_f(p[2])},"
+                            f"{fmt_f(q[0])},{fmt_f(q[1])},{fmt_f(q[2])},{fmt_f(q[3])}\n"
+                        )
+                    if step_count % 25 == 0:
+                        _mj_state_csv.flush()
+                except Exception as e:
+                    logger.debug(f"MuJoCo state monitor error: {e}")
+            
             env.render()
         else:
             env.render()
+
+        if ctx.mujoco_viewer is not None:
+            try:
+                ctx.mujoco_viewer.sync()
+            except Exception as e:
+                logger.debug(f"MuJoCo viewer sync error: {e}")
+
+        if _time_sync_csv is None and config["orcasph"]["enabled"]:
+            import os as _os_for_sync
+            _sync_csv_path = _os_for_sync.environ.get(
+                'ORCA_TIME_SYNC_CSV',
+                '/home/hjadmin/OrcaApr24/monitor_data/time_sync.csv'
+            )
+            _time_sync_csv = open(_sync_csv_path, 'a')
+        if _time_sync_csv is not None and not _time_sync_header_written:
+            _time_sync_csv.write(
+                "mj_wall_time,step_count,should_step,mj_sim_time_engine,mj_sim_time_counter,"
+                "sph_sim_time,sph_wall_time,orcalink_cycle\n"
+            )
+            _time_sync_header_written = True
+        if _time_sync_csv is not None:
+            try:
+                import time as _t_for_sync
+                _mj_wall_ts = _t_for_sync.time()
+                _mj_sim_engine = env.unwrapped.gym._mjData.time
+                _mj_sim_counter = step_count * 0.02
+                _sph_sim_time = ""
+                _sph_wall_time = ""
+                _orcalink_cycle = ""
+                if ctx.sph_wrapper is not None and ctx.sph_wrapper.orcalink_client is not None:
+                    _olc = ctx.sph_wrapper.orcalink_client
+                    if hasattr(_olc, '_last_received_sph_sim_time'):
+                        _sph_sim_time = fmt_f(_olc._last_received_sph_sim_time)
+                    if hasattr(_olc, '_last_received_sph_wall_time'):
+                        _sph_wall_time = fmt_f(_olc._last_received_sph_wall_time)
+                    if hasattr(_olc, 'subscribe_sequence'):
+                        _orcalink_cycle = str(_olc.subscribe_sequence)
+                _time_sync_csv.write(
+                    f"{fmt_f(_mj_wall_ts)},{step_count},{1 if should_step else 0},"
+                    f"{fmt_f(_mj_sim_engine)},{fmt_f(_mj_sim_counter)},"
+                    f"{_sph_sim_time},{_sph_wall_time},{_orcalink_cycle}\n"
+                )
+                if step_count % 25 == 0:
+                    _time_sync_csv.flush()
+            except Exception as e:
+                logger.debug(f"Time sync CSV error: {e}")
 
         if step_count == 0:
             logger.debug("[DEBUG] After render")
@@ -582,8 +838,35 @@ def _run_cooperative_main_loop(ctx: FluidSimulationContext) -> None:
             logger.info("⏹️  已达 max_steps=%s，正常结束主循环", ctx.max_steps)
             break
 
+        if ctx.max_sim_time > 0:
+            current_sim_time = env.unwrapped.data.time
+            if current_sim_time >= ctx.max_sim_time:
+                logger.info("⏹️  已达 max_sim_time=%.2fs (sim_time=%.2fs)，正常结束主循环", ctx.max_sim_time, current_sim_time)
+                break
+
     if shutdown_event.is_set():
         logger.info("\n⏹️  收到停止信号（SIGTERM/SIGHUP），协作退出主循环")
+
+    if _mj_state_csv is not None:
+        _mj_state_csv.flush()
+        _mj_state_csv.close()
+    if _time_sync_csv is not None:
+        _time_sync_csv.flush()
+        _time_sync_csv.close()
+    if _steer_rec is not None:
+        _steer_rec.close()
+        _steer_rec.post_merge()
+    if _steer_couple is not None:
+        _steer_couple.close()
+        _steer_couple.post_merge()
+    if _cup_couple is not None:
+        _cup_couple.close()
+        _cup_couple.post_merge()
+    if _cup_torque is not None:
+        _cup_torque.close()
+        _cup_torque.post_merge()
+    from ..modules.force_application import ForceApplicationModule
+    ForceApplicationModule.close_force_csv()
 
 
 def _finalize_simulation_session(ctx: FluidSimulationContext) -> None:
@@ -599,6 +882,13 @@ def _finalize_simulation_session(ctx: FluidSimulationContext) -> None:
     logger.info("\n🧹 清理资源...")
 
     _terminate_stats_plot_proc()
+
+    if ctx.mujoco_viewer is not None:
+        try:
+            ctx.mujoco_viewer.close()
+        except Exception as e:
+            logger.debug(f"MuJoCo viewer close: %s", e)
+        ctx.mujoco_viewer = None
 
     owns = _fluid_atexit_state.get("owns_shared_services")
 
@@ -666,6 +956,7 @@ def run_simulation_with_config(
     session_timestamp: Optional[str] = None,
     cpu_affinity: Optional[str] = None,
     max_steps: int = 0,
+    max_sim_time: float = 0.0,
 ) -> None:
     """
     使用配置文件运行仿真
@@ -698,6 +989,7 @@ def run_simulation_with_config(
         orcagym_tmp_dir=orcagym_tmp_dir,
         process_manager=process_manager,
         max_steps=max(0, int(max_steps or 0)),
+        max_sim_time=max(0.0, float(max_sim_time or 0)),
     )
 
     # -----------------------------------------------------------------------
@@ -717,6 +1009,7 @@ def run_simulation_with_config(
         logger.info("=" * 80)
 
         ctx.env = _create_and_reset_gym_env(config)
+        _maybe_launch_mujoco_viewer(ctx)
         _maybe_generate_sph_scene(ctx)
         _start_orcalink_if_configured(ctx)
         _start_orcasph_if_configured(ctx)
@@ -730,6 +1023,7 @@ def run_simulation_with_config(
         sys.stderr.flush()
 
         _connect_sph_bridge_if_enabled(ctx)
+        setup_water_jug_trajectory(ctx)
 
         logger.debug("[DEBUG] About to enter main loop...")
         sys.stdout.flush()

@@ -14,6 +14,10 @@ _logger = get_orca_logger()
 # 轨迹回放分析：grep "[SimEnv.trajectory]"
 TRAJ_LOG = logging.getLogger("envs.fluid.sim_env.trajectory")
 
+# water_example / water_example_full_Backup：steering 铰链 motor（导出后带 steering_ 前缀）
+_STEERING_MOTOR_NAMES = ("steering_box_3_motor", "box_3_motor")
+_DEFAULT_STEERING_MOTOR_CTRL = 50.0
+
 
 class SimEnv(OrcaGymLocalEnv):
     """
@@ -120,7 +124,9 @@ class SimEnv(OrcaGymLocalEnv):
         """
         若已通过 set_pending_human_trajectory_step 配置本步人类轨迹，则 step 内应用
         mocap/equality/ctrl（此时忽略 action）；否则 action 为外围执行器指令；
-        action 为 None 且无 pending 时使用默认搅拌棒占位。
+        action 为 None 且无 pending 时：其余 actuator 为 0；若场景含 steering motor，则对其写
+        ``_DEFAULT_STEERING_MOTOR_CTRL``（默认 50）以驱动绕铰链轴旋转。需要其它刚体控制请传入
+        ``action`` 或使用人类轨迹 ``cfg.ctrl``。
         """
         if self._pending_human is not None:
             cfg = self._pending_human
@@ -131,9 +137,7 @@ class SimEnv(OrcaGymLocalEnv):
             ctrl = np.asarray(cfg.ctrl, dtype=np.float32).reshape(self.nu)
         else:
             if action is None:
-                ctrl = np.zeros(self.nu, dtype=np.float32)
-                for i in range(self.nu):
-                    ctrl[i] = 50
+                ctrl = self._default_fluid_coupling_ctrl()
             else:
                 ctrl = np.asarray(action, dtype=np.float32).reshape(self.nu)
 
@@ -146,6 +150,19 @@ class SimEnv(OrcaGymLocalEnv):
         reward = 0.0
 
         return obs, reward, terminated, truncated, info
+
+    def _default_fluid_coupling_ctrl(self) -> np.ndarray:
+        """无 action 时的默认 ctrl：仅驱动 steering motor，其它执行器保持 0。"""
+        ctrl = np.zeros(self.nu, dtype=np.float32)
+        if self.nu <= 0:
+            return ctrl
+        mj = self.gym._mjModel
+        for name in _STEERING_MOTOR_NAMES:
+            aid = mujoco.mj_name2id(mj, mujoco.mjtObj.mjOBJ_ACTUATOR, name)
+            if aid >= 0:
+                ctrl[aid] = _DEFAULT_STEERING_MOTOR_CTRL
+                break
+        return ctrl
 
     def _mj_body_name(self, body_id: int) -> str:
         if body_id < 0:

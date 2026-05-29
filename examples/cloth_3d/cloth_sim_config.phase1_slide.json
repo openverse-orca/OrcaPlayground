@@ -1,0 +1,119 @@
+{
+  "description": "MjcPBD phase1_slide — no cloth, single gripper push cube",
+  "scene_id": "phase1_slide",
+  "simulation": {
+    "realtime_step": 0.02,
+    "max_sim_time": 8.0
+  },
+  "orcalink": {
+    "enabled": true,
+    "host": "localhost",
+    "port": 50361,
+    "auto_start": true,
+    "startup_delay": 3,
+    "client": {
+      "session_id": 101,
+      "client_name": "cloth_mujoco",
+      "update_rate_hz": 50,
+      "session": {
+        "control_mode": "sync",
+        "expected_clients": 2,
+        "ready_timeout_sec": 30.0,
+        "sync_params": {
+          "sync_window_size": 2
+        }
+      },
+      "channels": {
+        "position": {
+          "channel_id": 20,
+          "publish": true,
+          "subscribe": false
+        }
+      }
+    }
+  },
+  "mujoco": {
+    "env_id": "phase1_slide",
+    "model_path": "assets/phase1_slide/scene.xml",
+    "timestep": 0.001,
+    "frame_skip": 20
+  },
+  "xpbd": {
+    "enabled": true,
+    "auto_start": false,
+    "executable": "../../../../XPBD/build/phase1_slide_mjc",
+    "config_path": "cloth_sim_config.phase1_slide.json",
+    "substep_dt": 0.0005,
+    "substeps": 40,
+    "args": ["--config", "{config_path}"],
+    "comment": "substep_dt*substep, 保证每宏步推进 0.02s"
+  },
+  "weak_dynamics": {
+    "palm_kinematic": true,
+    "finger_pose_compliance": 1.0e-5,
+    "cube_pose_compliance": 1.0e-5
+  },
+  "xpbd_grip_lock": {
+    "enabled": false
+  },
+  "finger_collision": {
+    "unlock_on_aperture_above": 0.5,
+    "lock_on_aperture_below": 0.2,
+    "comment": "P2 布料阶段生效；phase1 无布可忽略"
+  },
+  "particle_render": {
+    "enabled": false
+  },
+  "rigid_body_map": [
+    {
+      "logical_name": "base",
+      "mjc_body_name": "base",
+      "follow_mode": "kinematic",
+      "box_half_extents": [0.5, 0.5, 0.1]
+    },
+    {
+      "logical_name": "cube",
+      "mjc_body_name": "cube",
+      "follow_mode": "compliance",
+      "box_half_extents": [0.025, 0.025, 0.025]
+    },
+    {
+      "logical_name": "gripper_palm",
+      "mjc_body_name": "gripper_palm",
+      "follow_mode": "kinematic",
+      "box_half_extents": [0.045, 0.035, 0.025]
+    },
+    {
+      "logical_name": "gripper_finger1",
+      "mjc_body_name": "gripper_finger1",
+      "follow_mode": "compliance",
+      "box_half_extents": [0.012, 0.022, 0.045]
+    },
+    {
+      "logical_name": "gripper_finger2",
+      "mjc_body_name": "gripper_finger2",
+      "follow_mode": "compliance",
+      "box_half_extents": [0.012, 0.022, 0.045]
+    }
+  ],
+  "mujoco_trajectory": {
+    "type": "phase1_slide_module",
+    "module": "modules.phase1_trajectory",
+    "function": "compute_ctrl",
+    "duration_sec": 5.0,
+    "actuator_names": [
+      "gripper_move_x",
+      "gripper_move_y",
+      "gripper_move_z",
+      "gripper_grasp_ctrl"
+    ],
+    "phases": [
+      { "name": "approach", "t0": 0.0, "t1": 1.0 },
+      { "name": "close", "t0": 1.0, "t1": 2.0 },
+      { "name": "push", "t0": 2.0, "t1": 5.0 }
+    ]
+  },
+  "debug": {
+    "pose_csv_path": "../../../../XPBD/MjcPBD_orcalink/checkpoints/run_latest/mjc_xpbd_pose.csv"
+  }
+}

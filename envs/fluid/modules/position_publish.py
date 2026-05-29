@@ -8,6 +8,11 @@ from typing import List, Dict, Optional, Any
 
 logger = logging.getLogger(__name__)
 
+try:
+    from orcalink_client.data_structures import RigidBodyPosition
+except ImportError:
+    RigidBodyPosition = None  # type: ignore
+
 
 class PositionPublishModule:
     """Module for publishing rigid body or SITE positions to SPH"""
@@ -110,18 +115,18 @@ class PositionPublishModule:
                 quat = xquat_list[i]
                 
                 # Convert to position data structure
-                try:
-                    from data_structures import RigidBodyPosition
-                    position_data = RigidBodyPosition()
-                    position_data.object_id = object_id
-                    position_data.position = np.array(pos, dtype=np.float32)
-                    position_data.rotation = np.array(quat, dtype=np.float32)
-                except ImportError:
-                    # Fallback: create dict-like object
+                if RigidBodyPosition is not None:
+                    position_data = RigidBodyPosition(
+                        object_id=object_id,
+                        position=np.array(pos, dtype=np.float32),
+                        rotation=np.array(quat, dtype=np.float32),
+                    )
+                else:
                     position_data = type('RigidBodyPosition', (), {
                         'object_id': object_id,
                         'position': np.array(pos, dtype=np.float32),
-                        'rotation': np.array(quat, dtype=np.float32)
+                        'rotation': np.array(quat, dtype=np.float32),
+                        'linear_velocity': None,
                     })()
                 
                 positions.append(position_data)
@@ -167,25 +172,33 @@ class PositionPublishModule:
             # 3. 批量查询 SITE 位置和四元数（使用 OrcaGym API）
             site_dict = self.env.query_site_pos_and_quat(site_names)
             
-            # 4. 转换为 OrcaLink 格式
+            nv = int(self.env.model.nv)
+            jacp = np.zeros((3, nv), dtype=np.float64)
+            jacr = np.zeros((3, nv), dtype=np.float64)
+            
+            # 4. 转换为 OrcaLink 格式（含 MuJoCo SITE 世界系线速度 jacp @ qvel）
             for site_name, site_data in site_dict.items():
                 object_id = site_to_object_id.get(site_name, site_name)
                 pos = site_data['xpos']
                 quat = site_data['xquat']
                 
-                # 转换为 position data structure
-                try:
-                    from data_structures import RigidBodyPosition
-                    position_data = RigidBodyPosition()
-                    position_data.object_id = object_id
-                    position_data.position = np.array(pos, dtype=np.float32)
-                    position_data.rotation = np.array(quat, dtype=np.float32)
-                except ImportError:
-                    # Fallback: create dict-like object
+                site_id = int(self.env.gym._mjModel.site(site_name).id)
+                self.env.gym.mj_jacSite(jacp, jacr, site_id)
+                linvel = (jacp @ self.env.data.qvel).astype(np.float32)
+                
+                if RigidBodyPosition is not None:
+                    position_data = RigidBodyPosition(
+                        object_id=object_id,
+                        position=np.array(pos, dtype=np.float32),
+                        rotation=np.array(quat, dtype=np.float32),
+                        linear_velocity=linvel,
+                    )
+                else:
                     position_data = type('RigidBodyPosition', (), {
                         'object_id': object_id,
                         'position': np.array(pos, dtype=np.float32),
-                        'rotation': np.array(quat, dtype=np.float32)
+                        'rotation': np.array(quat, dtype=np.float32),
+                        'linear_velocity': linvel,
                     })()
                 
                 positions.append(position_data)

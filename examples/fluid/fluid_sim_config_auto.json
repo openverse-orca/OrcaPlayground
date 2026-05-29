@@ -1,0 +1,114 @@
+{
+  "description": "Fluid-MuJoCo 耦合 + WaterJug_02_fluid 自动轨迹（Fangfang_AutoMove 等关卡）",
+  "orcagym": {
+    "address": "localhost:50051",
+    "agent_name": "NoRobot",
+    "env_name": "SimulationLoop"
+  },
+  "orcalink": {
+    "enabled": true,
+    "host": "localhost",
+    "port": 50351,
+    "auto_start": true,
+    "startup_delay": 2,
+    "command": "orcalink",
+    "args": [],
+    "client": {
+      "session_id": 1,
+      "client_name": "mujoco_client",
+      "update_rate_hz": 50,
+      "encoding": {
+        "i_frame_interval": 30,
+        "change_threshold": 0.0001
+      },
+      "session": {
+        "control_mode": "sync",
+        "expected_clients": 2,
+        "ready_timeout_sec": 30.0,
+        "grpc_call_timeout_sec": 5.0,
+        "async_params": {
+          "flow_control_enabled": true,
+          "flow_control_window_size": 5,
+          "speed_ratio_threshold": 1.5
+        },
+        "sync_params": {
+          "sync_window_size": 2
+        }
+      }
+    },
+    "bridge": {
+      "coupling_mode": "multi_point_force",
+      "spring_constraint": {
+        "channels": {
+          "position": {
+            "channel_id": 2,
+            "publish": true,
+            "subscribe": true
+          }
+        },
+        "force_clamping": {
+          "enabled": true,
+          "rigid_body": {
+            "enabled": true,
+            "max_acceleration_g": 10.0,
+            "discard_on_clamp": true
+          },
+          "debug": {
+            "log_clamped_forces": true,
+            "log_threshold_n": 1000.0
+          }
+        }
+      },
+      "multi_point_force": {
+        "channels": {
+          "position": {
+            "channel_id": 2,
+            "publish": true,
+            "subscribe": false
+          },
+          "force": {
+            "channel_id": 2,
+            "publish": false,
+            "subscribe": true
+          }
+        }
+      }
+    }
+  },
+  "orcasph": {
+    "enabled": true,
+    "auto_start": true,
+    "command": "orcasph",
+    "args": [],
+    "scene_auto_generate": true,
+    "config_template": "sph_sim_config.json"
+  },
+  "sph": {
+    "scene_config": "scene_config.json",
+    "include_fluid_blocks": true,
+    "include_wall": true
+  },
+  "simulation": {
+    "sync_mode": "multi_point_force",
+    "timestep": 0.001,
+    "substeps": 1
+  },
+  "debug": {
+    "verbose_logging": false
+  },
+  "water_jug_trajectory": {
+    "enabled": true,
+    "joint_hint": "waterjug",
+    "lift_m": 0.3,
+    "rotate_deg": -90,
+    "local_axis": "y",
+    "phase1_sec": 1.3333333333333333,
+    "phase2_sec": 3.0,
+    "hold_sec": 0.0,
+    "resolve_timeout_sec": 90.0,
+    "skip_sph_forces_on_mujoco": true,
+    "reapply_after_step": true,
+    "clear_external_forces": true,
+    "comment": "世界 +Z 抬 0.3m，再绕物体局部 Y 轴 -90°。skip_sph_forces_on_mujoco：轨迹阶段 MuJoCo 仅运动学驱动；reapply_after_step：mj_step 后重设 qpos 消除闪动"
+  }
+}
