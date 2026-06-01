@@ -1,0 +1,29 @@
+<mujoco model="touch_grid_min">
+  <extension>
+    <plugin plugin="mujoco.sensor.touch_grid"/>
+  </extension>
+
+  <worldbody>
+    <!-- 固定垫子：site 绕 X 轴转 180°，+z 朝上，感应从上方来的接触 -->
+    <body name="pad" pos="0 0 0.2">
+      <geom name="pad_geom" type="box" size="0.05 0.05 0.02" rgba="1 0 0 1"/>
+      <site name="touch_site" size="0.01" euler="180 0 0"/>
+    </body>
+
+    <!-- 落体：从上方掉到垫子上产生接触 -->
+    <body name="dropper" pos="0 0 0.35">
+      <freejoint/>
+      <geom name="dropper_geom" type="sphere" size="0.02" rgba="0 1 0 1" mass="1"/>
+    </body>
+  </worldbody>
+
+  <sensor>
+    <plugin name="touch_grid_pad" plugin="mujoco.sensor.touch_grid"
+            objtype="site" objname="touch_site">
+      <config key="nchannel" value="3"/>
+      <config key="size" value="7 7"/>
+      <config key="fov" value="45 45"/>
+      <config key="gamma" value="0"/>
+    </plugin>
+  </sensor>
+</mujoco>
