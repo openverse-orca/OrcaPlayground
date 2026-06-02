@@ -1,7 +1,7 @@
 # OrcaLocomotion Quick Start
 
 本示例通过 PyPI 包 `orca-locomotion` 在 OrcaLab 中回放 Unitree Go2 / G1 运动控制策略。
-包内自带三个可直接运行的 checkpoint 示例，不需要 clone OrcaLocomotion 仓库。
+包内自带三个可直接运行的 Checkpoint 示例，不需要克隆OrcaLocomotion 仓库。
 更多训练、资产和源码说明见 [OrcaLocomotion](https://github.com/openverse-orca/OrcaLocomotion/tree/dev)。
 
 | 仿真 | 实机 |
@@ -15,10 +15,15 @@
 ```bash
 conda create -n orcalab python=3.12
 conda activate orcalab
+
+## 安装 OrcaLab
+pip install orca-lab 
+
+## 安装 OrcaLocomotion 包
 pip install --extra-index-url https://py.mujoco.org --extra-index-url https://pypi.nvidia.com orca-locomotion==0.1.6
 ```
 
-安装后导出包内示例脚本和 checkpoint：
+安装后使用如下脚本,导出包内示例脚本和 预制模型 Checkpoint：
 
 ```bash
 python -m orca_rl.examples.play_examples
@@ -36,9 +41,9 @@ orca_locomotion_example/
 
 ## OrcaLab 资产订阅
 
-回放前需要在 OrcaLab 中订阅 `unitree_robots` 资产包。Go2 和 G1 机器人预制件均来自该资产包。
+推理前需要在 OrcaLab 中订阅 `unitree_robots` 资产包。Go2 和 G1 机器人预制件均来自该资产包。
 
-运行 `Unitree-Go2-Rough` 还需要订阅 rough terrain 对应的渲染资产：
+运行 `Unitree-Go2-Rough` 还需要订阅 rough terrain 对应的渲染资产(在订阅搜索 框直接搜索)：
 
 ```text
 OrcaPrimitiveTerrainXml
@@ -55,32 +60,32 @@ MjlabRough5x5xml_20260527
 
 ## 三个示例任务
 
-`Unitree-Go2-Flat`
+#### 1. Unitree-Go2-Flat
 
 Go2 平地速度跟踪策略，面向四足机器人在平整地面上的基础移动能力。
 策略会根据给定速度命令完成前进、后退和横向移动，适合展示 Go2 在平地场景中的稳定步态和速度跟随效果。
 
 ```bash
-orca_locomotion_example/play_go2_flat.sh
+bash orca_locomotion_example/play_go2_flat.sh
 ```
 
-`Unitree-G1-Flat`
+#### 2. Unitree-G1-Flat
 
 G1 平地速度跟踪策略，面向人形机器人在平整地面上的基础行走能力。
 策略会根据给定速度命令完成平地行走，适合展示 G1 在双足运动中的姿态保持、步态切换和速度跟随效果。
 
 ```bash
-orca_locomotion_example/play_g1_flat.sh
+bash orca_locomotion_example/play_g1_flat.sh
 ```
 
-`Unitree-Go2-Rough`
+#### 3. Unitree-Go2-Rough
 
-Go2 粗糙地形速度跟踪策略，当前示例模型专注于通过碎石崎岖路面，示例中位于左边的地形可用于测试。
+Go2 粗糙地形速度跟踪策略，当前示例模型专注于通过碎石崎岖路面，示例中位于左上侧的地形可用于测试。
 如果需要其他策略，如带有跨越、可通过性、斜坡、楼梯等能力的策略，请参照 OrcaLocomotion 里的训练部分自行训练并导入。
 这个示例带键盘控制：按住方向键或小键盘方向键才会发送速度命令，松开后速度归零。
 
 ```bash
-orca_locomotion_example/play_go2_rough.sh
+bash orca_locomotion_example/play_go2_rough.sh
 ```
 
 键盘控制：
