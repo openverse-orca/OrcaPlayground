@@ -80,9 +80,10 @@ bash orca_locomotion_example/play_g1_flat.sh
 
 #### 3. Unitree-Go2-Rough
 
-> **注意**
->
+![注意：运行环境要求](https://img.shields.io/badge/%E6%B3%A8%E6%84%8F-%E8%BF%90%E8%A1%8C%E7%8E%AF%E5%A2%83%E8%A6%81%E6%B1%82-red)
+
 > **推荐系统：Ubuntu 22.04 或 Ubuntu 24.04。**
+>
 > **Windows 原生环境、WSL 和虚拟机环境当前不兼容，不推荐用于运行该示例。**
 
 Go2 粗糙地形速度跟踪策略，当前示例模型专注于通过碎石崎岖路面，示例中位于左上侧的地形可用于测试。
