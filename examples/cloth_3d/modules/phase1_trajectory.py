@@ -18,6 +18,8 @@ APPROACH_SLIDE_X = APPROACH_PALM_X - PALM_ANCHOR_X
 GRASP_OPEN = 0.0
 GRASP_CLOSED = 0.038
 PUSH_SPEED_M_S = 0.06
+# steering_hinge：俯视 +Z 顺时针 → ctrl 为负；2 rad/s（原 5 rad/s）
+STEERING_SPIN_RAD_S = -2.0
 
 T_APPROACH_END = 1.0
 T_CLOSE_END = 2.0
@@ -26,8 +28,9 @@ T_PUSH_END = 5.0
 
 def compute_ctrl(sim_time: float) -> np.ndarray:
     """
-    返回 4 路 position 控制量：
-    [gripper_move_x, gripper_move_y, gripper_move_z, gripper_grasp_ctrl]
+    返回 5 路控制量：
+    [gripper_move_x, gripper_move_y, gripper_move_z, gripper_grasp_ctrl, steering_spin]
+    最后一维为 steering 角速度 (rad/s)，恒为 STEERING_SPIN_RAD_S。
     """
     t = float(sim_time)
     x = APPROACH_SLIDE_X
@@ -56,7 +59,7 @@ def compute_ctrl(sim_time: float) -> np.ndarray:
         z = -0.05
         grasp = GRASP_CLOSED
 
-    return np.array([x, y, z, grasp], dtype=np.float64)
+    return np.array([x, y, z, grasp, STEERING_SPIN_RAD_S], dtype=np.float64)
 
 
 def trajectory_duration() -> float:
