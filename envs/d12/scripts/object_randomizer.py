@@ -25,6 +25,17 @@ def _resolve_body_name(env, object_name: str) -> str:
     if len(contains) == 1:
         return contains[0]
     if len(contains) > 1:
+        ends_with = [name for name in contains if name.lower().endswith(lower)]
+        if len(ends_with) == 1:
+            return ends_with[0]
+        if len(ends_with) > 1:
+            shortest = min(ends_with, key=len)
+            if sum(1 for n in ends_with if len(n) == len(shortest)) == 1:
+                return shortest
+        else:
+            shortest = min(contains, key=len)
+            if sum(1 for n in contains if len(n) == len(shortest)) == 1:
+                return shortest
         raise ValueError(f"Ambiguous body name {object_name}, candidates: {contains[:10]}")
     raise ValueError(f"Body {object_name} not found in scene")
 

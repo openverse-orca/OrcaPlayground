@@ -100,6 +100,7 @@ OrcaPlayground/
 │   ├── legged_gym/    # 足式机器人 RL 训练（含 README.md）
 │   ├── wheeled_chassis/ # 轮式底盘（含 README.md）
 │   ├── xbot/          # XBot 机器人（含 README.md）
+│   ├── d12/           # D12 双臂机器人（demo + ACT 策略）
 │   ├── fluid/         # 流体仿真（含 README.md）
 │   └── ...            # 更多示例
 ├── .orcalab/          # OrcaLab 配置文件
@@ -115,6 +116,7 @@ OrcaPlayground/
 - **足式机器人 RL 训练** - [`examples/legged_gym/README.md`](examples/legged_gym/README.md)
 - **轮式底盘** - [`examples/wheeled_chassis/README.md`](examples/wheeled_chassis/README.md)
 - **XBot 机器人** - [`examples/xbot/README.md`](examples/xbot/README.md)
+- **D12 双臂机器人** - [`examples/d12/README.md`](examples/d12/README.md)（脚本轨迹 + ACT 策略推理）
 - **ZQ SA01 人形** - [`examples/zq_sa01/README.md`](examples/zq_sa01/README.md)
 - **G1 人形** - [`examples/g1/README.md`](examples/g1/README.md)
 - **场景复制** - [`examples/replicator/README.md`](examples/replicator/README.md)

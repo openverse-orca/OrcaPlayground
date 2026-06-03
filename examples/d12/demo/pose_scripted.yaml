@@ -1,0 +1,109 @@
+# D12 仓库场景 — 基座系分段轨迹（固定场景专用）
+# 物体位置固定时 100% 可复现；随机化后无法追踪物体
+
+gripper_open: 0.0
+gripper_close: 220.0
+
+segments:
+  - steps: 200
+    l_target_b: [0.45, 0.39, 0.4]
+    l_quat_b: [0.0, 0.0, 0.0, 1.0]
+    r_target_b: [0.5, -0.39, 0.4]
+    r_quat_b: [0.0, 0.0, 0.0, 1.0]
+    gripper_l: open
+    gripper_r: open
+
+  - steps: 200
+    l_target_b: [0.45, 0.39, 0.2]
+    r_target_b: [0.52, -0.39, 0.15]
+    r_quat_b: [0, 0.5, 0, 0.8660254]
+    gripper_l: open
+    gripper_r: open
+
+  - steps: 100
+    l_hold: true
+    r_hold: true
+    gripper_l: close
+    gripper_r: close
+
+  - steps: 200
+    l_target_b: [0.45, 0.39, 0.55]
+    r_target_b: [0.5, -0.39, 0.55]
+    r_quat_b: [0, 0.5, 0, 0.8660254]
+    gripper_l: close
+    gripper_r: close
+
+  - steps: 200
+    l_target_b: [0.5, 0.15, 0.55]
+    l_quat_b: [0, 0, -0.3826834, 0.9238795]
+    r_target_b: [0.47, -0.08, 0.55]
+    r_quat_b: [0, 0, 0.3826834, 0.9238795]
+    gripper_l: close
+    gripper_r: close
+
+  - steps: 200
+    l_hold: true
+    r_hold: true
+    gripper_l: close
+    gripper_r: close
+
+  - steps: 300
+    l_target_b: [0.4, 0.05, 0.55]
+    l_quat_b: [0, 0, -0.3826834, 0.9238795]
+    r_target_b: [0.45, -0.4, 0.55]
+    r_quat_b: [0.0, 0.0, 0.0, 1.0]
+    gripper_l: close
+    gripper_r: close
+
+  - steps: 200
+    l_hold: true
+    r_target_b: [0.45, -0.4, 0.25]
+    r_quat_b: [0, 0.5, 0, 0.8660254]
+    gripper_l: open
+    gripper_r: close
+
+  - steps: 100
+    l_hold: true
+    r_hold: true
+    gripper_l: open
+    gripper_r: open
+
+  - steps: 200
+    l_target_b: [0.5, 0.4, 0.25]
+    l_quat_b: [0.0, 0.0, 0.0, 1.0]
+    r_target_b: [0.5, -0.4, 0.25]
+    r_quat_b: [0.0, 0.0, 0.0, 1.0]
+    gripper_l: open
+    gripper_r: open
+
+  - steps: 100
+    l_target_b: [0.5, 0.18, 0.25]
+    l_quat_b: [0, 0, -0.3826834, 0.9238795]
+    r_target_b: [0.5, -0.18, 0.25]
+    r_quat_b: [0, 0, 0.3826834, 0.9238795]
+    gripper_l: open
+    gripper_r: open
+
+  - steps: 100
+    l_target_b: [0.5, 0.18, 0.5]
+    l_quat_b: [0, 0, -0.3826834, 0.9238795]
+    r_target_b: [0.5, -0.18, 0.5]
+    r_quat_b: [0, 0, 0.3826834, 0.9238795]
+    gripper_l: open
+    gripper_r: open
+
+  - steps: 100
+    l_target_b: [0.5, 0.1, 0.4]
+    l_quat_b: [0, 0, -0.3826834, 0.9238795]
+    r_target_b: [0.5, -0.1, 0.4]
+    r_quat_b: [0, 0, 0.3826834, 0.9238795]
+    gripper_l: open
+    gripper_r: open
+
+  - steps: 100
+    l_target_b: [0.5, 0.05, 0.25]
+    l_quat_b: [0, 0, -0.3826834, 0.9238795]
+    r_target_b: [0.5, -0.05, 0.25]
+    r_quat_b: [0, 0, 0.3826834, 0.9238795]
+    gripper_l: open
+    gripper_r: open
