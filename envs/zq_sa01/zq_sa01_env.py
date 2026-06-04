@@ -115,6 +115,8 @@ class ZQSA01Env(OrcaGymLocalEnv):
         _logger.info(f"[ZQSA01] Action space: {self.action_space.shape}")
         _logger.info(f"[ZQSA01] Observation space: {self.observation_space.shape}")
 
+        self._init_base_pose()
+
     def _detect_sensors(self):
         """自动检测传感器名称"""
         all_sensors = list(self.model._sensor_dict.keys())
@@ -133,6 +135,46 @@ class ZQSA01Env(OrcaGymLocalEnv):
             _logger.info(f"[ZQSA01] Detected sensors:")
             _logger.info(f"  - Orientation: {self.orientation_sensor}")
             _logger.info(f"  - Angular velocity: {self.angular_velocity_sensor}")
+
+    def _get_base_pos(self) -> np.ndarray:
+        try:
+            base_body = self.body("base")
+            xpos, _, _ = self.get_body_xpos_xmat_xquat([base_body])
+            return xpos.copy()
+        except Exception:
+            try:
+                base_joint = self.joint("root")
+                qpos_dict = self.query_joint_qpos([base_joint])
+                return np.array(qpos_dict[base_joint][:3], dtype=np.float64)
+            except Exception:
+                _logger.warning("[ZQSA01] Cannot query base position")
+                return np.zeros(3)
+
+    def _init_base_pose(self) -> None:
+        self.reset_simulation()
+        try:
+            base_joint = self.joint("root")
+            qpos_dict = self.query_joint_qpos([base_joint])
+            self._default_base_qpos = np.array(qpos_dict[base_joint], dtype=np.float64).copy()
+            _logger.info(
+                f"[ZQSA01] Default base qpos from model: "
+                f"{np.array2string(self._default_base_qpos, precision=6, floatmode='fixed')}"
+            )
+        except Exception:
+            self._default_base_qpos = np.array([0, 0, 1.1, 1, 0, 0, 0], dtype=np.float64)
+            _logger.warning("[ZQSA01] Could not read base qpos from model, using fallback")
+
+        try:
+            base_joint = self.joint("root")
+            self.set_joint_qpos({base_joint: self._default_base_qpos})
+        except Exception:
+            _logger.warning("[ZQSA01] Could not set base joint in __init__")
+        joint_pos_dict = {
+            self.joint_names[i]: self.default_dof_pos[i]
+            for i in range(12)
+        }
+        self.set_joint_qpos(joint_pos_dict)
+        self.mj_forward()
 
     def set_command(self, vx: float = 0.0, vy: float = 0.0, dyaw: float = 0.0):
         """设置运动命令"""
@@ -274,12 +316,7 @@ class ZQSA01Env(OrcaGymLocalEnv):
 
     def reset_model(self):
         """重置环境"""
-        # 重置基座位置
-        try:
-            base_joint = self.joint("root")
-            self.set_joint_qpos({base_joint: np.array([0, 0, 1.1, 1, 0, 0, 0])})
-        except:
-            _logger.warning("[ZQSA01] Could not reset base joint")
+        self.reset_simulation()
         
         # 重置关节到默认位置
         joint_pos_dict = {
