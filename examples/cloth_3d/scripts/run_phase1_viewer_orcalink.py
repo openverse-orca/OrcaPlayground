@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """
-MuJoCo 被动 viewer + phase1 轨迹 + OrcaLink 锚点宏步发布（双窗联调 MuJoCo 侧）。
+MuJoCo 被动 viewer + 轨迹 + OrcaLink 宏步发布（双窗联调 MuJoCo 侧）。
 
-默认配置建议：cloth_sim_config.phase1_slide.dual_graphic.json（control_mode=async）
+sync 模式（与 verify_vertex_pos_mjc_xpbd 完全一致）：
+  apply_frame → mj_forward → publish POSITION(mf) → 阻塞等 FORCE(mf) → mj_step；
+  禁止在发包前手动 data.time+=（仅由 mj_step 推进仿真时间）。
+默认配置：cloth_sim_config.phase1_slide.dual_graphic.json 或 dual_gripper_cross_full.perf.json
 
 用法:
   cd OrcaPlayground/examples/cloth_3d
@@ -32,18 +35,29 @@ sys.path.insert(0, str(ROOT))
 
 from modules.body_map import load_body_map, validate_body_map  # noqa: E402
 from modules.cloth_orcalink_bridge import ClothOrcaLinkBridge  # noqa: E402
-from modules.phase1_trajectory import compute_ctrl, trajectory_duration  # noqa: E402
 from modules.sim_frames import MujocoMacroFrameCounter  # noqa: E402
+from modules.trajectory_loader import load_trajectory_handlers  # noqa: E402
 
 
-def _load_trajectory_fn(config: dict):
-    traj = config.get("mujoco_trajectory", {})
-    if traj.get("type") != "phase1_slide_module":
-        return compute_ctrl
-    import importlib
+def _wait_sync_publish_slot(bridge: ClothOrcaLinkBridge, timeout_sec: float = 120.0) -> bool:
+    """sync 窗口满时等待 XPBD 回 FORCE 后再发 POSITION。"""
+    deadline = time.perf_counter() + timeout_sec
+    while bridge.should_pause():
+        if time.perf_counter() > deadline:
+            return False
+        time.sleep(0.002)
+    return True
 
-    mod = importlib.import_module(traj.get("module", "modules.phase1_trajectory"))
-    return getattr(mod, traj.get("function", "compute_ctrl"))
+
+def _sync_publish_macro(bridge: ClothOrcaLinkBridge, macro_frame: int) -> bool:
+    """sync 下发 POSITION(mf) 并阻塞等 FORCE(mf)；调用前须已 apply_frame + mj_forward。"""
+    if not _wait_sync_publish_slot(bridge):
+        print(f"WARN: sync 窗口等待超时，无法 publish mf={macro_frame}", file=sys.stderr)
+        return False
+    if not bridge.publish_anchor_macro_frame(macro_frame):
+        print(f"WARN: publish/wait FORCE 失败 mf={macro_frame}", file=sys.stderr)
+        return False
+    return True
 
 
 def main() -> int:
@@ -96,18 +110,27 @@ def main() -> int:
 
     frame_skip = int(mj_cfg.get("frame_skip", 20))
     realtime = float(cfg["simulation"].get("realtime_step", 0.02))
-    duration = trajectory_duration()
-    traj_fn = _load_trajectory_fn(cfg)
+    compute_ctrl, apply_frame, duration_fn = load_trajectory_handlers(cfg)
+    duration = duration_fn()
     mjc_frames = MujocoMacroFrameCounter(substeps_per_macro_frame=frame_skip)
 
     print(f"Scene: {scene}")
-    print(f"双窗：请另开终端运行 XPBD build/phase1_slide_mjc（同一配置文件）")
+    sync_sz = cfg.get("orcalink", {}).get("client", {}).get("session", {}).get("sync_params", {}).get(
+        "sync_window_size", 1
+    )
+    print(f"sync_window_size={sync_sz}（双界面建议 1，减轻 XPBD 视觉滞后）")
+    print("双窗：请另开终端运行 XPBD dual_gripper_cross_mjc（同一 MJC_PBD_CONFIG）")
     if args.freeze_first_frame:
         print("模式: --freeze-first-frame（仅发送 macro_frame=0 后冻结）")
     if args.macro_frames > 0:
         print(f"模式: --macro-frames {args.macro_frames}（满 {args.macro_frames} 宏步后退出）")
     if args.macro_delay > 0:
         print(f"模式: --macro-delay {args.macro_delay}s/宏步")
+
+    if apply_frame is not None:
+        apply_frame(model, data, 0.0)
+    data.ctrl[:] = compute_ctrl(0.0)
+    mujoco.mj_forward(model, data)
 
     try:
         with mujoco.viewer.launch_passive(model, data) as viewer:
@@ -125,33 +148,44 @@ def main() -> int:
 
                 if args.realtime:
                     data.time = time.perf_counter() - wall_start
-                else:
-                    data.time += model.opt.timestep * frame_skip
 
                 if data.time > duration + 1.0:
                     data.time = 0.0
                     wall_start = time.perf_counter()
                     mjc_frames.macro_frame = 0
                     mjc_frames.substep_index = 0
+                    if apply_frame is not None:
+                        apply_frame(model, data, 0.0)
+                    data.ctrl[:] = compute_ctrl(0.0)
+                    mujoco.mj_forward(model, data)
 
-                if bridge and bridge._connected and not bridge.should_pause():
-                    bridge.publish_anchor_macro_frame(mjc_frames.macro_frame)
-                    published_macros = mjc_frames.macro_frame + 1
+                step_this_cycle = True
+                mf_this = mjc_frames.macro_frame
+
+                if apply_frame is not None:
+                    apply_frame(model, data, data.time)
+                data.ctrl[:] = compute_ctrl(data.time)
+                mujoco.mj_forward(model, data)
+
+                if bridge and bridge._connected:
+                    if not _sync_publish_macro(bridge, mf_this):
+                        break
+                    published_macros = mf_this + 1
                     if args.macro_frames > 0 and published_macros >= args.macro_frames:
                         print(
                             f"[viewer] 已发布 macro_frame=0..{args.macro_frames - 1}，退出",
                             flush=True,
                         )
                         break
-                    if args.freeze_first_frame and mjc_frames.macro_frame == 0:
+                    if args.freeze_first_frame and mf_this == 0:
                         frozen = True
+                        step_this_cycle = False
                         print(
-                            "[viewer] 已发布 macro_frame=0，冻结 MuJoCo（不再步进/发包）",
+                            "[viewer] 已发布 macro_frame=0 并收到 FORCE，冻结 MuJoCo",
                             flush=True,
                         )
 
-                if not frozen:
-                    data.ctrl[:] = traj_fn(data.time)
+                if step_this_cycle and not frozen:
                     for _ in range(frame_skip):
                         mujoco.mj_step(model, data)
                         mjc_frames.on_substep()

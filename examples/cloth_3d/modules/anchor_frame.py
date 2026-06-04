@@ -1,4 +1,4 @@
-"""采集宏步锚点帧：4×SITE(pos,vel) + body(COM pos/linvel, quat, ang_vel)，Z-up。"""
+"""采集宏步帧：body(COM/quat/速度)；可选 4×SITE（anchor_follow 或 use_anchor_sites）。"""
 
 from __future__ import annotations
 
@@ -40,6 +40,8 @@ def collect_anchor_frame(
     data: mujoco.MjData,
     entries: list[BodyMapEntry],
     macro_frame: int,
+    *,
+    skip_anchor_sites: bool = False,
 ) -> AnchorFrame:
     mujoco.mj_forward(model, data)
     nv = model.nv
@@ -57,14 +59,15 @@ def collect_anchor_frame(
         com_linvel = np.array(cvel[3:6], dtype=np.float32)
 
         anchors: list[AnchorSample] = []
-        for sname in entry.anchor_sites:
-            sid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, sname)
-            if sid < 0:
-                continue
-            mujoco.mj_jacSite(model, data, jacp, jacr, sid)
-            linvel = (jacp @ data.qvel).astype(np.float32)
-            pos = np.array(data.site_xpos[sid], dtype=np.float32)
-            anchors.append(AnchorSample(sname, pos, linvel))
+        if not skip_anchor_sites:
+            for sname in entry.anchor_sites:
+                sid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, sname)
+                if sid < 0:
+                    continue
+                mujoco.mj_jacSite(model, data, jacp, jacr, sid)
+                linvel = (jacp @ data.qvel).astype(np.float32)
+                pos = np.array(data.site_xpos[sid], dtype=np.float32)
+                anchors.append(AnchorSample(sname, pos, linvel))
 
         bodies.append(
             BodyAnchorPacket(

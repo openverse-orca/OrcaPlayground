@@ -12,6 +12,7 @@ from modules.anchor_frame import AnchorFrame, collect_anchor_frame
 from modules.anchor_debug_export import AnchorDebugCsvWriter, open_debug_csv_writer
 from modules.vertex_pos_mjc_xpbd_export import VertexPosMjcXpbdWriter, open_vertex_pos_writer
 from modules.anchor_publish import export_frame_jsonl, frame_to_units, log_mujoco_send
+from modules.body_track_packet import body_track_position_packet_body_only
 from modules.anchor_debug_export import resolve_debug_log_dir
 from modules.macro_packet_pair_verify import record_mjc_packet_a
 from modules.macro_timing_export import MacroTimingWriter, open_macro_timing_writer
@@ -47,6 +48,10 @@ class ClothOrcaLinkBridge:
         try:
             from orcalink_client import OrcaLinkClient
             from orcalink_client.config_loader import _build_orcalink_config_from_dict
+            from orcalink_client.orcalink_client import setup_logging
+            from modules.mjc_pbd_debug_profile import orcalink_client_verbose
+
+            setup_logging(verbose=orcalink_client_verbose(self._config))
         except ImportError as e:
             logger.error("orcalink_client not installed: %s", e)
             return False
@@ -125,6 +130,15 @@ class ClothOrcaLinkBridge:
                 client_cfg.get("session_id"),
                 len(self._body_entries),
             )
+            if self._sync_mode_active():
+                async def _drain_stale_force(max_rounds: int = 64) -> None:
+                    for _ in range(max_rounds):
+                        seq, _ = await self._client.subscribe_force_macro_frame(max_count=1)
+                        if seq is None:
+                            break
+
+                self._loop.run_until_complete(_drain_stale_force())
+                logger.info("sync: 已排空 ch21 残留 FORCE")
         return self._connected
 
     def should_pause(self) -> bool:
@@ -134,17 +148,45 @@ class ClothOrcaLinkBridge:
             return False
         return self._client.should_pause_this_cycle()
 
+    def _sync_mode_active(self) -> bool:
+        """sync 双向会话：发 POSITION 后须等 XPBD 回 FORCE 才能继续仿真。"""
+        if not self._client:
+            return False
+        if self._ol.get("client", {}).get("session", {}).get("control_mode") != "sync":
+            return False
+        return bool(self._client.is_session_bidirectional)
+
+    async def _wait_force_for_macro(
+        self, macro_frame: int, timeout_sec: float = 120.0
+    ) -> tuple[int | None, float]:
+        """
+        阻塞直到收到 sequence==macro_frame 的 FORCE，或超时。
+        丢弃陈旧/乱序 FORCE，与 verify_vertex_pos_mjc_xpbd 一致。
+        返回 (收到的 macro_frame 或 None, 墙钟 t4)。
+        """
+        deadline = time.time() + timeout_sec
+        while time.time() < deadline:
+            seq, t4 = await self._client.subscribe_force_macro_frame(max_count=1)
+            if seq == macro_frame:
+                return seq, t4
+            if seq is not None:
+                continue
+            await asyncio.sleep(0.002)
+        return None, 0.0
+
     def publish_anchor_macro_frame(self, macro_frame: int) -> bool:
         if not self._connected or not self._client or not self._loop:
             return False
-        t_publish_t0 = time.perf_counter()
         # 采集点 ①：MuJoCo 宏步边界物理量（Z-up）
-        frame = collect_anchor_frame(self._model, self._data, self._body_entries, macro_frame)
+        body_only = body_track_position_packet_body_only(self._config)
+        frame = collect_anchor_frame(
+            self._model, self._data, self._body_entries, macro_frame, skip_anchor_sites=body_only
+        )
         log_mujoco_send(frame)
         if self._export_path:
             export_frame_jsonl(frame, Path(self._export_path))
         # 采集点 ②：与 OrcaLink PublishFrame 一致的 DataUnit
-        units = frame_to_units(frame)
+        units = frame_to_units(frame, body_only=body_only)
         dbg = self._config.get("debug", {})
         if dbg.get("debug_mode") and dbg.get("export_macro_packet_pair_verify", False):
             log_dir = resolve_debug_log_dir(self._config, self._cloth_root)
@@ -156,38 +198,35 @@ class ClothOrcaLinkBridge:
             self._vertex_writer.write_mjc_macro_frame_from_anchor_frame(
                 frame, self._body_entries
             )
-        t_publish_t0 = time.perf_counter()
         ok = self._loop.run_until_complete(
             self._client.publish_anchor_frame(units, macro_frame, frame.sim_time)
         )
-        if ok and self._macro_timing_writer:
-            t1_utc = time.time()
-            t4_utc = t1_utc
-            session = self._ol.get("client", {}).get("session", {})
-            if session.get("control_mode") == "sync":
-                import asyncio
+        if not ok:
+            return False
 
-                async def _wait_force() -> float:
-                    deadline = time.time() + 120.0
-                    while time.time() < deadline:
-                        seq, t4 = await self._client.subscribe_force_macro_frame(max_count=1)
-                        if seq == macro_frame:
-                            return t4
-                        if seq is not None and seq > macro_frame:
-                            break
-                        await asyncio.sleep(0.002)
-                    return t1_utc
+        t1_utc = time.time()
+        t4_utc = t1_utc
+        if self._sync_mode_active():
+            force_seq, t4_utc = self._loop.run_until_complete(
+                self._wait_force_for_macro(macro_frame)
+            )
+            if force_seq != macro_frame:
+                logger.error(
+                    "sync: 未收到 FORCE macro_frame=%s (got=%s)",
+                    macro_frame,
+                    force_seq,
+                )
+                return False
 
-                t4_utc = self._loop.run_until_complete(_wait_force())
-            t_step_utc = time.time()
+        if self._macro_timing_writer:
             self._macro_timing_writer.append_mjc_cycle(
                 macro_frame,
                 frame.sim_time,
                 t1_utc,
                 t4_utc,
-                t_step_utc,
+                time.time(),
             )
-        return ok
+        return True
 
     def close(self) -> None:
         if self._macro_timing_writer:

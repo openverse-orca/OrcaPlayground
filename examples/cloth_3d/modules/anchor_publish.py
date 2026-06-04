@@ -13,43 +13,49 @@ from modules.anchor_frame import AnchorFrame
 logger = logging.getLogger(__name__)
 
 
-def frame_to_units(frame: AnchorFrame) -> list[Any]:
-    """构建 proto DataUnit 列表（延迟 import orcalink_pb2）。"""
+def frame_to_units(frame: AnchorFrame, *, body_only: bool = False) -> list[Any]:
+    """
+    构建 proto DataUnit 列表（延迟 import orcalink_pb2）。
+
+    body_only=True（body_track）：每刚体 4 unit（body_p/q/v/w），不含 SITE/锚点速度。
+    body_only=False（anchor_follow）：每刚体 12 unit（4×锚点 + body_*）。
+    """
     from orcalink_client.protos import orcalink_pb2
 
     units: list[Any] = []
     for body in frame.bodies:
         ln = body.logical_name
-        for i, anchor in enumerate(body.anchors):
-            units.append(
-                orcalink_pb2.DataUnit(
-                    object_id=f"{ln}_a{i}",
-                    data_type=orcalink_pb2.DATA_TYPE_POSITION,
-                    position=orcalink_pb2.PositionValue(
-                        x=float(anchor.position[0]),
-                        y=float(anchor.position[1]),
-                        z=float(anchor.position[2]),
-                        qw=1.0,
-                        qx=0.0,
-                        qy=0.0,
-                        qz=0.0,
-                    ),
+        if not body_only:
+            for i, anchor in enumerate(body.anchors):
+                units.append(
+                    orcalink_pb2.DataUnit(
+                        object_id=f"{ln}_a{i}",
+                        data_type=orcalink_pb2.DATA_TYPE_POSITION,
+                        position=orcalink_pb2.PositionValue(
+                            x=float(anchor.position[0]),
+                            y=float(anchor.position[1]),
+                            z=float(anchor.position[2]),
+                            qw=1.0,
+                            qx=0.0,
+                            qy=0.0,
+                            qz=0.0,
+                        ),
+                    )
                 )
-            )
-            units.append(
-                orcalink_pb2.DataUnit(
-                    object_id=f"{ln}_a{i}_v",
-                    data_type=orcalink_pb2.DATA_TYPE_VELOCITY,
-                    velocity=orcalink_pb2.VelocityValue(
-                        vx=float(anchor.linear_velocity[0]),
-                        vy=float(anchor.linear_velocity[1]),
-                        vz=float(anchor.linear_velocity[2]),
-                        wx=0.0,
-                        wy=0.0,
-                        wz=0.0,
-                    ),
+                units.append(
+                    orcalink_pb2.DataUnit(
+                        object_id=f"{ln}_a{i}_v",
+                        data_type=orcalink_pb2.DATA_TYPE_VELOCITY,
+                        velocity=orcalink_pb2.VelocityValue(
+                            vx=float(anchor.linear_velocity[0]),
+                            vy=float(anchor.linear_velocity[1]),
+                            vz=float(anchor.linear_velocity[2]),
+                            wx=0.0,
+                            wy=0.0,
+                            wz=0.0,
+                        ),
+                    )
                 )
-            )
         units.append(
             orcalink_pb2.DataUnit(
                 object_id=f"{ln}_body_q",

@@ -18,20 +18,8 @@ sys.path.insert(0, str(ROOT))
 from modules.body_map import load_body_map, validate_body_map  # noqa: E402
 from modules.orcalink_settings import require_orcalink_port  # noqa: E402
 from modules.cloth_orcalink_bridge import ClothOrcaLinkBridge  # noqa: E402
-from modules.phase1_trajectory import compute_ctrl, trajectory_duration  # noqa: E402
 from modules.sim_frames import MujocoMacroFrameCounter  # noqa: E402
-
-
-def _load_trajectory_fn(config: dict):
-    traj = config.get("mujoco_trajectory", {})
-    if traj.get("type") != "phase1_slide_module":
-        return compute_ctrl
-    mod_name = traj.get("module", "modules.phase1_trajectory")
-    fn_name = traj.get("function", "compute_ctrl")
-    import importlib
-
-    mod = importlib.import_module(mod_name)
-    return getattr(mod, fn_name)
+from modules.trajectory_loader import load_trajectory_handlers  # noqa: E402
 
 
 def _start_orcalink_server(ol_cfg: dict) -> subprocess.Popen | None:
@@ -99,11 +87,11 @@ def main() -> int:
         frame_skip = int(mj_cfg.get("frame_skip", 20))
         realtime = float(cfg["simulation"].get("realtime_step", 0.02))
         max_t = float(args.max_seconds or cfg["simulation"].get("max_sim_time", 8.0))
-        traj_fn = _load_trajectory_fn(cfg)
+        traj_fn, apply_frame_fn, duration_fn = _load_trajectory_handlers(cfg)
         mjc_frames = MujocoMacroFrameCounter(substeps_per_macro_frame=frame_skip)
 
         print("设置 ORCALINK_DEBUG_ANCHOR=1 可在 MuJoCo 端与 Server 端打印宏步数据")
-        t_end = min(max_t, trajectory_duration() + 1.0)
+        t_end = min(max_t, duration_fn() + 1.0)
         sent_macros = 0
 
         while data.time < t_end:
@@ -113,6 +101,8 @@ def main() -> int:
                 if bridge.publish_anchor_macro_frame(mjc_frames.macro_frame):
                     sent_macros += 1
 
+            if apply_frame_fn is not None:
+                apply_frame_fn(model, data, data.time)
             data.ctrl[:] = traj_fn(data.time)
             for _ in range(frame_skip):
                 mujoco.mj_step(model, data)

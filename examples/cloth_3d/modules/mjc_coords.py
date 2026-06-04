@@ -3,11 +3,22 @@
 from __future__ import annotations
 
 import math
-from typing import Tuple
+from typing import List, Sequence, Tuple
 
 
 def orca_vec_to_yup(x: float, y: float, z: float) -> Tuple[float, float, float]:
+    """(x,y,z)_mjc → (x,y,z)_yup。"""
     return (x, z, -y)
+
+
+def yup_vec_to_mjc(x: float, y: float, z: float) -> Tuple[float, float, float]:
+    """(x,y,z)_yup → (x,y,z)_mjc；orca_vec_to_yup 的逆。"""
+    return (x, -z, y)
+
+
+def yup_half_extents_to_mjc(hx: float, hy: float, hz: float) -> Tuple[float, float, float]:
+    """盒体半长 Y-up → MuJoCo body 系半长（正数）。"""
+    return (hx, hz, hy)
 
 
 def _quat_wxyz_to_mat3(qw: float, qx: float, qy: float, qz: float) -> list[list[float]]:
