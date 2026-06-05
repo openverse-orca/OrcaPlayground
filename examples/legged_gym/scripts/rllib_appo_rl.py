@@ -1,3 +1,12 @@
+import os
+import warnings
+
+os.environ.setdefault("RAY_MIN_LOG_LEVEL", "ERROR")
+os.environ.setdefault("RAY_LOG_TO_STDERR", "0")
+os.environ.setdefault("RAY_DEDUP_LOGS", "1")
+
+warnings.filterwarnings("ignore")
+
 import ray
 from ray import tune
 from ray.tune import RunConfig, CheckpointConfig
@@ -7,7 +16,6 @@ import torch.version
 from envs.legged_gym.adapters.rllib.metrics_callback import OrcaMetricsCallback
 import gymnasium as gym
 import torch
-import os
 from datetime import datetime
 from ray.rllib.core.rl_module.rl_module import RLModule
 from ray.rllib.core import DEFAULT_MODULE_ID
@@ -95,6 +103,16 @@ def create_demo_env_instance(
     agent_names: list[str] | None = None,
     robot_config: dict | None = None,
 ):
+    import logging
+    logging.disable(logging.CRITICAL)
+    warnings.filterwarnings("ignore")
+
+    try:
+        from orca_gym.utils.reward_printer import RewardPrinter
+        RewardPrinter.PRINT_DETAIL = False
+    except Exception:
+        pass
+
     env_id, kwargs = get_orca_gym_register_info(
         orcagym_addr=orcagym_addr,
         env_name=env_name,
@@ -118,7 +136,6 @@ def create_demo_env_instance(
         kwargs[env_name]["robot_config"] = robot_config
 
     if env_id not in gym.envs.registry:
-        print(f"Registering environment: {env_id}")
         gym.register(
             id=env_id,
             entry_point=ENV_ENTRY_POINT[env_name],
@@ -128,7 +145,6 @@ def create_demo_env_instance(
             vector_entry_point=ENV_ENTRY_POINT[env_name],
         )
 
-    print(f"Creating environment {env_id} with kwargs={kwargs}")
     env = gym.make(env_id, **kwargs[env_name])
 
     return env, kwargs[env_name]
@@ -156,10 +172,6 @@ def get_config(
     robot_model_name: str | None = None,
     time_step: float = 0.005,
 ):
-    env_name_prefix = "-".join(env.spec.id.split("-")[:-1])
-    print("env_name_prefix: ", env_name_prefix)
-    print("action_space: ", env.action_space, "observation_space: ", env.observation_space)
-
     lr_scale_factor = 1
     rl_initial_value = agent_config["lr_schedule"]["initial_value"] / lr_scale_factor
     rl_final_value = agent_config["lr_schedule"]["final_value"] / lr_scale_factor
@@ -387,7 +399,7 @@ def config_appo_tuner(
                 checkpoint_score_order="max",
                 checkpoint_at_end=True,
             ),
-            verbose=2,
+            verbose=0,
         ),
     )
 
@@ -409,14 +421,22 @@ def env_creator(
     action_skip: int,
     time_step: float,
 ):
+    import logging
+    logging.disable(logging.CRITICAL)
+    warnings.filterwarnings("ignore")
+
+    try:
+        from orca_gym.utils.reward_printer import RewardPrinter
+        RewardPrinter.PRINT_DETAIL = False
+    except Exception:
+        pass
+
     if env_context is None:
         worker_idx = 1
         vector_idx = 0
-        print("Creating environment in main thread, no env_context provided.")
     else:
         worker_idx = env_context.worker_index
         vector_idx = env_context.vector_index
-        print(f"Creating environment in worker {worker_idx}, vector {vector_idx}.")
 
     env_id, kwargs = get_orca_gym_register_info(
         orcagym_addr=orcagym_addr,
@@ -436,7 +456,6 @@ def env_creator(
     )
 
     if env_id not in gym.envs.registry:
-        print(f"Registering environment: {env_id}")
         gym.register(
             id=env_id,
             entry_point=ENV_ENTRY_POINT[env_name],
@@ -444,34 +463,13 @@ def env_creator(
             max_episode_steps=max_episode_steps,
             reward_threshold=0.0,
         )
-    else:
-        print(f"Environment {env_id} already registered, skipping registration.")
 
     try:
-        print(
-            f"Worker {worker_idx}, vector {vector_idx}: Creating environment {env_id}, kwargs={kwargs}"
-        )
         env = gym.make(env_id, **kwargs[env_name])
-
-        print(f"Observation space for {env_id}: {env.observation_space}")
-        print(f"Action space for {env_id}: {env.action_space}")
-
-        sample_obs = env.observation_space.sample()
-        if not env.observation_space.contains(sample_obs):
-            print(f"WARNING: Sampled observation is not within observation space!")
-
-        print(
-            f"Environment {env_id} created successfully in worker {worker_idx}, vector {vector_idx}."
-            f" Render mode: {render_mode}"
-            f" ProcessID: {os.getpid()}"
-        )
         return env
-
     except Exception as e:
-        print(f"ERROR: Failed to create environment {env_id} in worker {worker_idx}")
-        print(f"Exception: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        import logging as _log
+        _log.getLogger(__name__).error("Failed to create environment %s in worker %s: %s", env_id, worker_idx, e)
         raise
 
 
@@ -629,22 +627,28 @@ def run_training(
         time_step=time_step,
         model_dir=model_dir,
     )
-    results = tuner.fit()
+    try:
+        results = tuner.fit()
 
-    if torch.distributed.is_initialized():
-        print("Cleaning up distributed process group...")
-        torch.distributed.destroy_process_group()
+        if torch.distributed.is_initialized():
+            print("Cleaning up distributed process group...")
+            torch.distributed.destroy_process_group()
 
-    if results:
-        print("\nTraining completed. Best results:")
-        best_result = results.get_best_result()
-        if best_result.checkpoint:
-            checkpoint_path = best_result.checkpoint.path
-            print(f"Best checkpoint directory: {checkpoint_path}")
-
-    demo_env.close()
-    ray.shutdown()
-    print("Process completed.")
+        if results:
+            print("\nTraining completed. Best results:")
+            best_result = results.get_best_result()
+            if best_result.checkpoint:
+                checkpoint_path = best_result.checkpoint.path
+                print(f"Best checkpoint directory: {checkpoint_path}")
+    except KeyboardInterrupt:
+        print("\n训练被用户中断", flush=True)
+    finally:
+        try:
+            demo_env.close()
+        except Exception:
+            pass
+        ray.shutdown()
+        print("Process completed.")
 
 
 def test_model(
@@ -699,63 +703,71 @@ def test_model(
     num_episodes = 0
     episode_return = 0.0
 
-    while num_episodes < max_episode_steps:
-        start_time = time.time()
+    try:
+        while num_episodes < max_episode_steps:
+            start_time = time.time()
 
-        input_dict = {Columns.OBS: np.expand_dims(obs, 0)}
-        if not use_onnx_for_inference:
-            input_dict = {Columns.OBS: torch.from_numpy(obs).unsqueeze(0)}
-        elif ort_session is None:
-            tensor_input_dict = {Columns.OBS: torch.from_numpy(obs).unsqueeze(0)}
-            torch.onnx.export(rl_module, {"batch": tensor_input_dict}, f="test.onnx")
-            import onnxruntime
-            ort_session = onnxruntime.InferenceSession(
-                "test.onnx", providers=["CPUExecutionProvider"]
-            )
+            input_dict = {Columns.OBS: np.expand_dims(obs, 0)}
+            if not use_onnx_for_inference:
+                input_dict = {Columns.OBS: torch.from_numpy(obs).unsqueeze(0)}
+            elif ort_session is None:
+                tensor_input_dict = {Columns.OBS: torch.from_numpy(obs).unsqueeze(0)}
+                torch.onnx.export(rl_module, {"batch": tensor_input_dict}, f="test.onnx")
+                import onnxruntime
+                ort_session = onnxruntime.InferenceSession(
+                    "test.onnx", providers=["CPUExecutionProvider"]
+                )
 
-        if ort_session is not None:
-            rl_module_out = ort_session.run(
-                None,
-                {
-                    key.name: val
-                    for key, val in dict(
-                        zip(
-                            tree.flatten(ort_session.get_inputs()),
-                            tree.flatten(input_dict),
-                        )
-                    ).items()
-                },
-            )
-            rl_module_out = {Columns.ACTION_DIST_INPUTS: rl_module_out[1]}
-        elif not explore_during_inference:
-            rl_module_out = rl_module.forward_inference(input_dict)
-        else:
-            rl_module_out = rl_module.forward_exploration(input_dict)
+            if ort_session is not None:
+                rl_module_out = ort_session.run(
+                    None,
+                    {
+                        key.name: val
+                        for key, val in dict(
+                            zip(
+                                tree.flatten(ort_session.get_inputs()),
+                                tree.flatten(input_dict),
+                            )
+                        ).items()
+                    },
+                )
+                rl_module_out = {Columns.ACTION_DIST_INPUTS: rl_module_out[1]}
+            elif not explore_during_inference:
+                rl_module_out = rl_module.forward_inference(input_dict)
+            else:
+                rl_module_out = rl_module.forward_exploration(input_dict)
 
-        logits = convert_to_numpy(rl_module_out[Columns.ACTION_DIST_INPUTS])
-        mu = logits[:, : env.action_space.shape[0]]
-        action_norm = np.clip(mu[0], -1.0, 1.0)
-        action = action_norm * (env.action_space.high - env.action_space.low) / 2.0 + (env.action_space.high + env.action_space.low) / 2.0
-        action = np.clip(action, env.action_space.low, env.action_space.high)
+            logits = convert_to_numpy(rl_module_out[Columns.ACTION_DIST_INPUTS])
+            mu = logits[:, : env.action_space.shape[0]]
+            action_norm = np.clip(mu[0], -1.0, 1.0)
+            action = action_norm * (env.action_space.high - env.action_space.low) / 2.0 + (env.action_space.high + env.action_space.low) / 2.0
+            action = np.clip(action, env.action_space.low, env.action_space.high)
 
-        _, _, _, _, info = env.step(action)
-        env.render()
-        obs = info["env_obs"]["observation"][0]
-        reward = info["reward"][0]
-        terminated = info["terminated"][0]
-        truncated = info["truncated"][0]
-
-        end_time = time.time()
-        if end_time - start_time < time_step * frame_skip * action_skip:
-            time.sleep(time_step * frame_skip * action_skip - (end_time - start_time))
-
-        episode_return += reward
-        if terminated or truncated:
-            print(f"Episode done: Total reward = {episode_return}")
-            random_seed = np.random.randint(0, 1000000)
-            _, info = env.reset(seed=random_seed)
+            _, _, _, _, info = env.step(action)
+            env.render()
             obs = info["env_obs"]["observation"][0]
-            num_episodes += 1
-            episode_return = 0.0
+            reward = info["reward"][0]
+            terminated = info["terminated"][0]
+            truncated = info["truncated"][0]
+
+            end_time = time.time()
+            if end_time - start_time < time_step * frame_skip * action_skip:
+                time.sleep(time_step * frame_skip * action_skip - (end_time - start_time))
+
+            episode_return += reward
+            if terminated or truncated:
+                print(f"Episode done: Total reward = {episode_return}")
+                random_seed = np.random.randint(0, 1000000)
+                _, info = env.reset(seed=random_seed)
+                obs = info["env_obs"]["observation"][0]
+                num_episodes += 1
+                episode_return = 0.0
+    except KeyboardInterrupt:
+        print("\n测试被用户中断", flush=True)
+    finally:
+        try:
+            env.close()
+        except Exception:
+            pass
 
     print(f"Done performing action inference through {num_episodes} Episodes")

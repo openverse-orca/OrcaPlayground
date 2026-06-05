@@ -1,11 +1,22 @@
 import os
 import sys
+
+os.environ.setdefault("RAY_MIN_LOG_LEVEL", "ERROR")
+os.environ.setdefault("RAY_LOG_TO_STDERR", "0")
+os.environ.setdefault("RAY_DEDUP_LOGS", "1")
+
 import argparse
 import time
 import math
+import signal
+import socket
+import threading
+import warnings
 from datetime import datetime
 import yaml
 import json
+
+warnings.filterwarnings("ignore")
 
 # 获取脚本文件所在目录，然后计算项目根目录
 # 从 examples/legged_gym/run_legged_rl.py 到项目根目录需要向上两级
@@ -15,6 +26,66 @@ project_root = os.path.dirname(os.path.dirname(current_file_dir))
 # 将项目根目录添加到 PYTHONPATH
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
+
+_shutdown_requested = False
+
+def _force_kill_all():
+    try:
+        os.killpg(os.getpgrp(), signal.SIGKILL)
+    except Exception:
+        pass
+    os._exit(0)
+
+def _install_signal_handlers():
+    already_installed = getattr(_install_signal_handlers, "_done", False)
+    if already_installed:
+        return
+    _install_signal_handlers._done = True
+
+    def _handler(signum, frame):
+        global _shutdown_requested
+        sig_name = signal.Signals(signum).name
+        if _shutdown_requested:
+            _force_kill_all()
+        _shutdown_requested = True
+        print(f"\n[{sig_name}] 收到终止信号，正在清理资源...", flush=True)
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGTERM, _handler)
+    signal.signal(signal.SIGINT, _handler)
+
+
+def _grpc_port_reachable(host: str, port: int, timeout: float = 2.0) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except (OSError, ConnectionRefusedError, TimeoutError):
+        return False
+
+
+def _start_grpc_watchdog(orcagym_addresses: list[str], check_interval: float = 3.0):
+    targets = []
+    for addr in orcagym_addresses:
+        parts = addr.rsplit(":", 1)
+        if len(parts) == 2:
+            targets.append((parts[0], int(parts[1])))
+
+    if not targets:
+        return
+
+    def _watch():
+        while True:
+            time.sleep(check_interval)
+            for host, port in targets:
+                if not _grpc_port_reachable(host, port):
+                    print(
+                        f"\ngRPC 连接断开 ({host}:{port})，仿真已停止，强制退出进程",
+                        flush=True,
+                    )
+                    _force_kill_all()
+
+    t = threading.Thread(target=_watch, daemon=True)
+    t.start()
 
 def patch_orca_logger_for_windows():
     """Patch orca_gym logger caller-inspection for Windows spawn subprocesses."""
@@ -159,6 +230,8 @@ def run_sb3_ppo_rl(
         orcagym_addresses = [remote]
     else:
         orcagym_addresses = config['orcagym_addresses']
+
+    _start_grpc_watchdog(orcagym_addresses)
 
     agent_name = config['agent_name']
     agent_asset_path = config.get('agent_asset_path')
@@ -331,51 +404,61 @@ def run_rllib_appo_rl(
 
     import ray
     import torch
+    import logging
     from examples.legged_gym.scripts import rllib_appo_rl
 
-    if rllib_appo_rl.setup_cuda_environment():
-        print("CUDA 环境验证通过")
-    else:
-        print("CUDA 环境设置失败，GPU 加速可能不可用")
+    logging.getLogger("ray").setLevel(logging.ERROR)
+    logging.getLogger("ray.rllib").setLevel(logging.ERROR)
 
-    rllib_appo_rl.verify_pytorch_cuda()
+    try:
+        from orca_gym.utils.reward_printer import RewardPrinter
+        RewardPrinter.PRINT_DETAIL = False
+    except Exception:
+        pass
 
-    if "ray_cluster_address" in config and config["ray_cluster_address"]:
-        print(f"连接到Ray集群: {config['ray_cluster_address']}")
-        ray.init()
-    else:
-        print("使用本地Ray实例")
+    ray_cluster_address = config.get("ray_cluster_address", "")
+    ray_connected = False
+    if ray_cluster_address:
+        try:
+            ray.init(
+                address=ray_cluster_address,
+                ignore_reinit_error=True,
+                logging_level=logging.ERROR,
+                log_to_driver=False,
+            )
+            ray_connected = True
+        except (ConnectionError, TimeoutError, Exception) as e:
+            print(f"连接 Ray 集群 {ray_cluster_address} 失败: {e}")
+            print("回退到本地 Ray 实例")
+            try:
+                ray.shutdown()
+            except Exception:
+                pass
+
+    if not ray_connected:
         ray.init(
             ignore_reinit_error=True,
             num_gpus=torch.cuda.device_count() if torch.cuda.is_available() else 0,
+            logging_level=logging.CRITICAL,
+            log_to_driver=False,
         )
 
-    print(f"Ray集群状态: {ray.is_initialized()}")
-    print(f"可用节点数量: {len(ray.nodes())}")
-    print(f"可用资源: {ray.available_resources()}")
-
-    if torch.cuda.is_available():
-        print(f"PyTorch检测到GPU数量: {torch.cuda.device_count()}")
-        for i in range(torch.cuda.device_count()):
-            print(f"GPU {i}: {torch.cuda.get_device_name(i)}")
-
     num_cpus_available = int(ray.available_resources()["CPU"])
-    print(f"Ray集群检测到的CPU数量: {num_cpus_available}")
 
     num_node_cpus = {}
     num_node_cpus_max = 0
     for node in ray.nodes():
         num_node_cpus[node["NodeID"]] = node["Resources"]["CPU"]
         num_node_cpus_max = max(num_node_cpus_max, node["Resources"]["CPU"])
-    print(f"Ray集群检测到的每个节点的CPU数量: {num_node_cpus}")
 
     num_gpus_available = rllib_appo_rl.detect_ray_gpu_resources()
-    print(f"Ray集群检测到的GPU数量: {num_gpus_available}")
 
     if remote is not None:
         orcagym_addresses = [remote]
     else:
         orcagym_addresses = config["orcagym_addresses"]
+
+    _start_grpc_watchdog(orcagym_addresses)
 
     agent_name = config["agent_name"]
     agent_asset_path = config.get("agent_asset_path")
@@ -471,93 +554,96 @@ def run_rllib_appo_rl(
     max_episode_steps = run_mode_config["max_episode_steps"]
     total_steps = run_mode_config["iter"] * num_env_runners * num_envs_per_env_runner * max_episode_steps
 
-    if run_mode == "training":
-        sceneinfo(
-            scene=None,
-            stage="preparescene",
-            framework="rllib",
-            run_mode=run_mode,
-            orcagym_addresses=orcagym_addresses,
-        )
-        sceneinfo(
-            scene=None,
-            stage="beginscene",
-            framework="rllib",
-            run_mode=run_mode,
-            orcagym_addresses=orcagym_addresses,
-        )
-        print(
-            f"Start Training! task: {task}, agents_per_env: {agents_per_env}, "
-            f"use_robot_locator: {use_robot_locator}, agent_name: {agent_name}, "
-            f"iter: {run_mode_config['iter']}"
-        )
-        print(
-            f"Total Steps: {total_steps}, Max Episode Steps: {max_episode_steps}, "
-            f"Frame Skip: {frame_skip}, Action Skip: {action_skip}"
-        )
-        print(f"环境运行器数量: {num_env_runners}, 每个运行器的环境数量: {num_envs_per_env_runner}")
+    try:
+        if run_mode == "training":
+            sceneinfo(
+                scene=None,
+                stage="preparescene",
+                framework="rllib",
+                run_mode=run_mode,
+                orcagym_addresses=orcagym_addresses,
+            )
+            sceneinfo(
+                scene=None,
+                stage="beginscene",
+                framework="rllib",
+                run_mode=run_mode,
+                orcagym_addresses=orcagym_addresses,
+            )
+            print(
+                f"Start Training! task: {task}, agents_per_env: {agents_per_env}, "
+                f"use_robot_locator: {use_robot_locator}, agent_name: {agent_name}, "
+                f"iter: {run_mode_config['iter']}"
+            )
+            print(
+                f"Total Steps: {total_steps}, Max Episode Steps: {max_episode_steps}, "
+                f"Frame Skip: {frame_skip}, Action Skip: {action_skip}"
+            )
+            print(f"环境运行器数量: {num_env_runners}, 每个运行器的环境数量: {num_envs_per_env_runner}")
 
-        rllib_appo_rl.run_training(
-            orcagym_addr=orcagym_addresses[0],
-            env_name=config["env_name"],
-            agent_name=agent_name,
-            agent_config=LeggedRobotConfig[agent_name],
-            task=task,
-            max_episode_steps=max_episode_steps,
-            num_learners=num_learners,
-            num_env_runners=num_env_runners,
-            num_envs_per_env_runner=num_envs_per_env_runner,
-            num_gpus_available=num_gpus_available,
-            num_node_cpus=num_node_cpus,
-            num_cpus_per_learner=num_cpus_per_learner,
-            num_gpus_per_learner=num_gpus_per_learner,
-            num_cpus_per_env_runner=num_cpus_per_env_runner,
-            num_gpus_per_env_runner=num_gpus_per_env_runner,
-            async_env_runner=run_mode_config["async_env_runner"],
-            iter=run_mode_config["iter"],
-            total_steps=total_steps,
-            render_mode=render_mode,
-            height_map_file=height_map_file,
-            frame_skip=frame_skip,
-            action_skip=action_skip,
-            time_step=time_step,
-            agents_per_env=agents_per_env,
-            use_robot_locator=use_robot_locator,
-            model_dir=model_dir,
-            agent_names=scene_binding.agent_names,
-            robot_config=scene_binding.robot_config,
-        )
-        sceneinfo(
-            scene=None,
-            stage="endscene",
-            framework="rllib",
-            run_mode=run_mode,
-            orcagym_addresses=orcagym_addresses,
-        )
-    elif run_mode in ("testing", "play"):
-        if not ckpt:
-            raise ValueError("Checkpoint path must be provided for testing / play.")
-        rllib_appo_rl.test_model(
-            checkpoint_path=ckpt,
-            orcagym_addr=orcagym_addresses[0],
-            env_name=config["env_name"],
-            agent_name=agent_name,
-            max_episode_steps=max_episode_steps,
-            use_onnx_for_inference=False,
-            explore_during_inference=False,
-            render_mode=render_mode,
-            async_env_runner=run_mode_config["async_env_runner"],
-            height_map_file=height_map_file,
-            task=task,
-            frame_skip=frame_skip,
-            action_skip=action_skip,
-            time_step=time_step,
-        )
-    else:
-        raise ValueError("Invalid run mode. Use 'training', 'testing', or 'play'.")
-
-    if ray.is_initialized():
-        ray.shutdown()
+            rllib_appo_rl.run_training(
+                orcagym_addr=orcagym_addresses[0],
+                env_name=config["env_name"],
+                agent_name=agent_name,
+                agent_config=LeggedRobotConfig[agent_name],
+                task=task,
+                max_episode_steps=max_episode_steps,
+                num_learners=num_learners,
+                num_env_runners=num_env_runners,
+                num_envs_per_env_runner=num_envs_per_env_runner,
+                num_gpus_available=num_gpus_available,
+                num_node_cpus=num_node_cpus,
+                num_cpus_per_learner=num_cpus_per_learner,
+                num_gpus_per_learner=num_gpus_per_learner,
+                num_cpus_per_env_runner=num_cpus_per_env_runner,
+                num_gpus_per_env_runner=num_gpus_per_env_runner,
+                async_env_runner=run_mode_config["async_env_runner"],
+                iter=run_mode_config["iter"],
+                total_steps=total_steps,
+                render_mode=render_mode,
+                height_map_file=height_map_file,
+                frame_skip=frame_skip,
+                action_skip=action_skip,
+                time_step=time_step,
+                agents_per_env=agents_per_env,
+                use_robot_locator=use_robot_locator,
+                model_dir=model_dir,
+                agent_names=scene_binding.agent_names,
+                robot_config=scene_binding.robot_config,
+            )
+            sceneinfo(
+                scene=None,
+                stage="endscene",
+                framework="rllib",
+                run_mode=run_mode,
+                orcagym_addresses=orcagym_addresses,
+            )
+        elif run_mode in ("testing", "play"):
+            if not ckpt:
+                raise ValueError("Checkpoint path must be provided for testing / play.")
+            rllib_appo_rl.test_model(
+                checkpoint_path=ckpt,
+                orcagym_addr=orcagym_addresses[0],
+                env_name=config["env_name"],
+                agent_name=agent_name,
+                max_episode_steps=max_episode_steps,
+                use_onnx_for_inference=False,
+                explore_during_inference=False,
+                render_mode=render_mode,
+                async_env_runner=run_mode_config["async_env_runner"],
+                height_map_file=height_map_file,
+                task=task,
+                frame_skip=frame_skip,
+                action_skip=action_skip,
+                time_step=time_step,
+            )
+        else:
+            raise ValueError("Invalid run mode. Use 'training', 'testing', or 'play'.")
+    except KeyboardInterrupt:
+        print("\n训练/测试被用户中断", flush=True)
+    finally:
+        if ray.is_initialized():
+            ray.shutdown()
 
 
 def run_rl(config: dict, run_mode: str, ckpt: str, remote: str, visualize: bool):
@@ -573,6 +659,8 @@ def run_rl(config: dict, run_mode: str, ckpt: str, remote: str, visualize: bool)
 
 
 if __name__ == "__main__":
+    _install_signal_handlers()
+
     parser = argparse.ArgumentParser(description='Run legged RL.')
     parser.add_argument('--config', type=str, help='The path of the config file')
     parser.add_argument('--train', action='store_true', help='Train the model')
@@ -594,12 +682,15 @@ if __name__ == "__main__":
     assert not (args.train and args.play), "Please specify only one of --train, --test, or --play"
     assert not (args.test and args.play), "Please specify only one of --train, --test, or --play"
 
-    if args.train:
-        run_rl(config, 'training', args.ckpt, args.remote, args.visualize)
-    elif args.test:
-        run_rl(config, 'testing', args.ckpt, args.remote, args.visualize)
-    elif args.play:
-        run_rl(config, 'play', args.ckpt, args.remote, args.visualize)
-    else:
-        raise ValueError("Invalid run mode")
+    try:
+        if args.train:
+            run_rl(config, 'training', args.ckpt, args.remote, args.visualize)
+        elif args.test:
+            run_rl(config, 'testing', args.ckpt, args.remote, args.visualize)
+        elif args.play:
+            run_rl(config, 'play', args.ckpt, args.remote, args.visualize)
+        else:
+            raise ValueError("Invalid run mode")
+    except KeyboardInterrupt:
+        pass
 
