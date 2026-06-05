@@ -177,6 +177,27 @@ class ConfigGenerator:
         
         return connection_points
     
+    def generate_rigid_bodies_force_position(self) -> List[Dict]:
+        """
+        force_position 模式：按刚体 body 生成配置（object_id = MuJoCo body 名，与 sph scene entityName 对齐）。
+        仅包含带 SPH_SITE 的动力学耦合体。
+        """
+        rigid_bodies = []
+        sph_bodies = self.identify_sph_bodies()
+        for body_name in sph_bodies:
+            sites_info = self.extract_sites_for_body(body_name)
+            if not sites_info['sph_sites']:
+                continue
+            rigid_bodies.append({
+                "object_id": body_name,
+                "mujoco_body": body_name,
+                "coupling_mode": "force_position",
+                "connection_points": [],
+            })
+            logger.info(f"Generated force_position body '{body_name}'")
+        logger.info(f"Generated {len(rigid_bodies)} force_position rigid bodies")
+        return rigid_bodies
+
     def generate_rigid_bodies(self) -> List[Dict]:
         """
         从 MuJoCo 模型生成完整的 rigid_bodies 配置

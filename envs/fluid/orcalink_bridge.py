@@ -73,6 +73,7 @@ class OrcaLinkBridge:
         
         # 当前耦合模式实例（NEW: Strategy Pattern）
         self.current_mode = None
+        self.macro_step: int = 0
         
         # 生成完整配置（从配置字典）
         self.config = self._prepare_orcalink_config(config)
@@ -123,8 +124,13 @@ class OrcaLinkBridge:
             from .utils.config_generator import ConfigGenerator
             
             generator = ConfigGenerator(self.env)
-            print("[PRINT-DEBUG] _prepare_orcalink_config - ConfigGenerator created, calling generate_rigid_bodies()", file=sys.stderr, flush=True)
-            rigid_bodies = generator.generate_rigid_bodies()
+            coupling_mode = orcalink_cfg.get('bridge', {}).get('coupling_mode', 'multi_point_force')
+            print(f"[PRINT-DEBUG] _prepare_orcalink_config - coupling_mode={coupling_mode}", file=sys.stderr, flush=True)
+            if coupling_mode == 'force_position':
+                rigid_bodies = generator.generate_rigid_bodies_force_position()
+            else:
+                print("[PRINT-DEBUG] _prepare_orcalink_config - calling generate_rigid_bodies()", file=sys.stderr, flush=True)
+                rigid_bodies = generator.generate_rigid_bodies()
             print(f"[PRINT-DEBUG] _prepare_orcalink_config - generate_rigid_bodies() returned {len(rigid_bodies)} bodies", file=sys.stderr, flush=True)
             orcalink_config['rigid_bodies'] = rigid_bodies
             logger.info(f"Generated {len(rigid_bodies)} rigid bodies from MuJoCo model")
@@ -534,6 +540,8 @@ class OrcaLinkBridge:
         try:
             # Delegate to current mode (Strategy Pattern)
             if self.current_mode:
+                if hasattr(self.current_mode, "macro_step"):
+                    self.current_mode.macro_step = self.macro_step
                 logger.debug(f"[DEBUG] step() - Calling current_mode.step() [{type(self.current_mode).__name__}]")
                 result = self.current_mode.step()
                 logger.debug(f"[DEBUG] step() - current_mode.step() returned: {result}")

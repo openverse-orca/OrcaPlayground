@@ -167,8 +167,19 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--gui",
+        "--sph-gui",
         action="store_true",
-        help="启用 OrcaSPH GUI 可视化界面（默认禁用）",
+        help="启用 OrcaSPH（SPlisHSPlasH）原生 GUI 窗口",
+    )
+    parser.add_argument(
+        "--mujoco-gui",
+        action="store_true",
+        help="启用 MuJoCo 原生被动查看器（短链无 Studio 时用于对照 SPH 同步）",
+    )
+    parser.add_argument(
+        "--mujoco-shutdown-on-close",
+        action="store_true",
+        help="关闭 MuJoCo 被动查看器窗口时结束整场仿真（默认：与 --gui 同开时不结束，可后台长跑）",
     )
     parser.add_argument(
         "--use-all-cpu",
@@ -384,6 +395,26 @@ def _apply_mujoco_trajectory_config(
     return None
 
 
+def _apply_mujoco_gui_from_args(
+    config: dict,
+    mujoco_gui: bool,
+    *,
+    sph_gui: bool = False,
+    shutdown_on_close: Optional[bool] = None,
+) -> None:
+    mg = config.setdefault("mujoco_gui", {})
+    mg["enabled"] = bool(mujoco_gui)
+    if not mujoco_gui:
+        return
+    if shutdown_on_close is not None:
+        mg["shutdown_on_close"] = shutdown_on_close
+    elif sph_gui and "shutdown_on_close" not in mg:
+        mg["shutdown_on_close"] = False
+    print("🖥️  MuJoCo 被动查看器已启用（mujoco.viewer.launch_passive）")
+    if mg.get("shutdown_on_close") is False:
+        print("   ↳ 关 MuJoCo 窗口不会结束仿真（双界面长跑）；Ctrl+C 或 --mujoco-shutdown-on-close 可改行为")
+
+
 def _apply_orcasph_gui_from_args(config: dict, gui: bool) -> None:
     if "orcasph" not in config or not config["orcasph"].get("enabled", False):
         return
@@ -508,6 +539,12 @@ def main() -> int:
         if err is not None:
             return err
         _apply_orcasph_gui_from_args(config, args.gui)
+        _apply_mujoco_gui_from_args(
+            config,
+            args.mujoco_gui,
+            sph_gui=bool(args.gui),
+            shutdown_on_close=True if args.mujoco_shutdown_on_close else None,
+        )
         _apply_performance_stats_from_args(config, args)
         _apply_manual_mode_from_args(config, args)
 

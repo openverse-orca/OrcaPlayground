@@ -1,0 +1,157 @@
+{
+  "description": "MuJoCo↔OrcaLink↔SPH 短链（无 OrcaStudio 50051）；场景固定在 SPH_bug/scene_3chain",
+  "scene_3chain_dir": "/home/hjadmin/OrcaApr24/SPH_bug/scene_3chain",
+  "orcagym": {
+    "address": "",
+    "skip_grpc_load": true,
+    "local_xml_path": "/home/hjadmin/OrcaApr24/SPH_bug/scene_3chain/mujoco_scene.xml",
+    "assets_dir": "/home/hjadmin/OrcaApr24/SPH_bug/scene_3chain",
+    "agent_name": "NoRobot",
+    "env_name": "SimulationLoop"
+  },
+  "orcalink": {
+    "enabled": true,
+    "host": "localhost",
+    "port": 50351,
+    "auto_start": true,
+    "startup_delay": 2,
+    "command": "orcalink",
+    "args": [],
+    "client": {
+      "session_id": 1,
+      "client_name": "mujoco_client",
+      "update_rate_hz": 50,
+      "encoding": {
+        "i_frame_interval": 30,
+        "change_threshold": 0.0001
+      },
+      "session": {
+        "control_mode": "sync",
+        "expected_clients": 2,
+        "ready_timeout_sec": 30.0,
+        "grpc_call_timeout_sec": 5.0,
+        "async_params": {
+          "flow_control_enabled": true,
+          "flow_control_window_size": 5,
+          "speed_ratio_threshold": 1.5
+        },
+        "sync_params": {
+          "sync_window_size": 2
+        }
+      }
+    },
+    "bridge": {
+      "coupling_mode": "force_position",
+      "force_position": {
+        "channels": {
+          "force": {
+            "channel_id": 1,
+            "publish": false,
+            "subscribe": true
+          },
+          "position": {
+            "channel_id": 2,
+            "publish": true,
+            "subscribe": false
+          }
+        }
+      },
+      "spring_constraint": {
+        "channels": {
+          "position": {
+            "channel_id": 2,
+            "publish": true,
+            "subscribe": true
+          }
+        },
+        "force_clamping": {
+          "enabled": true,
+          "rigid_body": {
+            "enabled": true,
+            "max_acceleration_g": 10.0,
+            "discard_on_clamp": true
+          },
+          "debug": {
+            "log_clamped_forces": true,
+            "log_threshold_n": 1000.0
+          }
+        }
+      },
+      "multi_point_force": {
+        "channels": {
+          "position": {
+            "channel_id": 2,
+            "publish": true,
+            "subscribe": false
+          },
+          "force": {
+            "channel_id": 2,
+            "publish": false,
+            "subscribe": true
+          }
+        }
+      }
+    }
+  },
+  "orcasph": {
+    "enabled": true,
+    "auto_start": true,
+    "command": "orcasph",
+    "args": [],
+    "scene_auto_generate": false,
+    "scene_path": "/home/hjadmin/OrcaApr24/SPH_bug/scene_3chain/sph_scene.json",
+    "orcasph_config_path": "/home/hjadmin/OrcaApr24/SPH_bug/scene_3chain/orcasph_config.json",
+    "sphscale": 1.0,
+    "comment": "SPH 固定子步见 sph_scene.json：timeStepSize=0.001、cflMethod=0（关闭 CFL 自适应），与 MuJoCo dt=0.001×20 宏步对齐"
+  },
+  "particle_render_run": {
+    "mode": "live"
+  },
+  "particle_render_grpc_override": {
+    "enabled": false
+  },
+  "sph": {
+    "scene_config": "scene_config.json",
+    "include_fluid_blocks": true,
+    "include_wall": true
+  },
+  "simulation": {
+    "sync_mode": "force_position",
+    "timestep": 0.001,
+    "substeps": 1,
+    "sph_timestep": 0.001,
+    "sph_cfl_method": 0,
+    "comment": "timestep/sph_timestep=0.001s；MuJoCo 宏步 frame_skip=20；SPH 固定 dt 在 sph_scene.json（cflMethod=0），与 OrcaLink 50Hz 宏周期约 20 子步/宏步"
+  },
+  "debug": {
+    "verbose_logging": false,
+    "force_position_trace": {
+      "enabled": true,
+      "output_base_dir": "/home/hjadmin/OrcaApr24/SPH_bug/scene_3chain/debug_data",
+      "body_aliases_file": "/home/hjadmin/OrcaApr24/SPH_bug/scene_3chain/body_debug_aliases.json",
+      "substeps_per_macro": 20,
+      "substep_trace": {
+        "enabled": true,
+        "max_macros": 10,
+        "analyze_script": "/home/hjadmin/OrcaApr24/SPH_bug/scene_3chain/cp_substeps_analyze.py"
+      }
+    }
+  },
+  "water_jug_trajectory": {
+    "enabled": false
+  },
+  "mujoco_gui": {
+    "shutdown_on_close": false,
+    "colorize": true,
+    "show_coupling_sites": true,
+    "site_scale": 3.5,
+    "site_markers": true,
+    "transparent_geoms": false,
+    "show_mocap_sites": false,
+    "bright_environment": true,
+    "headlight_ambient": 0.55,
+    "headlight_diffuse": 0.92,
+    "background_rgba": [0.78, 0.81, 0.88, 1.0],
+    "geom_emissive_boost": 0.18
+  }
+}

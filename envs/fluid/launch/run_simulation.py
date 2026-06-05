@@ -33,7 +33,16 @@ from .fluid_session import (
     resolve_record_stats_orcasph_log_path,
 )
 from .process_utils import ProcessManager, is_tcp_port_accepting_connections
-from .sph_config import generate_orcasph_config, setup_python_logging
+from .mujoco_viewer_style import (
+    apply_mujoco_passive_viewer_styles,
+    configure_passive_viewer_options,
+    draw_coupling_site_markers,
+)
+from .sph_config import (
+    generate_orcasph_config,
+    prepare_orcasph_config_from_fixed_path,
+    setup_python_logging,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +73,9 @@ class FluidSimulationContext:
     particle_render_override: Any = None
     sphscale: float = 1.0
     prev_sigterm_handler: Any = None
+    # MuJoCo 原生被动查看器（短链无 Studio 时用于本地可视化）
+    mujoco_passive_viewer: Any = None
+    fp_debug_trace: Any = None
 
 
 def _resolve_cli_binary(command_name: str, pip_install_hint: str) -> Path:
@@ -108,7 +120,7 @@ def _make_sigterm_cleanup_handler(
                     pass
 
             # 2. 告知 ParticleRender 结束仿真（停止接收粒子帧）
-            if _owns:
+            if _owns and not _orcagym_skip_studio(ctx.config):
                 try:
                     _fluid_send_end_simulation_from_config(ctx.config)
                 except Exception:
@@ -121,8 +133,10 @@ def _make_sigterm_cleanup_handler(
             if _owns:
                 time.sleep(0.2)
 
+            _close_mujoco_passive_viewer(ctx)
+
             # 5. 重置刚体位姿并推给 OrcaSim
-            if _env is not None and _owns:
+            if _env is not None and _owns and not _orcagym_skip_studio(ctx.config):
                 try:
                     _fluid_sync_initial_viewport_to_engine(_env)
                 except Exception as _e:
@@ -189,10 +203,145 @@ def _init_atexit_state_for_session(config: Dict) -> None:
     _fluid_atexit_state["owns_shared_services"] = False
 
 
+def _orcagym_skip_studio(config: Dict) -> bool:
+    return bool(config.get("orcagym", {}).get("skip_grpc_load"))
+
+
+def _mujoco_gui_enabled(config: Dict) -> bool:
+    return bool((config.get("mujoco_gui") or {}).get("enabled"))
+
+
+def _mujoco_gui_shutdown_on_close(config: Dict) -> bool:
+    """
+    是否在 MuJoCo 被动查看器窗口关闭时结束整场仿真。
+
+    为 false 时仅停止 viewer.sync()，主循环与 OrcaSPH 继续运行（双界面长跑 / 误关窗场景）。
+    未配置时默认为 true，保持单 MuJoCo 查看器时的历史行为。
+    """
+    return bool((config.get("mujoco_gui") or {}).get("shutdown_on_close", True))
+
+
+def _start_mujoco_passive_viewer(ctx: FluidSimulationContext) -> None:
+    """启动 MuJoCo 原生被动查看器（与 OrcaStudio 视口无关）。"""
+    import mujoco
+    import mujoco.viewer
+
+    gui_cfg = ctx.config.get("mujoco_gui") or {}
+    unwrapped = ctx.env.unwrapped
+    mj_model = unwrapped.gym._mjModel
+    mj_data = unwrapped.gym._mjData
+    apply_mujoco_passive_viewer_styles(mj_model, gui_cfg)
+    # 须先 forward + 默认自由相机；否则 launch_passive 默认 lookat=原点、distance=2，场景在远处会全黑
+    mujoco.mj_forward(mj_model, mj_data)
+    viewer = mujoco.viewer.launch_passive(mj_model, mj_data)
+    with viewer.lock():
+        configure_passive_viewer_options(viewer, mj_model, gui_cfg)
+        if gui_cfg.get("site_markers", True):
+            draw_coupling_site_markers(mj_model, mj_data, viewer)
+    viewer.sync()
+    ctx.mujoco_passive_viewer = viewer
+    logger.info(
+        "🖥️  MuJoCo 被动查看器已启动（着色=%s SITE=%s lookat=%s distance=%.2f shutdown_on_close=%s）",
+        gui_cfg.get("colorize", True),
+        gui_cfg.get("show_coupling_sites", True),
+        viewer.cam.lookat,
+        viewer.cam.distance,
+        _mujoco_gui_shutdown_on_close(ctx.config),
+    )
+
+
+def _sync_mujoco_passive_viewer(ctx: FluidSimulationContext) -> None:
+    import mujoco
+
+    viewer = ctx.mujoco_passive_viewer
+    if viewer is None:
+        return
+    if not viewer.is_running():
+        if _mujoco_gui_shutdown_on_close(ctx.config):
+            logger.info("MuJoCo 查看器已关闭，结束主循环")
+            ctx.shutdown_event.set()
+        else:
+            logger.info(
+                "MuJoCo 查看器已关闭，仿真继续在后台运行（mujoco_gui.shutdown_on_close=false）；"
+                "按 Ctrl+C 结束整场仿真"
+            )
+            ctx.mujoco_passive_viewer = None
+        return
+    gui_cfg = ctx.config.get("mujoco_gui") or {}
+    unwrapped = ctx.env.unwrapped
+    mj_model = unwrapped.gym._mjModel
+    mj_data = unwrapped.gym._mjData
+    mujoco.mj_forward(mj_model, mj_data)
+    if gui_cfg.get("site_markers", True):
+        with viewer.lock():
+            draw_coupling_site_markers(mj_model, mj_data, viewer)
+    viewer.sync()
+
+
+def _close_mujoco_passive_viewer(ctx: FluidSimulationContext) -> None:
+    viewer = ctx.mujoco_passive_viewer
+    if viewer is None:
+        return
+    try:
+        viewer.close()
+    except Exception as e:
+        logger.warning("MuJoCo passive viewer close: %s", e)
+    ctx.mujoco_passive_viewer = None
+
+
+def _resolve_prebuilt_sph_scene(ctx: FluidSimulationContext) -> None:
+    """短链模式：使用配置中的固定 sph_scene.json，跳过 SceneGenerator。"""
+    oc = ctx.config.get("orcasph", {})
+    if oc.get("scene_auto_generate", True):
+        return
+    scene_path = oc.get("scene_path")
+    if not scene_path:
+        raise ValueError(
+            "orcasph.scene_auto_generate=false 时必须设置 orcasph.scene_path"
+        )
+    resolved = Path(scene_path).expanduser().resolve()
+    if not resolved.is_file():
+        raise FileNotFoundError(f"SPH scene 文件不存在: {resolved}")
+    ctx.scene_output_path = resolved
+    ctx.sphscale = float(oc.get("sphscale", 1.0))
+    logger.info("✅ 使用固定 SPH scene: %s\n", resolved)
+
+
 def _create_and_reset_gym_env(config: Dict) -> Any:
     logger.info("\n📦 步骤 1: 创建 MuJoCo 环境...")
     orcagym_cfg = config["orcagym"]
-    env_id = f"{orcagym_cfg['env_name']}-OrcaGym-{orcagym_cfg['address'].replace(':', '-')}-000"
+    skip_studio = _orcagym_skip_studio(config)
+    addr_tag = (orcagym_cfg.get("address") or "offline").replace(":", "-")
+    env_id = f"{orcagym_cfg['env_name']}-OrcaGym-{addr_tag}-000"
+
+    sim_cfg = config.get("simulation", {})
+    mj_timestep = float(sim_cfg.get("timestep", 0.001))
+    # 每个主循环宏步（REALTIME_STEP≈OrcaLink 50Hz）内的 MuJoCo 子步数
+    frame_skip = max(1, int(round(REALTIME_STEP / mj_timestep)))
+    env_kwargs: Dict[str, Any] = {
+        "frame_skip": frame_skip,
+        "orcagym_addr": orcagym_cfg.get("address") or "localhost:50051",
+        "agent_names": [orcagym_cfg["agent_name"]],
+        "time_step": mj_timestep,
+    }
+    logger.info(
+        "MuJoCo 子步: dt=%.4fs, frame_skip=%d (宏步物理时间 %.4fs)",
+        mj_timestep,
+        frame_skip,
+        mj_timestep * frame_skip,
+    )
+    if skip_studio:
+        local_xml = orcagym_cfg.get("local_xml_path")
+        if not local_xml:
+            raise ValueError("orcagym.skip_grpc_load=true 时必须设置 orcagym.local_xml_path")
+        env_kwargs["skip_grpc_load"] = True
+        env_kwargs["local_xml_path"] = local_xml
+        if orcagym_cfg.get("assets_dir"):
+            env_kwargs["xml_assets_dir"] = orcagym_cfg["assets_dir"]
+        logger.info(
+            "🔌 短链 MuJoCo：跳过 OrcaStudio gRPC (50051)，本地 XML=%s",
+            local_xml,
+        )
 
     print(
         "[PRINT-DEBUG] run_simulation.py - About to register gymnasium env",
@@ -202,12 +351,7 @@ def _create_and_reset_gym_env(config: Dict) -> Any:
     gym.register(
         id=env_id,
         entry_point="envs.fluid.sim_env:SimEnv",
-        kwargs={
-            "frame_skip": 20,
-            "orcagym_addr": orcagym_cfg["address"],
-            "agent_names": [orcagym_cfg["agent_name"]],
-            "time_step": 0.001,
-        },
+        kwargs=env_kwargs,
         max_episode_steps=sys.maxsize,
     )
     print(
@@ -298,6 +442,182 @@ def _maybe_generate_sph_scene(ctx: FluidSimulationContext) -> None:
     ctx.sphscale = scene_generator.sphscale
 
 
+def _init_force_position_debug_trace(ctx: FluidSimulationContext) -> None:
+    """若配置启用，创建 debug_data/<session_timestamp>/ 并设置 ORCA_FP_DEBUG_DIR。"""
+    dbg = ctx.config.get("debug", {}).get("force_position_trace", {})
+    if not dbg.get("enabled", False):
+        return
+
+    base = Path(
+        dbg.get(
+            "output_base_dir",
+            "/home/hjadmin/OrcaApr24/SPH_bug/scene_3chain/debug_data",
+        )
+    ).expanduser()
+    session_dir = base / ctx.session_timestamp
+    os.environ["ORCA_FP_DEBUG_DIR"] = str(session_dir.resolve())
+    os.environ["ORCA_FP_DEBUG_SUBSTEPS"] = str(int(dbg.get("substeps_per_macro", 20)))
+
+    substep_trace = dbg.get("substep_trace", {})
+    if substep_trace.get("enabled", False):
+        os.environ["ORCA_FP_SUBSTEP_TRACE"] = "1"
+        os.environ["ORCA_FP_SUBSTEP_MAX_MACROS"] = str(
+            int(substep_trace.get("max_macros", 10))
+        )
+    else:
+        os.environ.pop("ORCA_FP_SUBSTEP_TRACE", None)
+        os.environ.pop("ORCA_FP_SUBSTEP_MAX_MACROS", None)
+
+    body_aliases: Dict[str, str] = {}
+    alias_file = dbg.get("body_aliases_file")
+    if alias_file:
+        alias_path = Path(alias_file).expanduser()
+        if alias_path.is_file():
+            with open(alias_path, encoding="utf-8") as f:
+                body_aliases = json.load(f)
+
+    if body_aliases:
+        alias_parts = [f"{k}={v}" for k, v in body_aliases.items()]
+        os.environ["ORCA_FP_DEBUG_ALIASES"] = ";".join(alias_parts)
+    else:
+        os.environ.pop("ORCA_FP_DEBUG_ALIASES", None)
+
+    session_dir.mkdir(parents=True, exist_ok=True)
+    if alias_file and body_aliases:
+        import shutil
+
+        shutil.copy2(alias_path, session_dir / "body_debug_aliases.json")
+
+    surface_sites_by_oid: Dict[str, Dict] = {}
+    mjcf_path = dbg.get("mujoco_scene_path")
+    if not mjcf_path:
+        mjcf_path = ctx.config.get("orcagym", {}).get("local_xml_path")
+    if mjcf_path:
+        from ..debug.surface_site_registry import (
+            pick_highest_z_sph_sites,
+            write_surface_sites_csv,
+        )
+
+        registry = pick_highest_z_sph_sites(Path(mjcf_path).expanduser())
+        write_surface_sites_csv(registry, session_dir / "surface_sites.csv")
+        for body_name, spec in registry.items():
+            surface_sites_by_oid[body_name] = spec
+
+    from ..debug.force_position_debug_trace import init_session
+
+    ctx.fp_debug_trace = init_session(session_dir, body_aliases, surface_sites_by_oid)
+    logging.getLogger(__name__).info(
+        "force_position 调试采集已开启: %s", session_dir.resolve()
+    )
+
+
+def _run_substep_trace_analysis_if_enabled(ctx: FluidSimulationContext) -> None:
+    """若启用子步监测，对 cp_substeps_trace.csv 做反推与启动报告。"""
+    dbg = ctx.config.get("debug", {}).get("force_position_trace", {})
+    if not dbg.get("enabled", False) or not dbg.get("substep_trace", {}).get(
+        "enabled", False
+    ):
+        return
+
+    base = Path(
+        dbg.get(
+            "output_base_dir",
+            "/home/hjadmin/OrcaApr24/SPH_bug/scene_3chain/debug_data",
+        )
+    ).expanduser()
+    session_dir = base / ctx.session_timestamp
+    analyze_script = Path(
+        dbg.get(
+            "substep_trace",
+            {},
+        ).get(
+            "analyze_script",
+            "/home/hjadmin/OrcaApr24/SPH_bug/scene_3chain/cp_substeps_analyze.py",
+        )
+    ).expanduser()
+
+    trace_csv = session_dir / "cp_substeps_trace.csv"
+    if not trace_csv.is_file():
+        logger.info("无 cp_substeps_trace.csv，跳过子步分析")
+        return
+    if not analyze_script.is_file():
+        logger.warning("子步分析脚本不存在: %s", analyze_script)
+        return
+
+    try:
+        import subprocess
+        import sys
+
+        result = subprocess.run(
+            [sys.executable, str(analyze_script), str(session_dir)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            logger.warning(
+                "子步分析失败 (code=%s): %s",
+                result.returncode,
+                result.stderr or result.stdout,
+            )
+        else:
+            logger.info("子步分析完成: %s", session_dir)
+    except Exception as exc:
+        logger.warning("子步分析异常: %s", exc)
+
+
+def _run_force_position_debug_diff_if_enabled(ctx: FluidSimulationContext) -> None:
+    """仿真结束后对当前会话目录运行 cp1_cp4_diff.py。"""
+    dbg = ctx.config.get("debug", {}).get("force_position_trace", {})
+    if not dbg.get("enabled", False):
+        return
+
+    base = Path(
+        dbg.get(
+            "output_base_dir",
+            "/home/hjadmin/OrcaApr24/SPH_bug/scene_3chain/debug_data",
+        )
+    ).expanduser()
+    session_dir = base / ctx.session_timestamp
+    diff_script = Path(
+        dbg.get(
+            "diff_script",
+            "/home/hjadmin/OrcaApr24/SPH_bug/scene_3chain/cp1_cp4_diff.py",
+        )
+    ).expanduser()
+
+    if not diff_script.is_file():
+        logger.warning("cp1_cp4_diff 脚本不存在: %s", diff_script)
+        return
+    if not (session_dir / "cp1_pre_publish.csv").is_file():
+        logger.info("无 CP1 数据，跳过差值分析")
+        return
+    if not (session_dir / "cp4_after_substeps.csv").is_file():
+        logger.info("无 CP4 数据，跳过差值分析")
+        return
+
+    try:
+        import subprocess
+        import sys
+
+        result = subprocess.run(
+            [sys.executable, str(diff_script), str(session_dir)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.stdout:
+            logger.info(result.stdout.strip())
+        if result.returncode != 0:
+            logger.warning(
+                "cp1_cp4_diff 退出码 %s: %s",
+                result.returncode,
+                (result.stderr or "").strip(),
+            )
+    except Exception as e:
+        logger.warning("cp1_cp4_diff 运行失败: %s", e)
+
+
 def _start_orcalink_if_configured(ctx: FluidSimulationContext) -> None:
     config = ctx.config
     if not (config["orcalink"]["enabled"] and config["orcalink"]["auto_start"]):
@@ -353,12 +673,20 @@ def _start_orcasph_if_configured(ctx: FluidSimulationContext) -> None:
     orcasph_config_path = (
         ctx.orcagym_tmp_dir / f"orcasph_config_{ctx.session_timestamp}.json"
     )
-    orcasph_config_path, verbose_logging = generate_orcasph_config(
-        config,
-        orcasph_config_path,
-        particle_render_override=ctx.particle_render_override,
-        sphscale=ctx.sphscale,
-    )
+    fixed_cfg = config["orcasph"].get("orcasph_config_path")
+    if fixed_cfg:
+        orcasph_config_path, verbose_logging = prepare_orcasph_config_from_fixed_path(
+            config,
+            Path(fixed_cfg).expanduser().resolve(),
+            orcasph_config_path,
+        )
+    else:
+        orcasph_config_path, verbose_logging = generate_orcasph_config(
+            config,
+            orcasph_config_path,
+            particle_render_override=ctx.particle_render_override,
+            sphscale=ctx.sphscale,
+        )
 
     orcasph_args = config["orcasph"]["args"].copy()
     orcasph_args.extend(["--config", str(orcasph_config_path)])
@@ -524,6 +852,7 @@ def _run_cooperative_main_loop(ctx: FluidSimulationContext) -> None:
         should_step = True
         if config["orcasph"]["enabled"] and ctx.sph_wrapper is not None:
             try:
+                ctx.sph_wrapper.macro_step = step_count
                 if step_count == 0:
                     logger.debug("[DEBUG] Calling sph_wrapper.step()...")
                 should_step = ctx.sph_wrapper.step()
@@ -559,12 +888,18 @@ def _run_cooperative_main_loop(ctx: FluidSimulationContext) -> None:
                 ctx.mujoco_qpos_sidecar.append_row(env, step_count)
             if ctx.traj_rec is not None:
                 ctx.traj_rec.append_frame()
-            env.render()
+            if ctx.mujoco_passive_viewer is not None:
+                _sync_mujoco_passive_viewer(ctx)
+            elif not _orcagym_skip_studio(config):
+                env.render()
         else:
-            env.render()
+            if ctx.mujoco_passive_viewer is not None:
+                _sync_mujoco_passive_viewer(ctx)
+            elif not _orcagym_skip_studio(config):
+                env.render()
 
         if step_count == 0:
-            logger.debug("[DEBUG] After render")
+            logger.debug("[DEBUG] After render / mujoco viewer sync")
 
         elapsed = (datetime.now() - start_time).total_seconds()
         if elapsed < REALTIME_STEP:
@@ -626,10 +961,15 @@ def _finalize_simulation_session(ctx: FluidSimulationContext) -> None:
     if ctx.sph_wrapper:
         ctx.sph_wrapper.close()
 
-    if owns:
+    _close_mujoco_passive_viewer(ctx)
+
+    if owns and not _orcagym_skip_studio(config):
         _fluid_send_end_simulation_from_config(config)
 
     ctx.process_manager.cleanup_all()
+
+    _run_force_position_debug_diff_if_enabled(ctx)
+    _run_substep_trace_analysis_if_enabled(ctx)
 
     if owns:
         time.sleep(0.2)
@@ -647,7 +987,7 @@ def _finalize_simulation_session(ctx: FluidSimulationContext) -> None:
 
     if ctx.env is not None:
         try:
-            if owns:
+            if owns and not _orcagym_skip_studio(config):
                 _fluid_sync_initial_viewport_to_engine(ctx.env)
         except Exception as e:
             logger.warning(f"退出时 reset_simulation / 同步失败（可忽略）: {e}")
@@ -717,7 +1057,9 @@ def run_simulation_with_config(
         logger.info("=" * 80)
 
         ctx.env = _create_and_reset_gym_env(config)
+        _resolve_prebuilt_sph_scene(ctx)
         _maybe_generate_sph_scene(ctx)
+        _init_force_position_debug_trace(ctx)
         _start_orcalink_if_configured(ctx)
         _start_orcasph_if_configured(ctx)
 
@@ -730,6 +1072,9 @@ def run_simulation_with_config(
         sys.stderr.flush()
 
         _connect_sph_bridge_if_enabled(ctx)
+
+        if _mujoco_gui_enabled(config):
+            _start_mujoco_passive_viewer(ctx)
 
         logger.debug("[DEBUG] About to enter main loop...")
         sys.stdout.flush()

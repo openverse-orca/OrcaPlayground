@@ -22,6 +22,7 @@ class ForcePositionMode(ICouplingMode):
         self.env = None
         self.orcalink_client = None
         self.loop = None
+        self.macro_step: int = 0
     
     def initialize(self, config: Dict[str, Any], env, orcalink_client, loop) -> bool:
         """Initialize the mode"""
@@ -55,7 +56,7 @@ class ForcePositionMode(ICouplingMode):
         
         # 3. Publish positions
         if self.position_publish_module:
-            self.position_publish_module.publish_positions()
+            self.position_publish_module.publish_positions(macro_step=self.macro_step)
         
         return True
     

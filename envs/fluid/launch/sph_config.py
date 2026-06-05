@@ -188,6 +188,39 @@ def generate_orcasph_config(
     return output_path, verbose_logging
 
 
+def prepare_orcasph_config_from_fixed_path(
+    fluid_config: Dict,
+    source_path: Path,
+    output_path: Path,
+) -> tuple[Path, bool]:
+    """
+    从 scene_3chain 等固定路径加载 orcasph JSON，合并 fluid 配置中的 OrcaLink 地址与
+    particle_render_run，写入本次会话输出路径（不修改源文件）。
+    """
+    orcalink_cfg = fluid_config.get("orcalink", {})
+    with open(source_path, "r", encoding="utf-8") as f:
+        orcasph_config = json.load(f)
+    _apply_particle_render_run_mode(orcasph_config, fluid_config)
+    orcasph_config.setdefault("orcalink_client", {})
+    orcasph_config["orcalink_client"]["server_address"] = (
+        f"{orcalink_cfg.get('host', 'localhost')}:{orcalink_cfg.get('port', 50351)}"
+    )
+    orcasph_config["orcalink_client"]["enabled"] = orcalink_cfg.get("enabled", True)
+    pr_grpc_go = fluid_config.get("particle_render_grpc_override")
+    if pr_grpc_go and "particle_render" in orcasph_config:
+        _deep_merge(orcasph_config["particle_render"].setdefault("grpc", {}), pr_grpc_go)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(orcasph_config, f, indent=2, ensure_ascii=False)
+    verbose_logging = orcasph_config.get("debug", {}).get("verbose_logging", False)
+    logger.info(
+        "✅ 已从固定路径准备 orcasph 配置: %s → %s",
+        source_path,
+        output_path,
+    )
+    return output_path, verbose_logging
+
+
 def setup_python_logging(config: Dict) -> None:
     """根据配置设置 Python 日志级别"""
     verbose_logging = config.get("debug", {}).get("verbose_logging", False)
