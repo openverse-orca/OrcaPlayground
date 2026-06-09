@@ -35,12 +35,17 @@ from ray.rllib.utils.metrics import (
     NUM_ENV_STEPS_SAMPLED_LIFETIME,
 )
 
+from orca_gym.log.orca_log import get_orca_logger
+_logger = get_orca_logger()
+
 ENV_ENTRY_POINT = {
     "LeggedGym": "envs.legged_gym.legged_gym_env:LeggedGymEnv",
+    "Ant_OrcaGymEnv": "envs.mujoco.ant_orcagym:AntOrcaGymEnv",
 }
 
 ENV_RUNNER_CLS = {
     "LeggedGym": LeggedGymEnvRunner,
+    "Ant_OrcaGymEnv": SingleAgentEnvRunner,
 }
 
 
@@ -62,9 +67,15 @@ def get_orca_gym_register_info(
 ) -> tuple[str, dict]:
     orcagym_addr_str = orcagym_addr.replace(":", "-")
     env_id = env_name + "-OrcaGym-" + orcagym_addr_str + f"-{worker_idx:03d}"
-    agent_names = [f"{agent_name}_{i:03d}" for i in range(agent_num)]
-    kwargs = {
-        "LeggedGym": {
+
+    supported_envs = ["LeggedGym", "Ant_OrcaGymEnv"]
+
+    agent_names = [agent_name] if agent_num == 1 else [f"{agent_name}_{i:03d}" for i in range(agent_num)]
+    if env_name not in supported_envs:
+        raise ValueError(f"Unknown env_name '{env_name}', supported: {supported_envs}")
+
+    if env_name == "LeggedGym":
+        env_kwargs = {
             "frame_skip": frame_skip,
             "action_skip": action_skip,
             "orcagym_addr": orcagym_addr,
@@ -81,8 +92,18 @@ def get_orca_gym_register_info(
             "legged_obs_config": LeggedObsConfig,
             "curriculum_config": CurriculumConfig,
             "legged_env_config": LeggedEnvConfig,
-        },
-    }
+        }
+    elif env_name == "Ant_OrcaGymEnv":
+        env_kwargs = {
+            "frame_skip": frame_skip,
+            "orcagym_addr": orcagym_addr,
+            "agent_names": agent_names,
+            "time_step": time_step,
+            "render_mode": render_mode,
+            "env_id": env_id,
+        }
+
+    kwargs = {env_name: env_kwargs}
 
     return env_id, kwargs
 
@@ -118,12 +139,12 @@ def create_demo_env_instance(
         env_name=env_name,
         agent_name=agent_name,
         agent_num=agent_num,
+        max_episode_steps=max_episode_steps,
         render_mode=render_mode,
         worker_idx=999,
         vector_idx=1,
         async_env_runner=async_env_runner,
         height_map_file=height_map_file,
-        max_episode_steps=max_episode_steps,
         task=task,
         frame_skip=frame_skip,
         action_skip=action_skip,
@@ -204,7 +225,7 @@ def get_config(
     config = (
         APPOConfig()
         .environment(
-            env=env_name,
+            env="OrcaGymEnv",
             env_config={
                 "worker_index": 1,
                 "vector_index": 1,
@@ -657,6 +678,7 @@ def test_model(
     env_name: str,
     agent_name: str,
     max_episode_steps: int,
+    agent_num: int = 1,
     use_onnx_for_inference: bool = False,
     explore_during_inference: bool = False,
     render_mode: str = "human",
@@ -667,12 +689,33 @@ def test_model(
     action_skip: int = 4,
     time_step: float = 0.001,
 ):
+    abs_checkpoint_path = os.path.abspath(checkpoint_path)
+    trial_root = abs_checkpoint_path
+    if os.path.exists(os.path.join(abs_checkpoint_path, "learner_group")):
+        trial_root = os.path.dirname(os.path.dirname(os.path.dirname(abs_checkpoint_path)))
+    params_json_path = os.path.join(trial_root, "params.json")
+    if os.path.exists(params_json_path) and env_name == "Ant_OrcaGymEnv":
+        try:
+            import json
+            with open(params_json_path, "r") as f:
+                params = json.load(f)
+            trained_agents = params.get("env_config", {}).get("agents_per_env", None)
+            if trained_agents is not None and trained_agents != agent_num:
+                _logger.warning(
+                    f"Checkpoint trained with agents_per_env={trained_agents}, "
+                    f"but test requested agent_num={agent_num}. "
+                    f"Using trained value to match model dimensions."
+                )
+                agent_num = trained_agents
+        except Exception:
+            pass
+
     env = env_creator(
         env_context=None,
         orcagym_addr=orcagym_addr,
         env_name=env_name,
         agent_name=agent_name,
-        agent_num=1,
+        agent_num=agent_num,
         max_episode_steps=max_episode_steps,
         render_mode=render_mode,
         async_env_runner=async_env_runner,
@@ -683,7 +726,16 @@ def test_model(
         time_step=time_step,
     )
 
-    abs_checkpoint_path = os.path.abspath(checkpoint_path)
+    if not os.path.exists(os.path.join(abs_checkpoint_path, "learner_group")):
+        checkpoint_dirs = sorted(
+            [d for d in os.listdir(abs_checkpoint_path) if d.startswith("checkpoint_")],
+            key=lambda x: int(x.split("_")[-1]),
+        )
+        if not checkpoint_dirs:
+            raise FileNotFoundError(
+                f"No checkpoint directories found in {abs_checkpoint_path}"
+            )
+        abs_checkpoint_path = os.path.join(abs_checkpoint_path, checkpoint_dirs[-1])
     rl_module_path = os.path.join(
         abs_checkpoint_path,
         "learner_group",
@@ -691,17 +743,21 @@ def test_model(
         "rl_module",
         DEFAULT_MODULE_ID,
     )
-    print(f"Restore RLModule from checkpoint: {rl_module_path} ...", end="")
+    _logger.info(f"Restore RLModule from checkpoint: {rl_module_path} ...")
     rl_module = RLModule.from_checkpoint(rl_module_path)
     ort_session = None
-    print(" ok")
+    _logger.info("RLModule restored successfully")
 
     random_seed = np.random.randint(0, 1000000)
-    _, info = env.reset(seed=random_seed)
-    obs = info["env_obs"]["observation"][0]
+    obs, info = env.reset(seed=random_seed)
+    if env_name == "Ant_OrcaGymEnv":
+        obs = obs.copy()
+    else:
+        obs = info["env_obs"]["observation"][0]
 
     num_episodes = 0
     episode_return = 0.0
+    step_count = 0
 
     try:
         while num_episodes < max_episode_steps:
@@ -743,31 +799,47 @@ def test_model(
             action = action_norm * (env.action_space.high - env.action_space.low) / 2.0 + (env.action_space.high + env.action_space.low) / 2.0
             action = np.clip(action, env.action_space.low, env.action_space.high)
 
-            _, _, _, _, info = env.step(action)
+            if env_name == "Ant_OrcaGymEnv":
+                obs, reward, terminated, truncated, info = env.step(action)
+                obs = obs.copy()
+            else:
+                _, _, _, _, info = env.step(action)
+                obs = info["env_obs"]["observation"][0]
+                reward = info["reward"][0]
+                terminated = info["terminated"][0]
+                truncated = info["truncated"][0]
+
             env.render()
-            obs = info["env_obs"]["observation"][0]
-            reward = info["reward"][0]
-            terminated = info["terminated"][0]
-            truncated = info["truncated"][0]
 
             end_time = time.time()
             if end_time - start_time < time_step * frame_skip * action_skip:
                 time.sleep(time_step * frame_skip * action_skip - (end_time - start_time))
 
             episode_return += reward
+            step_count += 1
+            if step_count % 100 == 0:
+                print(f"[Ep {num_episodes + 1} | Step {step_count}] reward={episode_return:.2f}", flush=True)
+
             if terminated or truncated:
-                print(f"Episode done: Total reward = {episode_return}")
+                _logger.info(f"Episode {num_episodes + 1} done: Total reward = {episode_return:.2f}")
+                print(f"Episode {num_episodes + 1} done: Total reward = {episode_return:.2f}", flush=True)
                 random_seed = np.random.randint(0, 1000000)
-                _, info = env.reset(seed=random_seed)
-                obs = info["env_obs"]["observation"][0]
+                obs, info = env.reset(seed=random_seed)
+                if env_name == "Ant_OrcaGymEnv":
+                    obs = obs.copy()
+                else:
+                    obs = info["env_obs"]["observation"][0]
                 num_episodes += 1
                 episode_return = 0.0
+                step_count = 0
     except KeyboardInterrupt:
-        print("\n测试被用户中断", flush=True)
+        _logger.warning("Testing interrupted by user")
     finally:
+        import signal
+        signal.alarm(3)
         try:
             env.close()
         except Exception:
             pass
 
-    print(f"Done performing action inference through {num_episodes} Episodes")
+    _logger.info(f"Testing completed: {num_episodes} episodes")
