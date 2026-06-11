@@ -18,6 +18,63 @@ def _deep_merge(base: dict, override: dict) -> None:
             base[key] = val
 
 
+def _resolve_coupling_mode(fluid_config: Dict) -> str:
+    """
+    从 fluid JSON 解析 OrcaLink 耦合模式。
+
+    优先 ``simulation.sync_mode``，其次 ``orcalink.bridge.coupling_mode``；
+    缺省为 ``multi_point_force``（与全链路产品默认一致）。
+    """
+    simulation = fluid_config.get("simulation") or {}
+    bridge = (fluid_config.get("orcalink") or {}).get("bridge") or {}
+    return (
+        simulation.get("sync_mode")
+        or bridge.get("coupling_mode")
+        or "multi_point_force"
+    )
+
+
+def _apply_fluid_bridge_to_orcasph(orcasph_config: dict, fluid_config: dict) -> None:
+    """
+    将 fluid JSON 中的耦合模式与 SPH 专用参数合并进 ``orcalink_bridge``。
+
+    - 设置 ``coupling_mode``（与 Python OrcaLinkBridge 一致）；
+    - **不**合并 ``orcalink.bridge.<mode>.channels``（Python 与 SPH 的 publish/subscribe 视角相反，由 SPH 模板提供）；
+    - 可选 ``orcasph.position_follow`` / ``orcasph.rigid_body_dynamics`` 覆盖模板；
+    - 同步 ``orcalink.client.session.sync_params`` → ``orcalink_client.session``。
+    """
+    coupling_mode = _resolve_coupling_mode(fluid_config)
+    ob = orcasph_config.setdefault("orcalink_bridge", {})
+    ob["coupling_mode"] = coupling_mode
+
+    orcasph_cfg = fluid_config.get("orcasph") or {}
+    if coupling_mode == "force_position":
+        fp = ob.setdefault("force_position", {})
+        pf_override = orcasph_cfg.get("position_follow")
+        if pf_override:
+            _deep_merge(fp, {"position_follow": pf_override})
+            logger.info(
+                "[OrcaSPH] position_follow override: mode=%s",
+                pf_override.get("mode", "proportional"),
+            )
+        rbd_override = orcasph_cfg.get("rigid_body_dynamics")
+        if rbd_override:
+            _deep_merge(fp, {"rigid_body_dynamics": rbd_override})
+
+    sync_params = (
+        (fluid_config.get("orcalink") or {})
+        .get("client", {})
+        .get("session", {})
+        .get("sync_params")
+    )
+    if sync_params:
+        oc = orcasph_config.setdefault("orcalink_client", {})
+        sess = oc.setdefault("session", {})
+        _deep_merge(sess.setdefault("sync_params", {}), sync_params)
+
+    logger.info("[OrcaSPH] orcalink_bridge coupling_mode=%s (from fluid JSON)", coupling_mode)
+
+
 def _apply_particle_render_run_mode(orcasph_config: dict, fluid_config: dict) -> None:
     """
     Apply config['particle_render_run'] to particle_render after template + MJCF overrides.
@@ -159,6 +216,8 @@ def generate_orcasph_config(
     if pr_grpc_go and "particle_render" in orcasph_config:
         _deep_merge(orcasph_config["particle_render"].setdefault("grpc", {}), pr_grpc_go)
         logger.info("particle_render.grpc 覆盖（来自 fluid_config.particle_render_grpc_override）: %s", pr_grpc_go)
+
+    _apply_fluid_bridge_to_orcasph(orcasph_config, fluid_config)
 
     # sphscale: 写入 orcalink_bridge 供 C++ 端读取
     orcasph_config.setdefault("orcalink_bridge", {})

@@ -161,6 +161,12 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="配置文件路径 (默认: fluid_sim_config.json)",
     )
     parser.add_argument(
+        "--build-mode",
+        choices=("debug", "release"),
+        default=None,
+        help="覆盖配置 build_mode：debug=启用监测 CSV；release=强制关闭 force_position_trace",
+    )
+    parser.add_argument(
         "--manual-mode",
         action="store_true",
         help="手动模式：禁用自动启动，需预先启动 orcalink 和 orcasph",
@@ -266,6 +272,13 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default=0,
         metavar="N",
         help="主循环最大步数（达到后正常退出；0=无限）。无 --gui 时推荐与自动 OrcaLink 联调用以做短程检查",
+    )
+    parser.add_argument(
+        "--bench",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="基准测试 JSON 输出路径（逐圈计时：fluid/step/sleep/pause_rate）",
     )
     parser.add_argument(
         "--enable-performance-stats",
@@ -486,6 +499,13 @@ def _print_sph_run_sanity_check(
     print("=" * 60 + "\n")
 
 
+def _apply_build_mode_from_args(config: dict, args: argparse.Namespace) -> None:
+    if args.build_mode is not None:
+        config["build_mode"] = args.build_mode
+        if args.build_mode == "release":
+            print("ℹ️  build_mode=release：force_position 调试采集已关闭")
+
+
 def _apply_manual_mode_from_args(config: dict, args: argparse.Namespace) -> None:
     if not args.manual_mode:
         return
@@ -534,6 +554,7 @@ def main() -> int:
         config = load_config(str(config_path))
         script_dir = Path(__file__).parent
 
+        _apply_build_mode_from_args(config, args)
         _apply_particle_render_run_config(args, script_dir, session_timestamp, config)
         err = _apply_mujoco_trajectory_config(args, script_dir, session_timestamp, config)
         if err is not None:
@@ -581,6 +602,7 @@ def main() -> int:
                     session_timestamp=session_timestamp,
                     cpu_affinity=cpu_affinity,
                     max_steps=max(0, int(args.max_steps or 0)),
+                    bench_output_path=args.bench,
                 )
                 _print_sph_run_sanity_check(
                     orcagym_tmp_dir, session_timestamp, max(0, int(args.max_steps or 0))

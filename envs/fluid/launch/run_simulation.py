@@ -39,6 +39,7 @@ from .mujoco_viewer_style import (
     draw_coupling_site_markers,
 )
 from .sph_config import (
+    _resolve_coupling_mode,
     generate_orcasph_config,
     prepare_orcasph_config_from_fixed_path,
     setup_python_logging,
@@ -76,6 +77,9 @@ class FluidSimulationContext:
     # MuJoCo 原生被动查看器（短链无 Studio 时用于本地可视化）
     mujoco_passive_viewer: Any = None
     fp_debug_trace: Any = None
+    water_jug_ctrl: Any = None
+    bench_output_path: Optional[str] = None
+    bench_steps: list = field(default_factory=list)
 
 
 def _resolve_cli_binary(command_name: str, pip_install_hint: str) -> Path:
@@ -205,6 +209,40 @@ def _init_atexit_state_for_session(config: Dict) -> None:
 
 def _orcagym_skip_studio(config: Dict) -> bool:
     return bool(config.get("orcagym", {}).get("skip_grpc_load"))
+
+
+def _default_force_position_debug_output_base(config: Dict) -> Path:
+    """
+    短链：``scene_3chain/debug_data``；全链路：``~/.orcagym/tmp/debug_data``。
+
+    可由 ``debug.force_position_trace.output_base_dir`` 显式覆盖。
+    """
+    if _orcagym_skip_studio(config):
+        scene_dir = config.get("scene_3chain_dir") or "/home/hjadmin/OrcaApr24/SPH_bug/scene_3chain"
+        return Path(scene_dir).expanduser() / "debug_data"
+    return Path.home() / ".orcagym" / "tmp" / "debug_data"
+
+
+def _resolve_debug_mjcf_path(ctx: FluidSimulationContext) -> Optional[Path]:
+    """
+    解析 CP 监测用 MJCF 路径：显式配置 > 短链 local_xml > OrcaGym 缓存 XML。
+    """
+    dbg = ctx.config.get("debug", {}).get("force_position_trace", {})
+    explicit = dbg.get("mujoco_scene_path")
+    if explicit:
+        p = Path(explicit).expanduser()
+        return p if p.is_file() else None
+    local = ctx.config.get("orcagym", {}).get("local_xml_path")
+    if local:
+        p = Path(local).expanduser()
+        return p if p.is_file() else None
+    if ctx.env is not None:
+        gym = getattr(ctx.env.unwrapped, "gym", None)
+        xml_path = getattr(gym, "_xml_path", None) if gym is not None else None
+        if xml_path:
+            p = Path(xml_path).expanduser()
+            return p if p.is_file() else None
+    return None
 
 
 def _mujoco_gui_enabled(config: Dict) -> bool:
@@ -423,10 +461,13 @@ def _maybe_generate_sph_scene(ctx: FluidSimulationContext) -> None:
             f"尝试的路径: {sph_config_template_path}"
         )
 
+    coupling_mode = _resolve_coupling_mode(config)
     scene_generator = SceneGenerator(
         ctx.env.unwrapped,
         config_path=str(scene_config_path),
         runtime_config=sph_config,
+        coupling_mode=coupling_mode,
+        fluid_config=config,
     )
     scene_data = scene_generator.generate_complete_scene(
         output_path=str(ctx.scene_output_path),
@@ -443,16 +484,25 @@ def _maybe_generate_sph_scene(ctx: FluidSimulationContext) -> None:
 
 
 def _init_force_position_debug_trace(ctx: FluidSimulationContext) -> None:
-    """若配置启用，创建 debug_data/<session_timestamp>/ 并设置 ORCA_FP_DEBUG_DIR。"""
-    dbg = ctx.config.get("debug", {}).get("force_position_trace", {})
-    if not dbg.get("enabled", False):
+    """若 build_mode=debug 且配置启用，创建 debug_data/<session_timestamp>/ 并设置 ORCA_FP_DEBUG_DIR。"""
+    from ..debug.force_position_trace_config import (
+        clear_force_position_debug_env,
+        is_force_position_trace_enabled,
+    )
+
+    if not is_force_position_trace_enabled(ctx.config):
+        clear_force_position_debug_env()
+        build_mode = str(ctx.config.get("build_mode", "debug")).strip().lower()
+        if build_mode == "release":
+            logging.getLogger(__name__).info(
+                "build_mode=release，已关闭 force_position 调试采集（不写入 debug_data）"
+            )
         return
 
+    dbg = ctx.config.get("debug", {}).get("force_position_trace", {})
+
     base = Path(
-        dbg.get(
-            "output_base_dir",
-            "/home/hjadmin/OrcaApr24/SPH_bug/scene_3chain/debug_data",
-        )
+        dbg.get("output_base_dir", str(_default_force_position_debug_output_base(ctx.config)))
     ).expanduser()
     session_dir = base / ctx.session_timestamp
     os.environ["ORCA_FP_DEBUG_DIR"] = str(session_dir.resolve())
@@ -489,19 +539,22 @@ def _init_force_position_debug_trace(ctx: FluidSimulationContext) -> None:
         shutil.copy2(alias_path, session_dir / "body_debug_aliases.json")
 
     surface_sites_by_oid: Dict[str, Dict] = {}
-    mjcf_path = dbg.get("mujoco_scene_path")
-    if not mjcf_path:
-        mjcf_path = ctx.config.get("orcagym", {}).get("local_xml_path")
-    if mjcf_path:
+    mjcf_path = _resolve_debug_mjcf_path(ctx)
+    if mjcf_path is not None:
         from ..debug.surface_site_registry import (
             pick_highest_z_sph_sites,
             write_surface_sites_csv,
         )
 
-        registry = pick_highest_z_sph_sites(Path(mjcf_path).expanduser())
+        registry = pick_highest_z_sph_sites(mjcf_path)
         write_surface_sites_csv(registry, session_dir / "surface_sites.csv")
         for body_name, spec in registry.items():
             surface_sites_by_oid[body_name] = spec
+    else:
+        logging.getLogger(__name__).warning(
+            "force_position 调试：未找到 MJCF（跳过 surface_sites.csv）；"
+            "全链路可设 debug.force_position_trace.mujoco_scene_path"
+        )
 
     from ..debug.force_position_debug_trace import init_session
 
@@ -513,17 +566,16 @@ def _init_force_position_debug_trace(ctx: FluidSimulationContext) -> None:
 
 def _run_substep_trace_analysis_if_enabled(ctx: FluidSimulationContext) -> None:
     """若启用子步监测，对 cp_substeps_trace.csv 做反推与启动报告。"""
+    from ..debug.force_position_trace_config import is_force_position_trace_enabled
+
     dbg = ctx.config.get("debug", {}).get("force_position_trace", {})
-    if not dbg.get("enabled", False) or not dbg.get("substep_trace", {}).get(
-        "enabled", False
-    ):
+    if not is_force_position_trace_enabled(ctx.config) or not dbg.get(
+        "substep_trace", {}
+    ).get("enabled", False):
         return
 
     base = Path(
-        dbg.get(
-            "output_base_dir",
-            "/home/hjadmin/OrcaApr24/SPH_bug/scene_3chain/debug_data",
-        )
+        dbg.get("output_base_dir", str(_default_force_position_debug_output_base(ctx.config)))
     ).expanduser()
     session_dir = base / ctx.session_timestamp
     analyze_script = Path(
@@ -568,15 +620,15 @@ def _run_substep_trace_analysis_if_enabled(ctx: FluidSimulationContext) -> None:
 
 def _run_force_position_debug_diff_if_enabled(ctx: FluidSimulationContext) -> None:
     """仿真结束后对当前会话目录运行 cp1_cp4_diff.py。"""
-    dbg = ctx.config.get("debug", {}).get("force_position_trace", {})
-    if not dbg.get("enabled", False):
+    from ..debug.force_position_trace_config import is_force_position_trace_enabled
+
+    if not is_force_position_trace_enabled(ctx.config):
         return
 
+    dbg = ctx.config.get("debug", {}).get("force_position_trace", {})
+
     base = Path(
-        dbg.get(
-            "output_base_dir",
-            "/home/hjadmin/OrcaApr24/SPH_bug/scene_3chain/debug_data",
-        )
+        dbg.get("output_base_dir", str(_default_force_position_debug_output_base(ctx.config)))
     ).expanduser()
     session_dir = base / ctx.session_timestamp
     diff_script = Path(
@@ -765,6 +817,38 @@ def _connect_sph_bridge_if_enabled(ctx: FluidSimulationContext) -> None:
         logger.debug("[DEBUG] After OrcaLink connection success message")
 
 
+def _log_cp6_after_mj_step_if_enabled(
+    ctx: FluidSimulationContext, macro_step: int
+) -> None:
+    """CP6：mj_step 完成后、下一轮 publish（CP1）前，记录即将发出的 POSITION 包。"""
+    from ..debug.force_position_trace_config import is_force_position_trace_enabled
+
+    if not is_force_position_trace_enabled(ctx.config) or ctx.fp_debug_trace is None:
+        return
+    if ctx.sph_wrapper is None:
+        return
+
+    mode = getattr(ctx.sph_wrapper, "current_mode", None)
+    ppm = getattr(mode, "position_publish_module", None) if mode is not None else None
+    if ppm is None:
+        return
+
+    trace = ctx.fp_debug_trace
+    if not trace.should_log_cp6(macro_step):
+        return
+
+    client = getattr(ctx.sph_wrapper, "orcalink_client", None)
+    next_publish_seq = (
+        int(client.publish_sequence) if client is not None else macro_step + 1
+    )
+
+    positions = ppm._collect_body_positions()
+    if not positions:
+        return
+
+    trace.log_cp6_pre_next_publish(macro_step, next_publish_seq, positions)
+
+
 def _setup_main_loop_recorders(ctx: FluidSimulationContext) -> None:
     """
     人类轨迹 HDF5、统计日志、MuJoCo qpos 。
@@ -827,6 +911,98 @@ def _setup_main_loop_recorders(ctx: FluidSimulationContext) -> None:
         )
 
 
+def _apply_sph_scene_initial_offset(ctx: FluidSimulationContext) -> None:
+    """
+    OrcaSPH 启动前：按配置生成带竖直偏移的 sph_scene 副本，避免与 MuJoCo 初值错位。
+    """
+    from ..utils.sph_scene_initial_offset import apply_sph_scene_initial_offset_to_context
+
+    if ctx.scene_output_path is None:
+        return
+    patched = apply_sph_scene_initial_offset_to_context(
+        ctx.config,
+        scene_path=Path(ctx.scene_output_path),
+        output_dir=ctx.orcagym_tmp_dir,
+        session_timestamp=ctx.session_timestamp,
+    )
+    if patched is not None:
+        ctx.scene_output_path = patched
+        logger.info("✅ SPH scene 初值偏移已应用: %s", patched.resolve())
+
+
+def _init_water_jug_trajectory(ctx: FluidSimulationContext) -> None:
+    """短链运动学轨迹：MuJoCo qpos 初值（须在 OrcaSPH 启动前调用一次）。"""
+    from ..trajectory.water_jug_trajectory_controller import maybe_create_water_jug_controller
+
+    if ctx.water_jug_ctrl is not None or ctx.env is None:
+        return
+    ctx.water_jug_ctrl = maybe_create_water_jug_controller(ctx.config, ctx.env.unwrapped)
+
+
+def _apply_water_jug_trajectory(ctx: FluidSimulationContext, phase: str) -> None:
+    """在 mj_step 前/后写入 waterjug（及 fluidblock）轨迹位姿。"""
+    ctrl = ctx.water_jug_ctrl
+    if ctrl is None or ctx.env is None:
+        return
+    if phase == "post" and not ctrl.reapply_after_step:
+        return
+    ctrl.apply(ctx.env.unwrapped, phase=phase)
+
+
+def _save_fluid_bench_data(ctx: FluidSimulationContext) -> None:
+    """将主循环 bench 计时写入 JSON（与 DataCollectionManager bench 字段对齐）。"""
+    if not ctx.bench_output_path or not ctx.bench_steps:
+        return
+    steps = ctx.bench_steps
+    n = len(steps)
+    if n == 0:
+        return
+    avg_fluid = sum(s["fluid_ms"] for s in steps) / n
+    avg_step = sum(s["step_ms"] for s in steps) / n
+    avg_render = sum(s["render_ms"] for s in steps) / n
+    avg_total = sum(s["total_ms"] for s in steps) / n
+    avg_sleep = sum(s["sleep_ms"] for s in steps) / n
+    total_phy = steps[-1].get("phy_time", 0) - steps[0].get("phy_time", 0)
+    total_sim = steps[-1].get("sim_time", 0) - steps[0].get("sim_time", 0)
+    effective_count = sum(1 for s in steps if s.get("should_step", True))
+    pause_count = n - effective_count
+    pause_rate = pause_count / n * 100 if n > 0 else 0
+    env_step_count = sum(1 for s in steps if s.get("env_stepped", False))
+    report = {
+        "num_steps": n,
+        "loop_count": n,
+        "effective_step_count": effective_count,
+        "env_step_count": env_step_count,
+        "pause_count": pause_count,
+        "pause_rate_pct": round(pause_rate, 2),
+        "total_sim_time_s": round(total_sim, 4),
+        "total_phy_time_s": round(total_phy, 4),
+        "sim_over_real_ratio": round(total_sim / total_phy, 4) if total_phy > 0 else 0,
+        "avg_step_ms": round(avg_total, 2),
+        "avg_fps": round(1000.0 / avg_total, 2) if avg_total > 0 else 0,
+        "avg_fluid_ms": round(avg_fluid, 2),
+        "avg_step_compute_ms": round(avg_step, 2),
+        "avg_render_ms": round(avg_render, 2),
+        "avg_sleep_ms": round(avg_sleep, 2),
+        "pct_fluid": round(avg_fluid / avg_total * 100, 1) if avg_total > 0 else 0,
+        "pct_step": round(avg_step / avg_total * 100, 1) if avg_total > 0 else 0,
+        "pct_render": round(avg_render / avg_total * 100, 1) if avg_total > 0 else 0,
+        "pct_sleep": round(avg_sleep / avg_total * 100, 1) if avg_total > 0 else 0,
+        "macro_dt_s": REALTIME_STEP,
+    }
+    os.makedirs(os.path.dirname(ctx.bench_output_path) or ".", exist_ok=True)
+    with open(ctx.bench_output_path, "w", encoding="utf-8") as f:
+        json.dump({"summary": report, "steps": steps}, f, indent=2)
+    logger.info(
+        "Bench saved: loops=%s env_steps=%s pause_rate=%.1f%% sim/real=%.3f -> %s",
+        report["loop_count"],
+        report["env_step_count"],
+        report["pause_rate_pct"],
+        report["sim_over_real_ratio"],
+        ctx.bench_output_path,
+    )
+
+
 def _run_cooperative_main_loop(ctx: FluidSimulationContext) -> None:
     """协作式主循环（SIGTERM 由 handler 同步退出；此处响应 SIGHUP / 轨迹耗尽）。"""
     config = ctx.config
@@ -837,6 +1013,7 @@ def _run_cooperative_main_loop(ctx: FluidSimulationContext) -> None:
     step_count = 0
 
     while not shutdown_event.is_set():
+        t0 = time.perf_counter()
         start_time = datetime.now()
 
         if ctx.traj_player is not None and ctx.traj_player.exhausted:
@@ -849,6 +1026,9 @@ def _run_cooperative_main_loop(ctx: FluidSimulationContext) -> None:
         if step_count == 0:
             logger.debug("[DEBUG] First iteration - before SPH sync")
 
+        _apply_water_jug_trajectory(ctx, phase="pre")
+
+        t1 = time.perf_counter()
         should_step = True
         if config["orcasph"]["enabled"] and ctx.sph_wrapper is not None:
             try:
@@ -861,6 +1041,7 @@ def _run_cooperative_main_loop(ctx: FluidSimulationContext) -> None:
             except Exception as e:
                 logger.error(f"SPH 同步失败: {e}")
                 config["orcasph"]["enabled"] = False
+        t2 = time.perf_counter()
 
         if step_count == 0:
             logger.debug(f"[DEBUG] Before MuJoCo step, should_step={should_step}")
@@ -870,6 +1051,8 @@ def _run_cooperative_main_loop(ctx: FluidSimulationContext) -> None:
             if ctx.traj_player is not None:
                 ctx.traj_player.push_pending_to_env()
                 env.step(None)
+                _apply_water_jug_trajectory(ctx, phase="post")
+                _log_cp6_after_mj_step_if_enabled(ctx, step_count)
                 ctx.traj_player.advance_cursor()
                 if ctx.traj_stats_log_f is not None:
                     try:
@@ -883,6 +1066,8 @@ def _run_cooperative_main_loop(ctx: FluidSimulationContext) -> None:
                         logger.warning("trajectory stats log write: %s", e)
             else:
                 env.step(None)
+            _apply_water_jug_trajectory(ctx, phase="post")
+            _log_cp6_after_mj_step_if_enabled(ctx, step_count)
             # §3.3：仅在执行 env.step 之后追加行（与 traj_rec 同控制帧）
             if ctx.mujoco_qpos_sidecar is not None:
                 ctx.mujoco_qpos_sidecar.append_row(env, step_count)
@@ -892,20 +1077,40 @@ def _run_cooperative_main_loop(ctx: FluidSimulationContext) -> None:
                 _sync_mujoco_passive_viewer(ctx)
             elif not _orcagym_skip_studio(config):
                 env.render()
+            t3 = time.perf_counter()
         else:
             if ctx.mujoco_passive_viewer is not None:
                 _sync_mujoco_passive_viewer(ctx)
             elif not _orcagym_skip_studio(config):
                 env.render()
+            t3 = time.perf_counter()
 
         if step_count == 0:
             logger.debug("[DEBUG] After render / mujoco viewer sync")
 
         elapsed = (datetime.now() - start_time).total_seconds()
+        sleep_sec = 0.0
         if elapsed < REALTIME_STEP:
             remaining = REALTIME_STEP - elapsed
+            sleep_sec = remaining
             if shutdown_event.wait(timeout=remaining):
                 break
+
+        if ctx.bench_output_path:
+            sim_t = float(env.data.time) if hasattr(env, "data") and hasattr(env.data, "time") else 0.0
+            t_end = time.perf_counter()
+            ctx.bench_steps.append({
+                "loop": len(ctx.bench_steps),
+                "sim_time": round(sim_t, 6),
+                "phy_time": round(time.time(), 6),
+                "fluid_ms": round((t2 - t1) * 1000, 3),
+                "step_ms": round((t3 - t2) * 1000, 3),
+                "render_ms": 0.0,
+                "total_ms": round((t_end - t0) * 1000, 3),
+                "sleep_ms": round(sleep_sec * 1000, 3),
+                "should_step": should_step,
+                "env_stepped": bool(should_step),
+            })
 
         step_count += 1
         if step_count == 1:
@@ -932,6 +1137,8 @@ def _finalize_simulation_session(ctx: FluidSimulationContext) -> None:
     except (OSError, ValueError):
         pass
     logger.info("\n🧹 清理资源...")
+
+    _save_fluid_bench_data(ctx)
 
     _terminate_stats_plot_proc()
 
@@ -1006,6 +1213,7 @@ def run_simulation_with_config(
     session_timestamp: Optional[str] = None,
     cpu_affinity: Optional[str] = None,
     max_steps: int = 0,
+    bench_output_path: Optional[str] = None,
 ) -> None:
     """
     使用配置文件运行仿真
@@ -1025,6 +1233,7 @@ def run_simulation_with_config(
         session_timestamp: 会话时间戳（用于统一日志文件名），如果为None则自动生成
         cpu_affinity: CPU 亲和性核心列表（传递给 taskset -c），例如 "0-7" 或 "0,2,4,6"，None 表示不限制
         max_steps: 主循环最大步数；>0 时达到后正常退出（用于无头自动跑与检查）；0 表示不限制
+        bench_output_path: 若指定，主循环逐圈计时并写入 JSON
     """
     session_timestamp, orcagym_tmp_dir = _preflight_session(config, session_timestamp)
 
@@ -1038,6 +1247,7 @@ def run_simulation_with_config(
         orcagym_tmp_dir=orcagym_tmp_dir,
         process_manager=process_manager,
         max_steps=max(0, int(max_steps or 0)),
+        bench_output_path=bench_output_path,
     )
 
     # -----------------------------------------------------------------------
@@ -1059,6 +1269,8 @@ def run_simulation_with_config(
         ctx.env = _create_and_reset_gym_env(config)
         _resolve_prebuilt_sph_scene(ctx)
         _maybe_generate_sph_scene(ctx)
+        _apply_sph_scene_initial_offset(ctx)
+        _init_water_jug_trajectory(ctx)
         _init_force_position_debug_trace(ctx)
         _start_orcalink_if_configured(ctx)
         _start_orcasph_if_configured(ctx)

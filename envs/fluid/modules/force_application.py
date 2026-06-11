@@ -34,7 +34,7 @@ class ForceApplicationModule:
         print("[PRINT-DEBUG] ForceApplicationModule.__init__() - END", file=sys.stderr, flush=True)
         logger.debug("[DEBUG] ForceApplicationModule.__init__() - Completed")
     
-    def subscribe_and_apply_forces(self):
+    def subscribe_and_apply_forces(self, macro_step: int = 0):
         """Subscribe to rigid body-level forces and apply (ForcePositionMode)"""
         if not self.client or not self.loop:
             return
@@ -46,10 +46,22 @@ class ForceApplicationModule:
             
             if not forces:
                 return
-            
+
+            force_seq = int(getattr(self.client, "subscribe_sequence", macro_step))
+            applied_flags = {}
             for force_data in forces:
-                # Apply force to rigid body
-                self._apply_force_to_body(force_data)
+                applied_flags[force_data.object_id] = self._apply_force_to_body(force_data)
+
+            try:
+                from ..debug.force_position_debug_trace import get_active_trace
+
+                trace = get_active_trace()
+                if trace is not None and trace.should_log_cp5(force_seq):
+                    trace.log_cp5_after_force_apply(
+                        force_seq, macro_step, forces, applied_flags
+                    )
+            except ImportError:
+                pass
         except Exception as e:
             logger.error(f"Error applying forces: {e}", exc_info=True)
     
@@ -141,15 +153,18 @@ class ForceApplicationModule:
         except Exception as e:
             logger.error(f"Error applying site forces: {e}", exc_info=True)
     
-    def _apply_force_to_body(self, force_data):
-        """Apply force to a rigid body using OrcaGym API"""
+    def _apply_force_to_body(self, force_data) -> bool:
+        """Apply force to a rigid body using OrcaGym API. Returns True if written to sim memory."""
+        body_name = force_data.object_id
         try:
-            body_name = force_data.object_id
             force = np.array(force_data.force, dtype=np.float64)
-            torque = np.array(force_data.torque, dtype=np.float64) if hasattr(force_data, 'torque') else np.zeros(3)
-            
-            # Apply force using OrcaGym API (required)
-            if not hasattr(self.env, 'apply_force_to_body'):
+            torque = (
+                np.array(force_data.torque, dtype=np.float64)
+                if hasattr(force_data, "torque")
+                else np.zeros(3)
+            )
+
+            if not hasattr(self.env, "apply_force_to_body"):
                 if not self._warned_no_body_force_api:
                     logger.warning(
                         "Environment has no apply_force_to_body (%s); "
@@ -157,11 +172,13 @@ class ForceApplicationModule:
                         type(self.env).__name__,
                     )
                     self._warned_no_body_force_api = True
-                return
-            
+                return False
+
             self.env.apply_force_to_body(body_name, force, torque)
             logger.debug(f"Applied force to body '{body_name}': F={force}, τ={torque}")
-            
+            return True
+
         except Exception as e:
             logger.error(f"Error applying force to body '{body_name}': {e}", exc_info=True)
+            return False
 

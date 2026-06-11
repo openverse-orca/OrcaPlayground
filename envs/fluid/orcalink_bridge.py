@@ -326,8 +326,11 @@ class OrcaLinkBridge:
                 mode_config = self.config.get('orcalink_bridge', {}).get(self.coupling_mode, {})
                 logger.debug(f"[DEBUG] _init_orcalink - Mode config keys: {mode_config.keys()}")
                 
-                # 将顶层的 rigid_bodies 配置传入 mode_config
+                # 将顶层的 rigid_bodies / water_jug_trajectory 传入 mode_config
                 mode_config['rigid_bodies'] = self.config.get('rigid_bodies', [])
+                mode_config['water_jug_trajectory'] = self.config.get(
+                    'water_jug_trajectory', {}
+                )
                 logger.debug(f"[DEBUG] _init_orcalink - Added {len(mode_config['rigid_bodies'])} rigid bodies to mode_config")
                 
                 logger.debug(f"[DEBUG] _init_orcalink - Mode config: {mode_config}")
@@ -609,8 +612,19 @@ class OrcaLinkBridge:
                     scene_config_path = str(default_config_path)
                     logger.info(f"Using default scene config: {scene_config_path}")
             
-            # 创建生成器
-            generator = SceneGenerator(self.env, config_path=scene_config_path)
+            from .launch.sph_config import _resolve_coupling_mode
+
+            coupling_mode = (
+                _resolve_coupling_mode(self.fluid_config)
+                if self.fluid_config
+                else None
+            )
+            generator = SceneGenerator(
+                self.env,
+                config_path=scene_config_path,
+                coupling_mode=coupling_mode,
+                fluid_config=self.fluid_config,
+            )
             
             # 生成完整的 scene.json（而不是只生成 RigidBodies）
             scene_data = generator.generate_complete_scene(

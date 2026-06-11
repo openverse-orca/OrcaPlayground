@@ -333,3 +333,22 @@ class SimEnv(OrcaGymLocalEnv):
         if obs is not None:
             return obs
         return self._get_obs().copy()
+
+    def apply_force_to_body(
+        self,
+        body_name: str,
+        force: np.ndarray,
+        torque: np.ndarray,
+    ) -> None:
+        """
+        在刚体上施加世界系外力/外力矩（写入 MuJoCo mjData.xfrc_applied，供 mj_step 使用）。
+
+        OrcaLink force_position 模式下 SPH 经 Ch1 下发的流体力通过此方法写入 MuJoCo。
+        注意：self.data 为 OrcaGymData 状态副本，不含 xfrc_applied；须写 gym._mjData。
+        """
+        body_id = self.model.body_name2id(body_name)
+        f = np.asarray(force, dtype=np.float64).reshape(3)
+        tau = np.asarray(torque, dtype=np.float64).reshape(3)
+        mjd = self.gym._mjData
+        mjd.xfrc_applied[body_id, :3] = f
+        mjd.xfrc_applied[body_id, 3:] = tau
