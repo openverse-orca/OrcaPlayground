@@ -1,0 +1,158 @@
+{
+  "description": "全链路 WaterJug 预定轨迹：force_position + lag_compensated，MuJoCo/SPH 初值与 Studio 对齐（无短链 H−0.35 m 偏移）",
+  "build_mode": "debug",
+  "build_mode_comment": "release 关 CP CSV：--build-mode release",
+  "orcagym": {
+    "address": "localhost:50051",
+    "agent_name": "NoRobot",
+    "env_name": "SimulationLoop"
+  },
+  "orcalink": {
+    "enabled": true,
+    "host": "localhost",
+    "port": 50351,
+    "auto_start": true,
+    "startup_delay": 2,
+    "command": "orcalink",
+    "args": [],
+    "client": {
+      "session_id": 1,
+      "client_name": "mujoco_client",
+      "update_rate_hz": 50,
+      "encoding": {
+        "i_frame_interval": 30,
+        "change_threshold": 0.0001
+      },
+      "session": {
+        "control_mode": "sync",
+        "expected_clients": 2,
+        "ready_timeout_sec": 30.0,
+        "grpc_call_timeout_sec": 5.0,
+        "async_params": {
+          "flow_control_enabled": true,
+          "flow_control_window_size": 5,
+          "speed_ratio_threshold": 1.5
+        },
+        "sync_params": {
+          "sync_window_size": 1,
+          "comment": "force_position 全链路验证用 1"
+        }
+      }
+    },
+    "bridge": {
+      "coupling_mode": "force_position",
+      "force_position": {
+        "channels": {
+          "force": {
+            "channel_id": 1,
+            "publish": false,
+            "subscribe": true
+          },
+          "position": {
+            "channel_id": 2,
+            "publish": true,
+            "subscribe": false
+          }
+        }
+      },
+      "spring_constraint": {
+        "channels": {
+          "position": {
+            "channel_id": 2,
+            "publish": true,
+            "subscribe": true
+          }
+        },
+        "force_clamping": {
+          "enabled": true,
+          "rigid_body": {
+            "enabled": true,
+            "max_acceleration_g": 10.0,
+            "discard_on_clamp": true
+          }
+        }
+      },
+      "multi_point_force": {
+        "channels": {
+          "position": {
+            "channel_id": 2,
+            "publish": true,
+            "subscribe": false
+          },
+          "force": {
+            "channel_id": 2,
+            "publish": false,
+            "subscribe": true
+          }
+        }
+      }
+    }
+  },
+  "orcasph": {
+    "enabled": true,
+    "auto_start": true,
+    "command": "orcasph",
+    "args": [],
+    "scene_auto_generate": true,
+    "config_template": "sph_sim_config_force_position.json",
+    "sphscale": 1.0,
+    "position_follow": {
+      "mode": "lag_compensated",
+      "kp": 180.0,
+      "velocity_cap_mps": 1.0,
+      "snap_at_macro_end": false,
+      "lag_compensated": {
+        "min_lag_frames": 1
+      }
+    },
+    "rigid_body_dynamics": {
+      "mode": "external",
+      "force_smoothing_alpha": 0.3
+    }
+  },
+  "sph": {
+    "scene_config": "scene_config.json",
+    "include_fluid_blocks": true,
+    "include_wall": true
+  },
+  "simulation": {
+    "sync_mode": "force_position",
+    "timestep": 0.001,
+    "substeps": 1,
+    "sph_timestep": 0.001,
+    "sph_cfl_method": 0
+  },
+  "sph_scene_initial_offset": {
+    "enabled": false,
+    "comment": "全链路水壶与 Studio 同高起机；禁止短链 initial_z_offset 同步进 sph_scene"
+  },
+  "debug": {
+    "verbose_logging": false,
+    "force_position_trace": {
+      "enabled": true,
+      "output_base_dir": "~/.orcagym/tmp/debug_data",
+      "substeps_per_macro": 20,
+      "substep_trace": {
+        "enabled": true,
+        "max_macros": 200
+      }
+    }
+  },
+  "water_jug_trajectory": {
+    "enabled": true,
+    "mode": 2,
+    "joint_hint": "waterjug",
+    "initial_z_offset_m": 0.0,
+    "lift_m": 0.3,
+    "rotate_deg": -90.0,
+    "rotate_world_axis": "x",
+    "phase1_sec": 1.3333333333333333,
+    "phase2_sec": 3.0,
+    "hold_sec": 0.0,
+    "skip_sph_forces_on_mujoco": true,
+    "reapply_after_step": true,
+    "clear_external_forces": true,
+    "offset_fluid_blocks": true,
+    "comment": "世界 +Z 抬 0.3m，再绕世界 Y 轴 -90°；initial_z_offset_m=0 避免 MuJoCo/SPH 初值错位"
+  }
+}
