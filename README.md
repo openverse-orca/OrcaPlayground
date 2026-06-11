@@ -101,6 +101,7 @@ OrcaPlayground/
 │   ├── wheeled_chassis/ # 轮式底盘（含 README.md）
 │   ├── xbot/          # XBot 机器人（含 README.md）
 │   ├── d12/           # D12 双臂机器人（demo + ACT 策略）
+│   ├── franka_rl/     # Franka 多机械臂 RL 训练（含 README.md）
 │   ├── fluid/         # 流体仿真（含 README.md）
 │   └── ...            # 更多示例
 ├── .orcalab/          # OrcaLab 配置文件
@@ -117,6 +118,7 @@ OrcaPlayground/
 - **轮式底盘** - [`examples/wheeled_chassis/README.md`](examples/wheeled_chassis/README.md)
 - **XBot 机器人** - [`examples/xbot/README.md`](examples/xbot/README.md)
 - **D12 双臂机器人** - [`examples/d12/README.md`](examples/d12/README.md)（脚本轨迹 + ACT 策略推理）
+- **Franka 多机械臂 RL** - [`examples/franka_rl/README.md`](examples/franka_rl/README.md)（多臂并行训练 + HER + 局部坐标隔离）
 - **ZQ SA01 人形** - [`examples/zq_sa01/README.md`](examples/zq_sa01/README.md)
 - **G1 人形** - [`examples/g1/README.md`](examples/g1/README.md)
 - **场景复制** - [`examples/replicator/README.md`](examples/replicator/README.md)

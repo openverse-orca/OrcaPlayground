@@ -1,0 +1,16 @@
+framework: "sb3"
+orcagym_addresses: ["localhost:50051"]
+model_name: "panda"
+task: "reach"
+reward_type: "dense"
+model_type: "tqc"
+training_episode: 100
+start_her_episode: 1.0
+
+training:
+  subenv_num: 1
+  render_mode: "human"
+
+testing:
+  subenv_num: 1
+  render_mode: "human"
