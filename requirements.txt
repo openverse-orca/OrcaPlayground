@@ -2,11 +2,12 @@
 # 只保留大多数示例都会用到的最小运行时。
 #
 # 额外依赖已下沉到各示例目录：
+# - examples/franka_rl/requirements.txt
+# - examples/ant_rl/requirements.txt
 # - examples/legged_gym/requirements.txt
 # - examples/g1/requirements.txt
 # - examples/xbot/requirements.txt
 # - examples/zq_sa01/requirements.txt
-# - examples/so101/requirements.txt
 # - examples/fluid/requirements.txt
 #
 # 简单示例（character / wheeled_chassis / replicator / drone_driver）

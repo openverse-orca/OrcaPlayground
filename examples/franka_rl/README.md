@@ -35,7 +35,7 @@ Franka Panda 多机械臂并行强化学习训练示例，基于 **SB3 + HER** �
 pip install -r requirements.txt
 
 # Franka RL 额外依赖（SB3 + sb3-contrib）
-pip install stable-baselines3 sb3-contrib
+pip install -e ".[franka_rl]"
 ```
 
 ### 训练

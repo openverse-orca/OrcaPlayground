@@ -179,16 +179,19 @@ pip install -r requirements.txt
 pip install -e .
 
 # 安装单个样例的额外依赖
-pip install -e ".[legged_gym]"
-pip install -e ".[g1]"
-pip install -e ".[xbot]"
-pip install -e ".[zq_sa01]"
-pip install -e ".[so101]"
-pip install -e ".[fluid]"
+pip install -e ".[franka_rl]"    # SB3 + HER 强化学习（Franka Panda）
+pip install -e ".[ant_rl]"       # Ray RLlib APPO 强化学习（Ant）
+pip install -e ".[legged_gym]"   # SB3 + RLlib 足式机器人训练
+pip install -e ".[g1]"           # G1 人形机器人
+pip install -e ".[xbot]"         # XBot 机器人
+pip install -e ".[zq_sa01]"      # ZQ-SA01 人形机器人
+pip install -e ".[fluid]"        # 流体仿真
 
 # 一次安装所有样例依赖
 pip install -e ".[all]"
 ```
+
+> **注意**：`franka_rl`、`ant_rl`、`legged_gym`、`xbot` 依赖 PyTorch，请根据你的 NVIDIA 驱动版本选择对应的 CUDA 安装命令（详见各示例的 `requirements.txt`）。
 
 ### 运行要求
 

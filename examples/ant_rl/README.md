@@ -2,11 +2,34 @@
 
 Ant 环境的 APPO 强化学习训练，基于 Ray RLlib 实现多环境并行仿真。
 
-## 前置条件
+## ⚠️ 重要：场景与机器人准备
+
+> **📦 相关资产**：https://simassets.orca3d.cn/ **Ant 资产包**
+>
+> **🔧 是否需要手动拖动到布局中**：**是**
+>
+> **📝 对应模型模板**：`ant_usda`（Ant 机器人）
+>
+> **🧭 UI 资产详情**：请在资产面板中搜索 `ant`，将对应 actor 拖入布局
+>
+> **运行方式**：脚本会自动扫描场景中的 Ant 实例并绑定
+
+## 🚀 快速开始
+
+### 安装依赖
+
+```bash
+# 基础依赖
+pip install -r requirements.txt
+
+# Ant RL 额外依赖（Ray RLlib）
+pip install -e ".[ant_rl]"
+```
+
+### 前置条件
 
 - OrcaLab 服务已启动（默认 `localhost:50051`）
 - CUDA GPU 可用
-- 依赖：`ray[default]`, `rllib`, `torch`, `orca_gym`
 
 ## 快速开始
 
