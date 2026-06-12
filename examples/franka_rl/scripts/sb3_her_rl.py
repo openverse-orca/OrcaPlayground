@@ -14,8 +14,52 @@ import sys
 import time
 
 from stable_baselines3.common.callbacks import BaseCallback
+import zipfile as _zipfile
+import io as _io
+import stable_baselines3.common.save_util as _save_util
+import stable_baselines3.common.base_class as _base_class
 
 from envs.franka_rl.franka_config import FrankaRobotConfig, FrankaEnvConfig, FrankaObsConfig, CurriculumConfig, TaskConfig
+
+
+def _patch_sb3_load_for_pytorch2():
+    _orig_load = _save_util.load_from_zip_file
+
+    def _patched_load(load_path, load_data=True, custom_objects=None, device="auto", verbose=0, print_system_info=False):
+        file = _save_util.open_path(load_path, "r", verbose=verbose, suffix="zip")
+        device = _save_util.get_device(device=device)
+        try:
+            with _zipfile.ZipFile(file) as archive:
+                namelist = archive.namelist()
+                data = None
+                pytorch_variables = None
+                params = {}
+                if print_system_info and "system_info.txt" in namelist:
+                    print(archive.read("system_info.txt").decode())
+                if "data" in namelist and load_data:
+                    json_data = archive.read("data").decode()
+                    data = _save_util.json_to_data(json_data, custom_objects=custom_objects)
+                pth_files = [f for f in namelist if os.path.splitext(f)[1] == ".pth"]
+                for file_path in pth_files:
+                    raw = archive.read(file_path)
+                    buf = _io.BytesIO(raw)
+                    th_object = torch.load(buf, map_location=device, weights_only=True)
+                    if file_path in ("pytorch_variables.pth", "tensors.pth"):
+                        pytorch_variables = th_object
+                    else:
+                        params[os.path.splitext(file_path)[0]] = th_object
+        except _zipfile.BadZipFile as e:
+            raise ValueError(f"Error: the file {load_path} wasn't a zip-file") from e
+        finally:
+            if isinstance(load_path, (str, os.PathLike)):
+                file.close()
+        return data, params, pytorch_variables
+
+    _save_util.load_from_zip_file = _patched_load
+    _base_class.load_from_zip_file = _patched_load
+
+
+_patch_sb3_load_for_pytorch2()
 
 from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()

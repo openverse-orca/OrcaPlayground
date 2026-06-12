@@ -4,7 +4,7 @@ Franka Panda 多机械臂并行强化学习训练示例，基于 **SB3 + HER** �
 
 ## ⚠️ 重要：场景与机器人准备
 
-> **📦 相关资产**：https://simassets.orca3d.cn/ **OrcaPlaygroundAssets 资产包**
+> **📦 相关资产**：https://simassets.orca3d.cn/ **panda 资产包**
 >
 > **🔧 是否需要手动拖动到布局中**：**是**
 >
@@ -15,6 +15,8 @@ Franka Panda 多机械臂并行强化学习训练示例，基于 **SB3 + HER** �
 > **运行方式**：脚本会在启动前扫描场景中的 joint / actuator 后缀，自动识别机器人实例名
 >
 > **失败行为**：如果关节或驱动器没有完全匹配，会直接报错退出
+>
+> **📐 多臂布局提示**：机械臂数量较多（≥8）时，部分实例可能被放置在远离原点的位置（x/y 超出 ±8）。此时需在 `franka_config.py` 中扩大 `mocap_pos_range`，否则 mocap 目标被裁剪会导致 weld constraint 失效、机械臂动作异常。当前默认值已设为 `[[-20,20],[-20,20],[0,2]]`，如仍不够可继续扩大。
 
 ## 🔧 手动拖入资产进行调试
 
@@ -49,10 +51,6 @@ python examples/franka_rl/run_franka_rl.py \
     --config examples/franka_rl/configs/pick_place_sac_config.yaml \
     --train
 
-# 可视化训练
-python examples/franka_rl/run_franka_rl.py \
-    --config examples/franka_rl/configs/reach_tqc_config.yaml \
-    --train --visualize
 ```
 
 ### 测试
@@ -220,7 +218,7 @@ training_episode: 200
 | 参数 | 值 | 说明 |
 |------|-----|------|
 | `neutral_joint_values` | `[0, 0.41, 0, -1.85, 0, 2.26, 0.79, 0, 0]` | 初始关节角度（下探抓取姿态） |
-| `mocap_pos_range` | `[[-8,8],[-8,8],[0,2]]` | Mocap 位置范围（适配多臂布局） |
+| `mocap_pos_range` | `[[-20,20],[-20,20],[0,2]]` | Mocap 位置范围（多臂布局需扩大） |
 | `actuator_type` | `"position"` | PD 位置控制 |
 | `kps` | `[20, 20, ...]` | 位置增益 |
 | `kds` | `[0.5, 0.5, ...]` | 速度增益 |
@@ -249,7 +247,7 @@ training_episode: 200
 
 **原因**：`mocap_pos_range` 太小，导致 mocap 位置被裁剪到错误范围。
 
-**解决**：`mocap_pos_range` 已扩大到 `[[-8,8],[-8,8],[0,2]]`，适配多臂布局。
+**解决**：`mocap_pos_range` 已扩大到 `[[-20,20],[-20,20],[0,2]]`，适配多臂布局。若机械臂超过 8 台或布局范围更大，需继续扩大该范围。
 
 ### Q: 所有机械臂爪夹在顶端
 

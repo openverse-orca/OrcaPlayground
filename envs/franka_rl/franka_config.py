@@ -61,7 +61,7 @@ FrankaRobotConfig = {
         "obj_joint_name": "object_joint",
         "mocap_name": "panda_mocap",
         "goal_site_name": "goal",
-        "mocap_pos_range": np.array([[-8.0, 8.0], [-8.0, 8.0], [0.0, 2.0]]),
+        "mocap_pos_range": np.array([[-20.0, 20.0], [-20.0, 20.0], [0.0, 2.0]]),
 
         "has_object": False,
         "block_gripper": True,

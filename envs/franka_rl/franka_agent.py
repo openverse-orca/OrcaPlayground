@@ -95,6 +95,7 @@ class FrankaAgent(OrcaGymAsyncAgent):
 
         self._is_obs_updated = False
         self._mocap_step_size = dt * 0.2
+        self._mocap_target_pos = None
 
     @property
     def neutral_joint_values(self) -> np.ndarray:
@@ -347,10 +348,17 @@ class FrankaAgent(OrcaGymAsyncAgent):
         pos_offset = pos_ctrl * self._mocap_step_size
         ee_data = ee_pos_quat.get(self._ee_name, {})
         ee_xpos = ee_data.get('xpos', np.zeros(3)) if isinstance(ee_data, dict) else np.zeros(3)
-        mocap_xpos = ee_xpos + pos_offset
-        mocap_xpos[2] = np.max((0, mocap_xpos[2]))
+        if self._mocap_target_pos is None:
+            self._mocap_target_pos = ee_xpos.copy()
+        self._mocap_target_pos = self._mocap_target_pos + pos_offset
+        self._mocap_target_pos[2] = np.max((0, self._mocap_target_pos[2]))
         for dim in range(3):
-            mocap_xpos[dim] = np.clip(mocap_xpos[dim], self._mocap_pos_range[dim, 0], self._mocap_pos_range[dim, 1])
+            self._mocap_target_pos[dim] = np.clip(
+                self._mocap_target_pos[dim],
+                self._mocap_pos_range[dim, 0],
+                self._mocap_pos_range[dim, 1],
+            )
+        mocap_xpos = self._mocap_target_pos.copy()
 
         mocap_xquat = self._initial_grasp_site_xquat if self._initial_grasp_site_xquat is not None else np.array([1, 0, 0, 0])
 
@@ -364,6 +372,7 @@ class FrankaAgent(OrcaGymAsyncAgent):
 
     def on_reset(self, **kwargs) -> dict:
         self._current_episode_step = 0
+        self._mocap_target_pos = None
         return {}
 
     def is_success(self, achieved_goal, desired_goal) -> np.float32:

@@ -87,7 +87,7 @@ class FrankaGymEnv(OrcaGymAsyncEnv):
                 'pos': step_info["mocap_xpos"],
                 'quat': step_info["mocap_xquat"],
             }
-            agent._ctrl[:7] = agent.neutral_joint_values[:7]
+            agent._ctrl[:7] = self._get_gravity_compensation(agent)
             agent._ctrl[-2:] = step_info["gripper_ctrl"]
 
         self.set_mocap_pos_and_quat(mocaps)
@@ -129,8 +129,8 @@ class FrankaGymEnv(OrcaGymAsyncEnv):
 
         for i, agent in enumerate(self.agents):
             if agent._has_object and agent._initial_object_xpos is not None:
-                obj_pos = achieved_goals[i]
-                if np.linalg.norm(obj_pos - agent._initial_object_xpos) > 1.0:
+                obj_pos_global = achieved_goals[i] + agent._base_xpos
+                if np.linalg.norm(obj_pos_global - agent._initial_object_xpos) > 1.0 and agent._current_episode_step > 1:
                     agent._current_episode_step = agent._max_episode_steps
 
         env_obs = {
@@ -173,7 +173,7 @@ class FrankaGymEnv(OrcaGymAsyncEnv):
 
         ctrl_values = []
         for agent in self.agents:
-            ctrl_values.extend(agent.neutral_joint_values[:7])
+            ctrl_values.extend(self._get_gravity_compensation(agent))
             ctrl_values.extend(agent.neutral_joint_values[-2:])
         if len(ctrl_values) == self.nu:
             self.ctrl = np.array(ctrl_values)
