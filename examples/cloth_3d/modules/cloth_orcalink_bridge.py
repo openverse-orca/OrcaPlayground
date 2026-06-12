@@ -16,7 +16,7 @@ from modules.body_track_packet import body_track_position_packet_body_only
 from modules.anchor_debug_export import resolve_debug_log_dir
 from modules.macro_packet_pair_verify import record_mjc_packet_a
 from modules.macro_timing_export import MacroTimingWriter, open_macro_timing_writer
-from modules.body_map import BodyMapEntry, load_body_map
+from modules.body_map import BodyMapEntry
 from modules.orcalink_connect_debug import log_connect_failure
 from modules.orcalink_settings import require_orcalink_port
 
@@ -24,12 +24,15 @@ logger = logging.getLogger(__name__)
 
 
 class ClothOrcaLinkBridge:
-    def __init__(self, config: dict[str, Any], model, data) -> None:
+    def __init__(self, config: dict[str, Any], model, data, pose_remapper=None) -> None:
         self._config = config
         self._model = model
         self._data = data
         self._ol = config["orcalink"]
-        self._body_entries = load_body_map(model, config)
+        from modules.body_map import load_body_map_ordered
+
+        self._body_entries = load_body_map_ordered(model, config)
+        self._pose_remapper = pose_remapper
         self._client = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._connected = False
@@ -43,6 +46,21 @@ class ClothOrcaLinkBridge:
     @property
     def body_entries(self) -> list[BodyMapEntry]:
         return self._body_entries
+
+    def bind_mujoco(self, model, data) -> bool:
+        """
+        绑定与 OrcaGym ``mj_step`` 一致的 ``MjModel`` / ``MjData``。
+
+        ``SceneManager.publish_scene`` 会触发 ``init_env()`` 并重建 ``gym._mjData``；
+        桥接必须在每宏步发布前指向当前实例，否则 ``sim_time`` 与刚体位姿会冻结在连接时刻。
+
+        返回:
+            bool: ``data`` 是否为与上次不同的新 ``MjData`` 对象。
+        """
+        changed = self._data is not data
+        self._model = model
+        self._data = data
+        return changed
 
     def connect(self) -> bool:
         try:
@@ -182,6 +200,8 @@ class ClothOrcaLinkBridge:
         frame = collect_anchor_frame(
             self._model, self._data, self._body_entries, macro_frame, skip_anchor_sites=body_only
         )
+        if self._pose_remapper is not None and getattr(self._pose_remapper, "enabled", False):
+            self._pose_remapper.apply_to_anchor_frame(frame)
         log_mujoco_send(frame)
         if self._export_path:
             export_frame_jsonl(frame, Path(self._export_path))

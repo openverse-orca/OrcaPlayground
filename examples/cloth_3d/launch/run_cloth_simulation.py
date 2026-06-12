@@ -87,7 +87,7 @@ def main() -> int:
         frame_skip = int(mj_cfg.get("frame_skip", 20))
         realtime = float(cfg["simulation"].get("realtime_step", 0.02))
         max_t = float(args.max_seconds or cfg["simulation"].get("max_sim_time", 8.0))
-        traj_fn, apply_frame_fn, duration_fn = _load_trajectory_handlers(cfg)
+        traj_fn, apply_frame_fn, duration_fn = load_trajectory_handlers(cfg)
         mjc_frames = MujocoMacroFrameCounter(substeps_per_macro_frame=frame_skip)
 
         print("设置 ORCALINK_DEBUG_ANCHOR=1 可在 MuJoCo 端与 Server 端打印宏步数据")

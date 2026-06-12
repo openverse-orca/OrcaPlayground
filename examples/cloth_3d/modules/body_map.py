@@ -140,6 +140,26 @@ def load_body_map(model: mujoco.MjModel, config: dict[str, Any]) -> list[BodyMap
     return [by_name[k] for k in sorted(by_name.keys())]
 
 
+def load_body_map_ordered(model: mujoco.MjModel, config: dict[str, Any]) -> list[BodyMapEntry]:
+    """
+    按配置 rigid_body_map / orcalink_rigid_body_map 列表顺序加载（不字母排序）。
+
+    OrcaLink body_track 解码按 logical_name 匹配；顺序与 XPBD scene 一致便于调试。
+    """
+    key = "orcalink_rigid_body_map" if config.get("orcalink_rigid_body_map") else "rigid_body_map"
+    rows = list(config.get(key) or config.get("rigid_body_map") or [])
+    entries: list[BodyMapEntry] = []
+    for row in rows:
+        name = str(row.get("mjc_body_name", ""))
+        if not name:
+            continue
+        try:
+            entries.append(_entry_from_config_row(model, row))
+        except ValueError as exc:
+            logger.warning("body_map skip %s: %s", name, exc)
+    return entries
+
+
 def validate_body_map(model: mujoco.MjModel, entries: list[BodyMapEntry]) -> list[str]:
     errors: list[str] = []
     for e in entries:

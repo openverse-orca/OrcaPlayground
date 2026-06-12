@@ -28,6 +28,11 @@
           "channel_id": 20,
           "publish": true,
           "subscribe": false
+        },
+        "force": {
+          "channel_id": 21,
+          "publish": false,
+          "subscribe": true
         }
       }
     }
@@ -75,6 +80,12 @@
     "bend_compliance": 1000.0,
     "grip_side": "both",
     "lock_radius_m": 0.06
+  },
+  "particle_render": {
+    "enabled": true,
+    "grpc_address": "localhost:50251",
+    "update_rate_hz": 30,
+    "comment": "XPBD PBD_GRPC=1 + GrpcClient；Studio PBDRender Gem Play cloth_demo"
   },
   "xpbd_rigid_parity": {
     "match_v4": true,
