@@ -1,6 +1,19 @@
 {
-  "description": "test20260508 + openloong：掌/指 OrcaLink → XPBD body_track（XPBD 盒体参数仍用 dual_gripper 场景）",
+  "description": "test20260508 + openloong：scan-first XPBD 刚体/布发现（实位姿，无 pose_remap）",
   "extends": "cloth_sim_config.orcagym_e2e.json",
+  "xpbd_auto_discover": {
+    "bodies": true,
+    "cloth": true,
+    "default_follow_mode": "kinematic",
+    "logical_name_map": {
+      "openloong_gripper_2f85_fix_base_usda_zbll_base_link": "gripper_l_palm",
+      "openloong_gripper_2f85_fix_base_usda_l_left_follower": "gripper_l_finger1",
+      "openloong_gripper_2f85_fix_base_usda_l_right_follower": "gripper_l_finger2",
+      "openloong_gripper_2f85_fix_base_usda_zbr_base_link": "gripper_r_palm",
+      "openloong_gripper_2f85_fix_base_usda_r_left_follower": "gripper_r_finger1",
+      "openloong_gripper_2f85_fix_base_usda_r_right_follower": "gripper_r_finger2"
+    }
+  },
   "particle_render": {
     "grpc_address": "localhost:50261"
   },
@@ -20,18 +33,6 @@
           "palm_body": "openloong_gripper_2f85_fix_base_usda_zbr_base_link"
         }
       ]
-    },
-    "pose_remap": {
-      "enabled": true,
-      "xpbd_scene_json": "XPBD/MjcPBD_orcalink/debug_log/xpbd_scene_from_mjcf.json",
-      "remap_logical_names": [
-        "gripper_l_palm",
-        "gripper_l_finger1",
-        "gripper_l_finger2",
-        "gripper_r_palm",
-        "gripper_r_finger1",
-        "gripper_r_finger2"
-      ]
     }
   },
   "orcagym_rigid_body_map": [
@@ -40,36 +41,6 @@
       "mjc_body_name": "openloong_gripper_2f85_fix_base_usda_base_link",
       "follow_mode": "kinematic",
       "orcalink_publish": false
-    },
-    {
-      "logical_name": "gripper_l_palm",
-      "mjc_body_name": "openloong_gripper_2f85_fix_base_usda_zbll_base_link",
-      "follow_mode": "kinematic"
-    },
-    {
-      "logical_name": "gripper_l_finger1",
-      "mjc_body_name": "openloong_gripper_2f85_fix_base_usda_l_left_follower",
-      "follow_mode": "kinematic"
-    },
-    {
-      "logical_name": "gripper_l_finger2",
-      "mjc_body_name": "openloong_gripper_2f85_fix_base_usda_l_right_follower",
-      "follow_mode": "kinematic"
-    },
-    {
-      "logical_name": "gripper_r_palm",
-      "mjc_body_name": "openloong_gripper_2f85_fix_base_usda_zbr_base_link",
-      "follow_mode": "kinematic"
-    },
-    {
-      "logical_name": "gripper_r_finger1",
-      "mjc_body_name": "openloong_gripper_2f85_fix_base_usda_r_left_follower",
-      "follow_mode": "kinematic"
-    },
-    {
-      "logical_name": "gripper_r_finger2",
-      "mjc_body_name": "openloong_gripper_2f85_fix_base_usda_r_right_follower",
-      "follow_mode": "kinematic"
     }
   ]
 }
