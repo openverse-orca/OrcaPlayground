@@ -1,0 +1,50 @@
+1. 问题描述
+用户需要将 /home/guojiatao/Assets/3d 中的 fbx.FBX 和 obj.obj 大疆无人机3D模型，结合当前项目的 drone 模型规范，转换为 MuJoCo XML 格式。并尽可能将原文件中的贴图应用到模型上。
+
+2. 根因分析
+- 原始模型为 3ds Max 导出的 OBJ 格式，包含 743293 顶点、1445997 面、300 个分组
+- 模型单位为毫米(mm)，需要转换为米(m)以适配 MuJoCo
+- 模型包含螺旋桨运动模糊(sweep)几何体，需要与机身分离
+- MuJoCo 限制单个 STL 文件最多 200000 面，原始模型超出限制
+- 模型非水密(non-watertight)，无法直接计算惯性属性
+- BUG1: 惯性值 0.034+0.046=0.080 < 0.081 不满足三角不等式 A+B>=C
+- BUG2: 3个远离机身的几何体被错误包含（距离阈值过滤修复）
+  - mat_033: 距机身 275mm
+  - mat_024/mat_025: 距机身 205mm，max_span 刚好 < 300 阈值
+- BUG3: 2个孤立小零件与核心机身无物理连接，导致"悬浮"现象
+  - mat_031: 微型传感器(0.4x4.9x2.9mm)，距核心机身 27.9mm，完全孤立
+  - mat_030: 起落架/云台(8872面)，距核心大部件 12.3mm，有间隙
+- 贴图问题: MuJoCo 只支持 PNG 格式，JPG/TIF 会导致 "Non-PNG texture" 错误
+- Orca Editor 生成场景级 XML 时丢弃 material/texture 属性，所有 geom 变成灰色
+
+3. 方案设计
+- 使用 trimesh 加载 OBJ 并按材质拆分
+- 三层过滤机制：
+  1. 跨度+距离过滤：排除 max_span>300 且远离中心的螺旋桨扫掠体
+  2. 距离阈值过滤：排除距机身中心 >150mm 的部件
+  3. 孤立检测：以大部件(>10000面)为参考，排除最近顶点距离 >10mm 的小零件
+- 每个材质组独立导出：有 UV → OBJ(保留贴图)，无 UV → STL(纯色)
+- 超过 190000 面的部件简化后 UV 丢失，降级为 STL
+- 所有贴图从 JPG/TIF 转换为 PNG
+- 每个 geom 同时写 material 和 rgba 属性（兼容 Orca Editor）
+- 惯性值使用物理正确值 0.0347563/0.0458929/0.0806492
+
+4. 修改文件清单
+- examples/drone_driver/model/dji_lhcg/dji_lhcg.xml
+  MuJoCo 模型：21个材质 geom + 10个纹理 + 4个旋翼
+- examples/drone_driver/model/dji_lhcg/convert_obj_to_mujoco.py
+  转换脚本：三层过滤 + 孤立检测 + OBJ/STL 双格式 + PNG 贴图
+- examples/drone_driver/model/dji_lhcg/meshes/mat_*.obj (10个)
+  带 UV 坐标的机身部件
+- examples/drone_driver/model/dji_lhcg/meshes/mat_*.stl (11个)
+  无 UV 坐标的机身部件
+- examples/drone_driver/model/dji_lhcg/meshes/dji_blade.stl
+- examples/drone_driver/model/dji_lhcg/meshes/wurenji-lhcg_001.png ~ 006.png
+
+5. 注意事项
+- MuJoCo 只支持 PNG 格式贴图
+- mat_012（280080面）因简化丢失 UV，降级为纯色 STL
+- 孤立检测使用大部件(>10000面)顶点作为参考，阈值 10mm
+- mat_030(起落架)和 mat_031(传感器)被排除，如需保留可调低 ISOLATION_GAP_MM
+- Orca Editor 丢弃 material 属性，但 rgba 会被保留
+- 需在 Orca Editor 中重新导入 dji_lhcg.xml
