@@ -39,6 +39,7 @@
     "disable_base_phys": true,
     "force_gs_solver": true,
     "auto_build": true,
+    "dg_traj": "cloth_robot",
     "show_ui": true,
     "overlay_mjc": true,
     "comment_force_gs": "R-PHYS-4：联调暂用 GS，避免 Jacobi 粒子–刚体盒接触失效"
@@ -65,11 +66,15 @@
       ]
     }
   },
-  "orcagym_rigid_body_map": [
+    "orcagym_rigid_body_map": [
     {
       "mjc_body_name": "openloong_gripper_2f85_fix_base_usda_base_link",
       "follow_mode": "kinematic",
       "orcalink_publish": false
     }
-  ]
+  ],
+  "cloth_robot": {
+    "gripper_keyframes_json": "cloth_robot_gripper_keyframes.json",
+    "comment": "手工编辑双掌关键帧；也可用环境变量 CLOTH_ROBOT_KEYFRAMES_JSON 覆盖"
+  }
 }
