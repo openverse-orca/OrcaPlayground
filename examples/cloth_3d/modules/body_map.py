@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
+from itertools import product
 from typing import Any
 
 import mujoco
 import numpy as np
 
 from modules.anchor_tetrahedron import anchor_site_names, circumradius_from_half_extents
+
+logger = logging.getLogger(__name__)
+
+_DEFAULT_HALF_EXTENTS = np.array([0.01, 0.01, 0.01], dtype=np.float64)
 
 
 @dataclass
@@ -28,24 +34,141 @@ def _body_id(model: mujoco.MjModel, name: str) -> int:
     return bid
 
 
-def primary_collision_half_extents(model: mujoco.MjModel, body_id: int) -> np.ndarray:
-    """取 body 上最大体积的碰撞 geom 半长（跳过 anchor_viz）。"""
-    best_vol = -1.0
-    best = np.array([0.01, 0.01, 0.01], dtype=np.float64)
+def _skip_collision_geom(gname: str) -> bool:
+    """跳过 XPBD 标记、锚点可视化等非物理碰撞 geom。"""
+    low = gname.lower()
+    if "anchor" in low:
+        return True
+    if "XPBD_TRACK" in gname:
+        return True
+    return False
+
+
+def _is_collision_geom(model: mujoco.MjModel, gid: int, gname: str) -> bool:
+    if _skip_collision_geom(gname):
+        return False
+    if int(model.geom_contype[gid]) == 0 and int(model.geom_conaffinity[gid]) == 0:
+        return False
+    return True
+
+
+def _world_to_body(
+    data: mujoco.MjData,
+    body_id: int,
+    points_world: np.ndarray,
+) -> np.ndarray:
+    """将世界系点集变换到 body 局部系。"""
+    bmat_inv = np.array(data.xmat[body_id], dtype=np.float64).reshape(3, 3).T
+    bpos = np.array(data.xpos[body_id], dtype=np.float64)
+    pts = np.asarray(points_world, dtype=np.float64)
+    if pts.ndim == 1:
+        return bmat_inv @ (pts - bpos)
+    return (bmat_inv @ (pts - bpos).T).T
+
+
+def _expand_body_aabb(
+    lo: np.ndarray,
+    hi: np.ndarray,
+    points_body: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    pts = np.asarray(points_body, dtype=np.float64)
+    if pts.ndim == 1:
+        pts = pts.reshape(1, 3)
+    return np.minimum(lo, pts.min(axis=0)), np.maximum(hi, pts.max(axis=0))
+
+
+def _box_corners_local(hx: float, hy: float, hz: float) -> np.ndarray:
+    return np.array(
+        [(sx * hx, sy * hy, sz * hz) for sx, sy, sz in product((-1.0, 1.0), repeat=3)],
+        dtype=np.float64,
+    )
+
+
+def _geom_world_corners(model: mujoco.MjModel, data: mujoco.MjData, gid: int) -> np.ndarray | None:
+    """按 geom 类型生成世界系外包盒角点（box/mesh/球/胶囊/圆柱/椭球）。"""
+    gt = int(model.geom_type[gid])
+    gxp = np.array(data.geom_xpos[gid], dtype=np.float64)
+    gxm = np.array(data.geom_xmat[gid], dtype=np.float64).reshape(3, 3)
+    sz = model.geom_size[gid, :3].astype(np.float64)
+
+    if gt in (
+        int(mujoco.mjtGeom.mjGEOM_BOX),
+        int(mujoco.mjtGeom.mjGEOM_MESH),
+        int(mujoco.mjtGeom.mjGEOM_ELLIPSOID),
+    ):
+        hx, hy, hz = float(sz[0]), float(sz[1]), float(sz[2])
+        local = _box_corners_local(hx, hy, hz)
+        return gxp + (gxm @ local.T).T
+
+    if gt == int(mujoco.mjtGeom.mjGEOM_SPHERE):
+        r = float(sz[0])
+        offsets = np.array(list(product((-r, r), repeat=3)), dtype=np.float64)
+        return gxp + offsets
+
+    if gt == int(mujoco.mjtGeom.mjGEOM_CYLINDER):
+        r, hz = float(sz[0]), float(sz[1])
+        local = _box_corners_local(r, r, hz)
+        return gxp + (gxm @ local.T).T
+
+    if gt == int(mujoco.mjtGeom.mjGEOM_CAPSULE):
+        r, h = float(sz[0]), float(sz[1])
+        local = _box_corners_local(r, r, h + r)
+        return gxp + (gxm @ local.T).T
+
+    return None
+
+
+def body_collision_aabb_half_extents(
+    model: mujoco.MjModel,
+    data: mujoco.MjData,
+    body_id: int,
+) -> np.ndarray:
+    """
+    在 body 局部系下，对该 body 全部参与碰撞的 geom 做轴对齐包围盒（AABB）并集，
+    返回半长 ``[hx, hy, hz]``，供 XPBD ``PHYS_Box`` 使用。
+
+    自动复用 MJCF 已有 box / mesh / sphere 等碰撞数据，无需手填 ``box_half_extents``。
+    无碰撞 geom 时退回 ``[0.01, 0.01, 0.01]``。
+    """
+    lo = np.array([np.inf, np.inf, np.inf], dtype=np.float64)
+    hi = np.array([-np.inf, -np.inf, -np.inf], dtype=np.float64)
+    found = False
+
     for gid in range(model.ngeom):
         if int(model.geom_bodyid[gid]) != body_id:
             continue
         gname = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, gid) or ""
-        if "anchor" in gname:
+        if not _is_collision_geom(model, gid, gname):
             continue
-        if int(model.geom_type[gid]) != int(mujoco.mjtGeom.mjGEOM_BOX):
+        corners_world = _geom_world_corners(model, data, gid)
+        if corners_world is None:
             continue
-        half = model.geom_size[gid, :3].astype(np.float64)
-        vol = float(half[0] * half[1] * half[2])
-        if vol > best_vol:
-            best_vol = vol
-            best = half
-    return best
+        corners_body = _world_to_body(data, body_id, corners_world)
+        lo, hi = _expand_body_aabb(lo, hi, corners_body)
+        found = True
+
+    if not found:
+        return _DEFAULT_HALF_EXTENTS.copy()
+    half = (hi - lo) * 0.5
+    half = np.maximum(half, 1e-6)
+    return half.astype(np.float64)
+
+
+def primary_collision_half_extents(
+    model: mujoco.MjModel,
+    body_id: int,
+    data: mujoco.MjData | None = None,
+) -> np.ndarray:
+    """
+    从 MJCF 碰撞 geom 推断 XPBD 盒半长（body 局部 AABB 并集）。
+
+    ``data`` 未提供时在函数内 ``mj_forward``；批量导出时建议传入同一 ``MjData`` 避免重复前向。
+    """
+    if data is None:
+        data = mujoco.MjData(model)
+        mujoco.mj_resetData(model, data)
+        mujoco.mj_forward(model, data)
+    return body_collision_aabb_half_extents(model, data, body_id)
 
 
 def discover_anchor_sites_on_body(
@@ -66,12 +189,16 @@ def discover_anchor_sites_on_body(
     return sorted(names)
 
 
-def _entry_from_config_row(model: mujoco.MjModel, row: dict[str, Any]) -> BodyMapEntry:
+def _entry_from_config_row(
+    model: mujoco.MjModel,
+    row: dict[str, Any],
+    data: mujoco.MjData | None = None,
+) -> BodyMapEntry:
     body_name = row["mjc_body_name"]
     bid = _body_id(model, body_name)
     half = row.get("box_half_extents")
     if half is None:
-        half_arr = primary_collision_half_extents(model, bid)
+        half_arr = primary_collision_half_extents(model, bid, data)
     else:
         half_arr = np.asarray(half, dtype=np.float64)
     sites = row.get("anchor_sites")
@@ -119,9 +246,12 @@ def load_body_map(model: mujoco.MjModel, config: dict[str, Any]) -> list[BodyMap
     site_substring = str(discovery.get("site_substring", "_anchor_"))
 
     by_name: dict[str, BodyMapEntry] = {}
+    data = mujoco.MjData(model)
+    mujoco.mj_resetData(model, data)
+    mujoco.mj_forward(model, data)
 
     for row in config.get("rigid_body_map", []):
-        entry = _entry_from_config_row(model, row)
+        entry = _entry_from_config_row(model, row, data)
         by_name[entry.mjc_body_name] = entry
 
     if auto_merge:
@@ -135,6 +265,7 @@ def load_body_map(model: mujoco.MjModel, config: dict[str, Any]) -> list[BodyMap
                     "mjc_body_name": body_name,
                     "follow_mode": "compliance",
                 },
+                data,
             )
 
     return [by_name[k] for k in sorted(by_name.keys())]
@@ -148,13 +279,16 @@ def load_body_map_ordered(model: mujoco.MjModel, config: dict[str, Any]) -> list
     """
     key = "orcalink_rigid_body_map" if config.get("orcalink_rigid_body_map") else "rigid_body_map"
     rows = list(config.get(key) or config.get("rigid_body_map") or [])
+    data = mujoco.MjData(model)
+    mujoco.mj_resetData(model, data)
+    mujoco.mj_forward(model, data)
     entries: list[BodyMapEntry] = []
     for row in rows:
         name = str(row.get("mjc_body_name", ""))
         if not name:
             continue
         try:
-            entries.append(_entry_from_config_row(model, row))
+            entries.append(_entry_from_config_row(model, row, data))
         except ValueError as exc:
             logger.warning("body_map skip %s: %s", name, exc)
     return entries

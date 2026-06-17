@@ -43,10 +43,9 @@ def bodies_to_rigid_body_map(
     """
     rows: list[dict[str, Any]] = []
     for name in body_names:
-        logical = name.split("_")[-1] if logical_name_from_body else name
         rows.append(
             {
-                "logical_name": logical,
+                "logical_name": name,
                 "mjc_body_name": name,
                 "follow_mode": default_follow_mode,
                 "discovered": True,
@@ -55,13 +54,82 @@ def bodies_to_rigid_body_map(
     return rows
 
 
+# openloong 夹爪精简：_geom_* 网格所在 link body（非 mesh 实体本身）
+GRIPPER_GEOM_SUFFIX_TO_BODY_SUFFIX: dict[str, str] = {
+    "_geom_27": "zbr_base_link",
+    "_geom_65": "zbll_base_link",
+    "_geom_35": "r_left_spring_link",
+    "_geom_38": "r_left_follower",
+    "_geom_45": "r_right_spring_link",
+    "_geom_47": "r_right_follower",
+    "_geom_73": "l_left_spring_link",
+    "_geom_76": "l_left_follower",
+    "_geom_83": "l_right_spring_link",
+    "_geom_85": "l_right_follower",
+}
+
+
+def resolve_bodies_by_geom_suffixes(
+    model: mujoco.MjModel,
+    geom_suffixes: list[str] | None = None,
+) -> list[str]:
+    """
+    按 MJCF geom 名后缀（如 ``_geom_47``）解析其挂载 body 全名。
+
+    用于夹爪精简：指尖/掌面/弹簧片 mesh 对应 link body，供 XPBD 白名单过滤。
+    """
+    suffixes = geom_suffixes or list(GRIPPER_GEOM_SUFFIX_TO_BODY_SUFFIX.keys())
+    found: dict[str, str] = {}
+    for gid in range(model.ngeom):
+        gname = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, gid) or ""
+        for suf in suffixes:
+            if suf not in gname:
+                continue
+            bid = int(model.geom_bodyid[gid])
+            bname = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, bid) or ""
+            if bname and bname != "world":
+                found[suf] = bname
+    return [found[s] for s in suffixes if s in found]
+
+
+def resolve_bodies_by_name_substrings(
+    model: mujoco.MjModel,
+    substrings: list[str] | None,
+) -> list[str]:
+    """
+    在 MJCF 全部 body 名中按子串白名单匹配（如 ``zbll_base_link``、``r_left_follower``）。
+
+    当 Studio 未写出 ``_XPBD_TRACK_GEOM``（例如 prefab ``trackSubtree: false`` 后子树未打标）
+    时，仍可将夹爪 link 纳入 ``rigid_body_map``，不依赖 geom 后缀编号。
+    """
+    if not substrings:
+        return []
+    found: list[str] = []
+    for bid in range(model.nbody):
+        bname = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, bid) or ""
+        if not bname or bname == "world":
+            continue
+        if any(sub in bname for sub in substrings):
+            found.append(bname)
+    result = sorted(set(found))
+    if result:
+        logger.info("resolve_bodies_by_name_substrings: %d bodies", len(result))
+    return result
+
+
 def filter_body_names(
     body_names: list[str],
     *,
+    include_substrings: list[str] | None = None,
     exclude_substrings: list[str] | None = None,
     exclude_exact: list[str] | None = None,
 ) -> list[str]:
-    """按子串/精确名过滤扫描结果（用于 override 黑名单）。"""
+    """
+    按子串/精确名过滤扫描结果。
+
+    ``include_substrings`` 非空时，仅保留名称包含任一子串的 body（白名单，用于夹爪精简 + Cube）。
+    """
+    include_substrings = include_substrings or []
     exclude_substrings = exclude_substrings or []
     exclude_exact = set(exclude_exact or [])
     out: list[str] = []
@@ -69,6 +137,8 @@ def filter_body_names(
         if name in exclude_exact:
             continue
         if any(sub in name for sub in exclude_substrings):
+            continue
+        if include_substrings and not any(sub in name for sub in include_substrings):
             continue
         out.append(name)
     return out

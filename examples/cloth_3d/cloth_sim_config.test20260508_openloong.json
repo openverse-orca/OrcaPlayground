@@ -5,17 +5,47 @@
     "bodies": true,
     "cloth": true,
     "default_follow_mode": "kinematic",
-    "logical_name_map": {
-      "openloong_gripper_2f85_fix_base_usda_zbll_base_link": "gripper_l_palm",
-      "openloong_gripper_2f85_fix_base_usda_l_left_follower": "gripper_l_finger1",
-      "openloong_gripper_2f85_fix_base_usda_l_right_follower": "gripper_l_finger2",
-      "openloong_gripper_2f85_fix_base_usda_zbr_base_link": "gripper_r_palm",
-      "openloong_gripper_2f85_fix_base_usda_r_left_follower": "gripper_r_finger1",
-      "openloong_gripper_2f85_fix_base_usda_r_right_follower": "gripper_r_finger2"
-    }
+    "body_include_geom_suffixes": [
+      "_geom_27",
+      "_geom_35",
+      "_geom_38",
+      "_geom_45",
+      "_geom_47",
+      "_geom_65",
+      "_geom_73",
+      "_geom_76",
+      "_geom_83",
+      "_geom_85"
+    ],
+    "body_include_substrings": [
+      "zbll_base_link",
+      "zbr_base_link",
+      "r_left_spring_link",
+      "r_right_spring_link",
+      "l_left_spring_link",
+      "l_right_spring_link",
+      "r_left_follower",
+      "r_right_follower",
+      "l_left_follower",
+      "l_right_follower",
+      "Cube"
+    ]
   },
   "particle_render": {
     "grpc_address": "localhost:50261"
+  },
+  "xpbd": {
+    "cloth_discover_only": false,
+    "disable_base_phys": true,
+    "force_gs_solver": true,
+    "auto_build": true,
+    "show_ui": true,
+    "overlay_mjc": true,
+    "comment_force_gs": "R-PHYS-4：联调暂用 GS，避免 Jacobi 粒子–刚体盒接触失效"
+  },
+  "xpbd_rigid_parity": {
+    "match_v4": false,
+    "comment": "ClothRobot：场景刚体为布-刚代理盒；刚-刚碰撞在 MuJoCo，XPBD 用 Layer_1_No1 禁刚-刚"
   },
   "orcagym": {
     "rigid_body_map_key": "orcagym_rigid_body_map",
@@ -37,7 +67,6 @@
   },
   "orcagym_rigid_body_map": [
     {
-      "logical_name": "base",
       "mjc_body_name": "openloong_gripper_2f85_fix_base_usda_base_link",
       "follow_mode": "kinematic",
       "orcalink_publish": false

@@ -45,21 +45,34 @@ def main() -> int:
         return 1
 
     sys.path.insert(0, str(ROOT))
-    from modules.body_map import load_body_map, validate_body_map  # noqa: E402
-    from modules.mjc_coords import orca_quat_to_yup, orca_vec_to_yup  # noqa: E402
+    from modules.anchor_tetrahedron import anchor_local_positions, anchor_site_names  # noqa: E402
+    from modules.body_map import load_body_map  # noqa: E402
+    from modules.mjc_coords import (  # noqa: E402
+        orca_quat_to_yup_link_orientation,
+        orca_vec_to_yup,
+    )
 
     def half_extents_mjc_to_yup(hx: float, hy: float, hz: float) -> list[float]:
         """盒体半长：仅轴置换 (x,y,z)_mjc -> (x,z,y)_yup，取绝对值（无镜像）。"""
         yx, yy, yz = orca_vec_to_yup(hx, hy, hz)
         return [abs(yx), abs(yy), abs(yz)]
 
+    def body_track_body_only(cfg: dict) -> bool:
+        bt = cfg.get("body_track") or {}
+        return bool(bt.get("enabled")) and not bool(bt.get("use_anchor_sites", False))
+
     cfg = json.loads(config_path.read_text(encoding="utf-8"))
     config_dir = config_path.parent
+    meta = cfg.get("_cloth_robot_session_meta") or {}
+    src_mjcf = meta.get("source_mjcf")
     mjcf_rel = cfg.get("mujoco", {}).get("model_path", "")
-    if not mjcf_rel:
-        print("FAIL: missing mujoco.model_path in config", file=sys.stderr)
+    if src_mjcf and Path(src_mjcf).is_file():
+        mjcf_path = Path(src_mjcf).resolve()
+    elif mjcf_rel:
+        mjcf_path = (config_dir / mjcf_rel).resolve()
+    else:
+        print("FAIL: missing mujoco.model_path or _cloth_robot_session_meta.source_mjcf", file=sys.stderr)
         return 1
-    mjcf_path = (config_dir / mjcf_rel).resolve()
 
     dbg = cfg.get("debug", {})
     if args.out is not None:
@@ -82,12 +95,22 @@ def main() -> int:
         return 1
 
     all_entries = [entries_by_mjc[row["mjc_body_name"]] for row in map_rows]
-    val_errs = validate_body_map(model, all_entries)
-    if val_errs:
-        print("FAIL: body_map validation:")
-        for e in val_errs:
-            print(" ", e)
-        return 1
+    body_only = body_track_body_only(cfg)
+    if body_only:
+        for row in map_rows:
+            mjc_name = row["mjc_body_name"]
+            if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, mjc_name) < 0:
+                print(f"FAIL: body missing {mjc_name}", file=sys.stderr)
+                return 1
+    else:
+        from modules.body_map import validate_body_map  # noqa: E402
+
+        val_errs = validate_body_map(model, all_entries)
+        if val_errs:
+            print("FAIL: body_map validation:")
+            for e in val_errs:
+                print(" ", e)
+            return 1
 
     bodies_out: list[dict] = []
     for body_index, row in enumerate(map_rows):
@@ -104,18 +127,26 @@ def main() -> int:
         xpos = data.xpos[bid].astype(np.float64)
         xquat = data.xquat[bid].astype(np.float64)
         center_yup = orca_vec_to_yup(float(xpos[0]), float(xpos[1]), float(xpos[2]))
-        quat_yup = orca_quat_to_yup(
+        quat_yup = orca_quat_to_yup_link_orientation(
             float(xquat[0]), float(xquat[1]), float(xquat[2]), float(xquat[3])
         )
 
         anchors_out: list[dict] = []
-        for ai, sname in enumerate(entry.anchor_sites):
+        anchor_sites = list(entry.anchor_sites)
+        if body_only and len(anchor_sites) < 4:
+            anchor_sites = anchor_site_names(mjc_name)
+        for ai, sname in enumerate(anchor_sites):
             sid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, sname)
-            if sid < 0:
+            if sid >= 0:
+                lp = model.site_pos[sid].astype(np.float64)
+                local_mjc = [float(lp[0]), float(lp[1]), float(lp[2])]
+            elif body_only:
+                _, verts = anchor_local_positions(hx, hy, hz)
+                vx, vy, vz = verts[ai]
+                local_mjc = [float(vx), float(vy), float(vz)]
+            else:
                 print(f"FAIL: site missing {sname}", file=sys.stderr)
                 return 1
-            lp = model.site_pos[sid].astype(np.float64)
-            local_mjc = [float(lp[0]), float(lp[1]), float(lp[2])]
             local_yup = list(orca_vec_to_yup(local_mjc[0], local_mjc[1], local_mjc[2]))
             anchors_out.append(
                 {
@@ -133,7 +164,7 @@ def main() -> int:
         bodies_out.append(
             {
                 "body_index": body_index,
-                "logical_name": entry.logical_name,
+                "logical_name": mjc_name,
                 "mjc_body_name": mjc_name,
                 "follow_mode": follow,
                 "mass_kg": mass_kg,

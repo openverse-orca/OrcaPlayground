@@ -75,7 +75,28 @@ def _quat_from_mat3(m: list[list[float]]) -> Tuple[float, float, float, float]:
 
 
 def orca_quat_to_yup(qw: float, qx: float, qy: float, qz: float) -> Tuple[float, float, float, float]:
+    """
+    MuJoCo body 四元数 (w,x,y,z) → XPBD Y-up 下作用于**同一套局部坐标**的旋转。
+
+    与 ``orca_vec_to_yup`` 一致：``p_yup = T @ (R_mjc @ p_local)``，故 ``R_yup = T @ R_mjc``。
+    注意：OrcaLink ``CoordinateTransform::FromOrcaCoordinates(Quaternion)`` 对刚体**姿态标量**
+    使用 ``T^T @ R @ T``（相似变换）；布料 VTK 顶点须用本函数，不可混用。
+    """
     t = [[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, -1.0, 0.0]]
+    r = _quat_wxyz_to_mat3(qw, qx, qy, qz)
+    b = _mat3_mul(t, r)
+    return _quat_from_mat3(b)
+
+
+def orca_quat_to_yup_link_orientation(
+    qw: float, qx: float, qy: float, qz: float
+) -> Tuple[float, float, float, float]:
+    """
+    OrcaLink ``FromOrcaCoordinates(Quaternion)`` 同款：``R_yup = T^T @ R_mjc @ T``。
+
+    仅用于 OrcaLink 刚体 PROTO 姿态与 ``verify_phase_c_yup`` 包校验，**不**用于布料 VTK 铺放。
+    """
+    t = [[1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]]
     r = _quat_wxyz_to_mat3(qw, qx, qy, qz)
     tt = _mat3_transpose(t)
     b = _mat3_mul(_mat3_mul(tt, r), t)

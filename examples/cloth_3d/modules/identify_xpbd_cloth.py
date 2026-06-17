@@ -96,6 +96,60 @@ def identify_xpbd_cloth(model: mujoco.MjModel) -> list[dict[str, Any]]:
     return cloths
 
 
+def enrich_cloth_discovery_pose(
+    model: mujoco.MjModel,
+    data: mujoco.MjData,
+    discovered: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """
+    用 ``mj_forward`` 后的 body 世界位姿填充每条布片发现的 ``center_*`` / ``quat_wxyz_*``。
+
+    坐标：MuJoCo Z-up（``center_mjc``）与 XPBD Y-up（``center_yup``，经 ``mjc_coords`` 转换）。
+    """
+    from modules.mjc_coords import orca_quat_to_yup, orca_vec_to_yup  # noqa: WPS433
+
+    out: list[dict[str, Any]] = []
+    for entry in discovered:
+        row = dict(entry)
+        body_name = str(row.get("body_name", ""))
+        bid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, body_name)
+        if bid < 0:
+            logger.warning("enrich_cloth_discovery_pose: missing body %s", body_name)
+            out.append(row)
+            continue
+        xpos = data.xpos[bid].astype(np.float64)
+        xquat = data.xquat[bid].astype(np.float64)
+        row["center_mjc"] = [float(xpos[0]), float(xpos[1]), float(xpos[2])]
+        row["quat_wxyz_mjc"] = [
+            float(xquat[0]),
+            float(xquat[1]),
+            float(xquat[2]),
+            float(xquat[3]),
+        ]
+        cy = orca_vec_to_yup(float(xpos[0]), float(xpos[1]), float(xpos[2]))
+        cq = orca_quat_to_yup(
+            float(xquat[0]),
+            float(xquat[1]),
+            float(xquat[2]),
+            float(xquat[3]),
+        )
+        row["center_yup"] = [float(cy[0]), float(cy[1]), float(cy[2])]
+        row["quat_wxyz_yup"] = [float(cq[0]), float(cq[1]), float(cq[2]), float(cq[3])]
+        import math
+
+        w = max(-1.0, min(1.0, float(cq[0])))
+        angle_deg = math.degrees(2.0 * math.acos(abs(w)))
+        logger.info(
+            "enrich_cloth_discovery_pose: body=%s center_yup=%s quat_wxyz_yup=%s angle_deg=%.2f",
+            body_name,
+            row["center_yup"],
+            row["quat_wxyz_yup"],
+            angle_deg,
+        )
+        out.append(row)
+    return out
+
+
 def merge_cloth_discovery(config: dict[str, Any], discovered: list[dict[str, Any]]) -> dict[str, Any]:
     """
   将扫描结果合并进运行时 config[\"cloth\"]；JSON 字段为 override（scan-first）。
@@ -116,5 +170,8 @@ def merge_cloth_discovery(config: dict[str, Any], discovered: list[dict[str, Any
     cloth_cfg["body_name"] = primary.get("body_name")
     cloth_cfg["discovered"] = True
     cloth_cfg["discovered_cloths"] = discovered
+    for key in ("center_mjc", "quat_wxyz_mjc", "center_yup", "quat_wxyz_yup"):
+        if key in primary:
+            cloth_cfg[key] = primary[key]
     out["cloth"] = cloth_cfg
     return out
