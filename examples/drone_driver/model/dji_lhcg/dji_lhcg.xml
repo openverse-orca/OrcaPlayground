@@ -52,6 +52,10 @@
       <default class="collision">
         <geom contype="1" conaffinity="1" group="4" rgba="1 0.3 1 0.5" friction="2 0.0005 0.00001"/>
       </default>
+      <default class="gripper">
+        <joint type="slide" limited="true" axis="1 0 0" damping="5.0" armature="0.01"/>
+        <geom type="box" contype="1" conaffinity="1" condim="4" group="1" friction="2 0.005 0.0001" rgba="0.2 0.6 0.2 0.9"/>
+      </default>
     </default>
   </default>
 
@@ -92,10 +96,25 @@
         <geom name="body_mat_023" class="main_body" mesh="mat_023" rgba="0.0510 0.0510 0.0510 1"/>
         <geom name="body_mat_024" class="main_body" mesh="mat_024" rgba="0.5882 0.5882 0.5882 1"/>
         <geom name="body_mat_025" class="main_body" mesh="mat_025" rgba="0.5882 0.5882 0.5882 1"/>
-        <geom name="body_mat_026" class="main_body" mesh="mat_026" rgba="0.5020 0.5020 0.5020 1"/>
         <geom name="body_mat_030" class="main_body" mesh="mat_030" rgba="0.3137 0.3137 0.3137 1"/>
         <geom name="body_mat_031" class="main_body" mesh="mat_031" rgba="0.5882 0.5882 0.5882 1"/>
         <geom name="body_col" class="collision" type="cylinder" size="1.5 0.4"/>
+
+        <body name="gripper_left" pos="0.1 0 -0.5" childclass="gripper">
+          <inertial pos="0 0 0" mass="0.3" diaginertia="0.01 0.01 0.002"/>
+          <joint name="gripper_left_joint" range="-0.6 0.8"/>
+          <geom name="gripper_left_arm" type="box" size="0.03 0.03 0.3" pos="0 0 -0.3"/>
+          <geom name="gripper_left_tip" type="box" size="0.05 0.05 0.08" pos="0 0 -0.6" rgba="0.8 0.2 0.2 0.9"/>
+          <site name="gripper_left_site" pos="0 0 -0.6" size="0.05" group="3" rgba="0 1 0 0.8"/>
+        </body>
+
+        <body name="gripper_right" pos="-0.1 0 -0.5" childclass="gripper">
+          <inertial pos="0 0 0" mass="0.3" diaginertia="0.01 0.01 0.002"/>
+          <joint name="gripper_right_joint" range="-0.8 0.6"/>
+          <geom name="gripper_right_arm" type="box" size="0.03 0.03 0.3" pos="0 0 -0.3"/>
+          <geom name="gripper_right_tip" type="box" size="0.05 0.05 0.08" pos="0 0 -0.6" rgba="0.8 0.2 0.2 0.9"/>
+          <site name="gripper_right_site" pos="0 0 -0.6" size="0.05" group="3" rgba="0 1 0 0.8"/>
+        </body>
 
         <body name="FL_upper_blade" pos="-0.875 -0.666 -0.043">
           <inertial pos="0 0 0" mass="0.03" diaginertia="3e-4 1.5e-4 1.5e-4"/>

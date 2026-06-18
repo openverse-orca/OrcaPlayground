@@ -196,6 +196,19 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
 
         self._drone_body_id = int(self.model.body_name2id(self._drone_body))
         self._frame_body_id = int(self.model.body_name2id(self._drone_frame_body))
+
+        self._gripper_joints: dict[str, str] = {}
+        for gname in ("gripper_left_joint", "gripper_right_joint"):
+            try:
+                self._gripper_joints[gname] = self._resolve_name("joints", gname)
+            except (KeyError, Exception):
+                pass
+        self._gripper_enabled = len(self._gripper_joints) == 2
+        if self._gripper_enabled:
+            _logger.info("[DroneOrcaEnv] 抓取机构已启用: G=收拢, H=扩张")
+        self._gripper_target: float = 0.0
+        self._gripper_close_speed: float = 1.0
+        self._gripper_open_speed: float = 1.0
         fixed_r = float(vertical_fixed_thrust_over_hover)
         use_fixed_thrust = fixed_r >= 0.0
         ramp_on = bool(vertical_thrust_ramp) and not use_fixed_thrust
@@ -456,6 +469,7 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         self._autoplay_time = 0.0
         self._last_space_state = 0
         self._last_a_button_state = 0
+        self._gripper_target = 0.0
 
         free_q = self._initial_free_qpos.copy()
         if self._reset_height_offset_m > 0.0:
@@ -471,6 +485,10 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
             jn = self._rotor_joints[spec.joint_suffix]
             qpos_update[jn] = np.array([self._initial_rotor_qpos[jn]], dtype=np.float64)
             qvel_update[jn] = np.array([0.0], dtype=np.float64)
+        if self._gripper_enabled:
+            for gname, full_name in self._gripper_joints.items():
+                qpos_update[full_name] = np.array([0.0], dtype=np.float64)
+                qvel_update[full_name] = np.array([0.0], dtype=np.float64)
 
         self.gym._mjData.xfrc_applied[self._drone_body_id].fill(0.0)
         if self._frame_body_id != self._drone_body_id:
@@ -547,6 +565,8 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
             ):
                 rotor_cmd = np.zeros(4, dtype=np.float32)
             self._update_rotors(rotor_cmd, self._physics_dt)
+            if self._gripper_enabled:
+                self._update_gripper(self._physics_dt)
             self.gym.update_data()
             if self._diag_logs_enabled and not unstable_logged_this_step and self._drone_physics_should_warn_immediate():
                 include_contacts = not self._unstable_contact_logged_this_reset
@@ -623,6 +643,10 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
                 ],
                 dtype=np.float32,
             )
+        if self._gripper_enabled:
+            lb = int(state["buttons"].get("LB", 0))
+            rb = int(state["buttons"].get("RB", 0))
+            self._gripper_target = float(np.clip(rb - lb, -1.0, 1.0))
         return command, reset_requested
 
     def _read_keyboard_only_command(self) -> tuple[np.ndarray, bool]:
@@ -646,6 +670,10 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
                 ],
                 dtype=np.float32,
             )
+        if self._gripper_enabled:
+            g_val = float(state.get("G", 0))
+            h_val = float(state.get("H", 0))
+            self._gripper_target = float(np.clip(h_val - g_val, -1.0, 1.0))
         return command, reset_requested
 
     def _build_autoplay_command(self) -> np.ndarray:
@@ -1370,6 +1398,34 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         self.set_joint_qpos(qpos_update)
         self.set_joint_qvel(qvel_update)
         self.mj_forward()
+
+    def _update_gripper(self, dt: float) -> None:
+        if not self._gripper_enabled:
+            return
+        mjm = self.gym._mjModel
+        mjd = self.gym._mjData
+        max_delta = self._gripper_close_speed * dt
+        qpos_update = {}
+        qvel_update = {}
+        for gname, full_name in self._gripper_joints.items():
+            jid = int(mujoco.mj_name2id(mjm, mujoco.mjtObj.mjOBJ_JOINT, full_name))
+            if jid < 0:
+                continue
+            adr = int(mjm.jnt_dofadr[jid])
+            jrange = mjm.jnt_range[jid]
+            current_pos = float(mjd.qpos[adr])
+            if "left" in gname:
+                target_pos = self._gripper_target * jrange[1] if self._gripper_target > 0 else self._gripper_target * abs(jrange[0])
+            else:
+                target_pos = self._gripper_target * jrange[1] if self._gripper_target > 0 else self._gripper_target * abs(jrange[0])
+            target_pos = float(np.clip(target_pos, jrange[0], jrange[1]))
+            delta = float(np.clip(target_pos - current_pos, -max_delta, max_delta))
+            new_pos = float(np.clip(current_pos + delta, jrange[0], jrange[1]))
+            qpos_update[full_name] = np.array([new_pos], dtype=np.float64)
+            qvel_update[full_name] = np.array([delta / max(dt, 1e-6)], dtype=np.float64)
+        if qpos_update:
+            self.set_joint_qpos(qpos_update)
+            self.set_joint_qvel(qvel_update)
 
     def _get_obs(self) -> np.ndarray:
         self.mj_forward()
