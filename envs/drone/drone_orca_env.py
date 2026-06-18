@@ -198,19 +198,16 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         self._frame_body_id = int(self.model.body_name2id(self._drone_frame_body))
 
         self._gripper_joints: dict[str, str] = {}
-        for gname in ("gripper_left_joint", "gripper_right_joint",
-                       "gripper_left_z_joint", "gripper_right_z_joint"):
+        for gname in ("gripper_left_joint", "gripper_right_joint"):
             try:
                 self._gripper_joints[gname] = self._resolve_name("joints", gname)
             except (KeyError, Exception):
                 pass
-        self._gripper_enabled = len(self._gripper_joints) >= 2
+        self._gripper_enabled = len(self._gripper_joints) == 2
         if self._gripper_enabled:
-            _logger.info("[DroneOrcaEnv] 抓取机构已启用: G=收拢, H=扩张, T=下降, Y=上升")
+            _logger.info("[DroneOrcaEnv] 抓取机构已启用: G=收拢, H=扩张")
         self._gripper_target: float = 0.0
-        self._gripper_z_target: float = 0.0
         self._gripper_close_speed: float = 1.0
-        self._gripper_open_speed: float = 1.0
         fixed_r = float(vertical_fixed_thrust_over_hover)
         use_fixed_thrust = fixed_r >= 0.0
         ramp_on = bool(vertical_thrust_ramp) and not use_fixed_thrust
@@ -472,7 +469,6 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         self._last_space_state = 0
         self._last_a_button_state = 0
         self._gripper_target = 0.0
-        self._gripper_z_target = 0.0
 
         free_q = self._initial_free_qpos.copy()
         if self._reset_height_offset_m > 0.0:
@@ -677,9 +673,6 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
             g_val = float(state.get("G", 0))
             h_val = float(state.get("H", 0))
             self._gripper_target = float(np.clip(h_val - g_val, -1.0, 1.0))
-            t_val = float(state.get("T", 0))
-            y_val = float(state.get("Y", 0))
-            self._gripper_z_target = float(np.clip(y_val - t_val, -1.0, 1.0))
         return command, reset_requested
 
     def _build_autoplay_command(self) -> np.ndarray:
@@ -1420,16 +1413,7 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
             adr = int(mjm.jnt_dofadr[jid])
             jrange = mjm.jnt_range[jid]
             current_pos = float(mjd.qpos[adr])
-            if "_z_joint" in gname:
-                target_val = self._gripper_z_target
-            else:
-                target_val = self._gripper_target
-            if "left" in gname and "_z_joint" not in gname:
-                target_pos = target_val * jrange[1] if target_val > 0 else target_val * abs(jrange[0])
-            elif "right" in gname and "_z_joint" not in gname:
-                target_pos = target_val * jrange[1] if target_val > 0 else target_val * abs(jrange[0])
-            else:
-                target_pos = target_val * jrange[1] if target_val > 0 else target_val * abs(jrange[0])
+            target_pos = self._gripper_target * jrange[1] if self._gripper_target > 0 else self._gripper_target * abs(jrange[0])
             target_pos = float(np.clip(target_pos, jrange[0], jrange[1]))
             delta = float(np.clip(target_pos - current_pos, -max_delta, max_delta))
             new_pos = float(np.clip(current_pos + delta, jrange[0], jrange[1]))
