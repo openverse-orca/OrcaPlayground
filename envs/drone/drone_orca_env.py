@@ -8,11 +8,17 @@ from gymnasium import spaces
 
 from envs.drone.drone_aero_config import DEFAULT_DRONE_MODEL, get_drone_model_profile
 from orca_gym.devices.keyboard import KeyboardInput, KeyboardInputSourceType
+from orca_gym.devices.xbox_joystick import XboxJoystick, XboxJoystickManager
 from orca_gym.environment.orca_gym_local_env import OrcaGymLocalEnv
 from orca_gym.log.orca_log import get_orca_logger
 from orca_gym.utils import rotations
 
 _logger = get_orca_logger()
+
+
+class ControlDevice:
+    KEYBOARD = "keyboard"
+    XBOX = "xbox"
 
 
 def _joint_dof_bounds(mjm: mujoco.MjModel, joint_name: str) -> tuple[int, int]:
@@ -111,6 +117,7 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         drone_model: str = DEFAULT_DRONE_MODEL,
         diag_logs_enabled: bool = True,
         diag_every_env_steps: int = 0,
+        ctrl_device: str = ControlDevice.KEYBOARD,
         **kwargs,
     ):
         super().__init__(
@@ -136,17 +143,45 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         self._fullmode_reset_thrust_start_factor = float(np.clip(fullmode_reset_thrust_start_factor, 0.0, 1.0))
         self._fullmode_reset_minimal_stab_s = max(0.0, float(fullmode_reset_minimal_stab_s))
 
-        self._keyboard = KeyboardInput(KeyboardInputSourceType.ORCASTUDIO, orcagym_addr)
+        self._ctrl_device = ctrl_device
+        self._keyboard: Optional[KeyboardInput] = None
+        self._joystick_manager: Optional[XboxJoystickManager] = None
+        self._joystick: Optional[XboxJoystick] = None
+        if self._ctrl_device == ControlDevice.XBOX:
+            self._joystick_manager = XboxJoystickManager()
+            joystick_names = self._joystick_manager.get_joystick_names()
+            if len(joystick_names) == 0:
+                _logger.warning("[DroneOrcaEnv] 未检测到手柄，回退到键盘控制")
+                self._ctrl_device = ControlDevice.KEYBOARD
+                self._joystick_manager = None
+            else:
+                self._joystick = self._joystick_manager.get_joystick(joystick_names[0])
+                _logger.info(f"[DroneOrcaEnv] 手柄控制已启用: {joystick_names[0]}")
+        if self._ctrl_device == ControlDevice.KEYBOARD:
+            self._keyboard = KeyboardInput(KeyboardInputSourceType.ORCASTUDIO, orcagym_addr)
         self._last_space_state = 0
+        self._last_a_button_state = 0
 
         self._free_joint_suffix = "drone_free"
         self._free_joint = self._resolve_name("joints", self._free_joint_suffix)
-        self._rotor_specs = [
+        self._primary_rotor_specs = [
             RotorSpec("FL_joint", 1.0),
             RotorSpec("FR_joint", -1.0),
             RotorSpec("BL_joint", -1.0),
             RotorSpec("BR_joint", 1.0),
         ]
+        self._secondary_rotor_map: dict[str, str] = {}
+        for ps in self._primary_rotor_specs:
+            sec_name = ps.joint_suffix.replace("_joint", "2_joint")
+            try:
+                self._resolve_name("joints", sec_name)
+                self._secondary_rotor_map[ps.joint_suffix] = sec_name
+            except (KeyError, Exception):
+                pass
+        self._rotor_specs = list(self._primary_rotor_specs)
+        for primary_name, sec_name in self._secondary_rotor_map.items():
+            primary_spec = next(s for s in self._primary_rotor_specs if s.joint_suffix == primary_name)
+            self._rotor_specs.append(RotorSpec(sec_name, -primary_spec.spin_sign))
         self._rotor_joints = {
             spec.joint_suffix: self._resolve_name("joints", spec.joint_suffix) for spec in self._rotor_specs
         }
@@ -215,12 +250,14 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         self._rotor_speed_delta = float(full_cfg.rotor_speed_delta)
         self._rotor_ramp_rate = float(full_cfg.rotor_ramp_rate)
         demo_bias = tuple(float(v) for v in full_cfg.demo_rotor_bias)
-        self._demo_rotor_bias = {
+        self._demo_rotor_bias: dict[str, float] = {
             "FL_joint": demo_bias[0],
             "FR_joint": demo_bias[1],
             "BL_joint": demo_bias[2],
             "BR_joint": demo_bias[3],
         }
+        for primary_name, sec_name in self._secondary_rotor_map.items():
+            self._demo_rotor_bias[sec_name] = self._demo_rotor_bias[primary_name]
 
         qfree = self.query_joint_qpos([self._free_joint])[self._free_joint]
         self._initial_free_qpos = np.asarray(qfree, dtype=np.float64).reshape(-1).copy()
@@ -395,6 +432,13 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         else:
             raise ValueError("Invalid render mode")
 
+    def close(self) -> None:
+        if self._joystick_manager is not None:
+            self._joystick_manager.close()
+            self._joystick_manager = None
+            self._joystick = None
+        super().close()
+
     def reset_model(self):
         self._takeoff_crossing_logged = False
         self._takeoff_sustained_logged = False
@@ -411,6 +455,7 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         self._last_command[:] = 0.0
         self._autoplay_time = 0.0
         self._last_space_state = 0
+        self._last_a_button_state = 0
 
         free_q = self._initial_free_qpos.copy()
         if self._reset_height_offset_m > 0.0:
@@ -551,6 +596,36 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
             self.mj_forward()
 
     def _read_keyboard_command(self) -> tuple[np.ndarray, bool]:
+        if self._ctrl_device == ControlDevice.XBOX and self._joystick_manager is not None:
+            return self._read_joystick_command()
+        return self._read_keyboard_only_command()
+
+    def _read_joystick_command(self) -> tuple[np.ndarray, bool]:
+        self._joystick_manager.update()
+        pos_ctrl = self._joystick.capture_joystick_pos_ctrl()
+        rot_ctrl = self._joystick.capture_joystick_rot_ctrl()
+        state = self._joystick.get_state()
+
+        a_pressed = int(state["buttons"]["A"])
+        reset_requested = self._last_a_button_state == 0 and a_pressed == 1
+        self._last_a_button_state = a_pressed
+
+        if self._autoplay_enabled:
+            command = self._build_autoplay_command()
+        else:
+            planar_scale = 0.5
+            command = np.array(
+                [
+                    planar_scale * float(pos_ctrl["y"]),
+                    planar_scale * float(pos_ctrl["x"]),
+                    float(pos_ctrl["z"]),
+                    float(rot_ctrl["yaw"]),
+                ],
+                dtype=np.float32,
+            )
+        return command, reset_requested
+
+    def _read_keyboard_only_command(self) -> tuple[np.ndarray, bool]:
         self._keyboard.update()
         state = self._keyboard.get_state()
 
@@ -561,8 +636,6 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         if self._autoplay_enabled:
             command = self._build_autoplay_command()
         else:
-            # 横纹/相机侧为机头（-X）：W前/S后/A左/D右。
-            # 手动模式下把 WASD 平移杆量收半档，避免横向/纵向都过快。
             planar_scale = 0.5
             command = np.array(
                 [
@@ -1263,6 +1336,8 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
             "BL_joint": collective - pitch_term - roll_term - yaw_term,
             "BR_joint": collective - pitch_term + roll_term + yaw_term,
         }
+        for primary_name, sec_name in self._secondary_rotor_map.items():
+            targets[sec_name] = targets[primary_name]
         if not self._aero.vertical_z_only.enabled:
             for joint_suffix, bias in self._demo_rotor_bias.items():
                 targets[joint_suffix] += bias

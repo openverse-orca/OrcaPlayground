@@ -1,0 +1,21 @@
+1. 问题描述
+   用户运行仿真后发现无人机模型有16个旋翼（8个静止+8个旋转），原因是mat_012机身mesh中仍包含桨叶(9268面)和扫掠盘(2412面)的几何体，与独立的8个旋翼body重复显示。
+
+2. 根因分析
+   convert_obj_to_mujoco.py的classify_body()函数将所有mat_012对象归入机身mesh，未排除桨叶和扫掠盘。
+   桨叶(BLADE_FACE_COUNT=9268)和扫掠盘(DISC_FACE_COUNT=2412)作为机身的一部分是静止的，
+   而独立的旋翼body在旋转，导致视觉上出现16个旋翼。
+
+3. 方案设计
+   在classify_body()中添加过滤逻辑：当对象属于mat_012且面数为9268或2412时跳过，
+   这些几何体仅由独立的旋翼body渲染。同时同步更新Orca资产目录中的mat_012.stl。
+
+4. 修改文件清单
+   - convert_obj_to_mujoco.py: classify_body()中添加桨叶/扫掠盘过滤
+   - meshes/mat_012.stl: 重新生成（排除桨叶+扫掠盘，186640面仅含电机壳）
+   - Orca资产目录/mat_012.stl: 同步更新
+
+5. 注意事项
+   - 旋翼STL文件不需要替换，上个版本是好的
+   - out.xml中mesh file引用小写文件名(rotor_fl_upper.stl)，Orca目录中已有对应文件
+   - MuJoCo加载STL时会对坐标做(Z,X,Y)轴重排，这是正常行为

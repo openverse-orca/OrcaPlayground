@@ -178,6 +178,40 @@ _X2_AERO_CONFIG = replace(
     ground_effect=_X2_GROUND_EFFECT_CONFIG,
 )
 
+_DJI_LHCG_DRAG_CONFIG = replace(
+    DEFAULT_DRONE_AERO_CONFIG.drag,
+    linear_xy=10.0,
+    linear_z=14.0,
+    quadratic_xy=5.0,
+    quadratic_z=8.0,
+    angular_xy=1.6,
+    angular_z=1.6,
+    world_xy_velocity_damping=10.0,
+    angular_drag_torque_axis_max=18.0,
+    zero_cmd_angular_hold_k=1.0,
+    zero_cmd_angular_torque_axis_max=3.5,
+    max_body_torque_norm=38.0,
+    quad_world_xy_stick_force_factor=0.06,
+    full_mode_thrust_lpf_tau_s=0.16,
+    zero_cmd_xy_hold_k=12.0,
+    zero_cmd_xy_hold_force_cap=85.0,
+    zero_cmd_z_hold_k=15.0,
+    zero_cmd_z_hold_force_cap=40.0,
+)
+_DJI_LHCG_GROUND_EFFECT_CONFIG = replace(
+    DEFAULT_DRONE_AERO_CONFIG.ground_effect,
+    rotor_radius=0.45,
+    min_height=0.30,
+    active_height=0.80,
+    gain=0.06,
+    max_factor=1.06,
+)
+_DJI_LHCG_AERO_CONFIG = replace(
+    DEFAULT_DRONE_AERO_CONFIG,
+    drag=_DJI_LHCG_DRAG_CONFIG,
+    ground_effect=_DJI_LHCG_GROUND_EFFECT_CONFIG,
+)
+
 DRONE_MODEL_PROFILES: dict[str, DroneModelProfile] = {
     "Drone_ver_1.0": DroneModelProfile(
         key="Drone_ver_1.0",
@@ -216,6 +250,35 @@ DRONE_MODEL_PROFILES: dict[str, DroneModelProfile] = {
         vertical_keyboard_baseline_tmg=1.0022,
         vertical_xy_force_factor=0.04,
     ),
+    "dji_lhcg": DroneModelProfile(
+        key="dji_lhcg",
+        display_name="DJI LHCG (10x)",
+        aero=_DJI_LHCG_AERO_CONFIG,
+        full_mode=FullModeControlConfig(
+            thrust_cmd_scale_over_hover=0.38,
+            tau_yaw_over_hover=0.012,
+            thrust_max_over_hover=2.2,
+            max_tilt_deg=18.0,
+            planar_forward_axis_body=(0.0, 1.0, 0.0),
+            planar_right_axis_body=(1.0, 0.0, 0.0),
+            attitude_kp_scale=100.0,
+            attitude_kd_scale=100.0,
+            attitude_rate_cap_scale=3.0,
+            attitude_torque_limit_scale=100.0,
+            idle_attitude_kp_scale=5.0,
+            idle_attitude_torque_limit_scale=2.5,
+            hover_rotor_speed=42.0,
+            rotor_speed_delta=24.0,
+            rotor_ramp_rate=80.0,
+            demo_rotor_bias=(0.0, 0.0, 0.0, 0.0),
+            reset_height_offset_m=1.80,
+            fullmode_reset_thrust_ramp_s=0.0,
+            fullmode_reset_thrust_start_factor=1.00,
+            fullmode_reset_minimal_stab_s=0.0,
+        ),
+        vertical_keyboard_baseline_tmg=1.0022,
+        vertical_xy_force_factor=0.03,
+    ),
 }
 
 DRONE_MODEL_ALIASES: dict[str, str] = {
@@ -226,6 +289,9 @@ DRONE_MODEL_ALIASES: dict[str, str] = {
     "x2": "x2",
     "skydio_x2": "x2",
     "skydio-x2": "x2",
+    "dji_lhcg": "dji_lhcg",
+    "dji-lhcg": "dji_lhcg",
+    "lhcg": "dji_lhcg",
 }
 
 

@@ -1,304 +1,208 @@
 """
-Convert DJI drone OBJ model to MuJoCo XML format with per-material meshes and textures.
+Convert DJI drone OBJ model to MuJoCo XML format.
 
-Steps:
-1. Load OBJ and split by material
-2. Classify body parts vs propeller-sweep (motion-blur) geometries
-3. Export UV-mapped parts as OBJ (preserving UVs), non-UV parts as STL
-4. Assign texture atlas (wurenji-lhcg_001.jpg) to UV-mapped parts
-5. Detect 4 rotor positions via angle-based clustering of far vertices
-6. Create simplified 2-blade propeller mesh
-7. Generate MuJoCo XML with per-material geoms and textures
+Strategy: Load OBJ with group_material=False (preserves 372 object positions),
+then manually group by material and export each group as a separate STL.
+Only simplify groups exceeding 190000 faces. This preserves far more detail
+than merging everything into one mesh.
+
+Rotor strategy: Export blade-only meshes (9268-face objects) with radial scaling
+to fill the disc area, so rotation is visually obvious (like x2's tri_blade_propeller).
 """
 
+import math
 import pathlib
 import logging
 import sys
 import shutil
-from dataclasses import dataclass
 
 import numpy as np
 import trimesh
-import pyfqmr
+from fast_simplification import simplify as quadric_simplify
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
-SRC_DIR = pathlib.Path("/home/guojiatao/Assets/3d")
+SRC_DIR = pathlib.Path("/home/guojiatao/Assets/3d ")
 DST_DIR = pathlib.Path(__file__).parent
 MESHES_DIR = DST_DIR / "meshes"
 
 SCALE = 0.001
+MESH_SCALE = 10
+BODY_CENTER = np.array([-4.5, 2.5, 40.0])
+BODY_MAX_SPAN = 300
+CENTER_XY_THRESH = 80
+BODY_MAX_DIST = 150.0
+MAX_FACES = 190000
 
-MUJOCO_MAX_FACES = 524288
-MAX_FACES_PER_PART = 190000
+BLADE_FACE_COUNT = 9268
+DISC_FACE_COUNT = 2412
+MOTOR_SHELL_SMALL = 6026
+MOTOR_SHELL_LARGE = 17304
 
-BODY_MAX_SPAN_THRESHOLD = 300
-CENTER_XY_THRESHOLD = 80
-BODY_CENTER_ESTIMATE = np.array([-4.5, 2.5, 40.0])
-BODY_MAX_DIST_FROM_CENTER = 150.0
-ISOLATION_GAP_MM = 10.0
-
-ROTOR_Z_LO = 35.0
-ROTOR_Z_HI = 55.0
-FAR_PERCENTILE = 98
-
-BODY_TEXTURE = "wurenji-lhcg_001.png"
+ROTOR_ARM_MAP = {"FR": "FR", "RR": "BR", "RL": "BL", "FL": "FL"}
 
 
-@dataclass
-class MaterialInfo:
-    name: str
-    rgba: str
-    has_uv: bool = False
-    texture_file: str | None = None
-
-
-def _build_spatial_grid(verts: np.ndarray, grid_size: float) -> dict:
-    from collections import defaultdict
-    grid = defaultdict(list)
-    for i, v in enumerate(verts):
-        key = (int(v[0] / grid_size), int(v[1] / grid_size), int(v[2] / grid_size))
-        grid[key].append(i)
-    return grid
-
-
-def _min_distance_to_grid(verts: np.ndarray, ref_verts: np.ndarray, ref_grid: dict, grid_size: float, sample: int = 200) -> float:
-    sample_idx = np.random.choice(len(verts), min(sample, len(verts)), replace=False)
-    min_dist = float("inf")
-    for i in sample_idx:
-        v = verts[i]
-        gx, gy, gz = int(v[0] / grid_size), int(v[1] / grid_size), int(v[2] / grid_size)
-        for dx in range(-2, 3):
-            for dy in range(-2, 3):
-                for dz in range(-2, 3):
-                    key = (gx + dx, gy + dy, gz + dz)
-                    if key in ref_grid:
-                        indices = ref_grid[key]
-                        dists = np.linalg.norm(ref_verts[indices] - v, axis=1)
-                        d = float(np.min(dists))
-                        if d < min_dist:
-                            min_dist = d
-    return min_dist
-
-
-def load_and_classify(scene: trimesh.Scene) -> tuple[list[tuple[str, trimesh.Trimesh]], list[tuple[str, trimesh.Trimesh]]]:
-    body_parts = []
-    sweep_parts = []
-
+def classify_body(scene: trimesh.Scene) -> list[tuple[str, trimesh.Trimesh, str, str]]:
+    results = []
     for name, geom in scene.geometry.items():
         if not isinstance(geom, trimesh.Trimesh):
             continue
-        bounds = geom.bounds
-        span = bounds[1] - bounds[0]
-        max_span = float(max(span))
         center = geom.centroid
-        is_near_center = abs(center[0]) < CENTER_XY_THRESHOLD and abs(center[1]) < CENTER_XY_THRESHOLD
-        dist_from_body = float(np.linalg.norm(center - BODY_CENTER_ESTIMATE))
-
-        if max_span > BODY_MAX_SPAN_THRESHOLD and not is_near_center:
-            sweep_parts.append((name, geom))
-            logger.info("  SWEEP (large+far): %s, dist=%.1fmm", name, dist_from_body)
-        elif dist_from_body > BODY_MAX_DIST_FROM_CENTER:
-            sweep_parts.append((name, geom))
-            logger.info("  SWEEP (far): %s, dist=%.1fmm, max_span=%.1f", name, dist_from_body, max_span)
-        else:
-            body_parts.append((name, geom))
-
-    core_verts_list = []
-    for name, geom in body_parts:
-        if len(geom.faces) > 10000:
-            core_verts_list.append(geom.vertices)
-
-    if core_verts_list:
-        core_verts = np.vstack(core_verts_list)
-        grid_size = ISOLATION_GAP_MM
-        core_grid = _build_spatial_grid(core_verts, grid_size)
-
-        changed = True
-        while changed:
-            changed = False
-            all_body_verts_list = [geom.vertices for _, geom in body_parts]
-            all_body_verts = np.vstack(all_body_verts_list)
-            all_body_grid = _build_spatial_grid(all_body_verts, grid_size)
-
-            isolated = []
-            for name, geom in body_parts:
-                if len(geom.faces) > 10000:
-                    continue
-                min_gap = _min_distance_to_grid(geom.vertices, all_body_verts, all_body_grid, grid_size)
-                if min_gap > ISOLATION_GAP_MM:
-                    isolated.append((name, geom))
-                    logger.info("  ISOLATED: %s, min_gap=%.1fmm > %.1fmm threshold", name, min_gap, ISOLATION_GAP_MM)
-
-            if isolated:
-                for name, geom in isolated:
-                    body_parts.remove((name, geom))
-                    sweep_parts.append((name, geom))
-                changed = True
-
-    logger.info("Classified: %d body parts, %d sweep parts", len(body_parts), len(sweep_parts))
-    return body_parts, sweep_parts
-
-
-def extract_material_info(name: str, geom: trimesh.Trimesh) -> MaterialInfo:
-    mat_name = name.replace("wurenji_lhcg_mat_", "mat_")
-    diffuse = None
-    has_uv = False
-    texture_file = None
-
-    visual = geom.visual
-    if visual is not None and hasattr(visual, "material"):
-        mat = visual.material
-        if hasattr(mat, "diffuse"):
-            try:
-                d = mat.diffuse
-                r, g, b = int(d[0]) / 255.0, int(d[1]) / 255.0, int(d[2]) / 255.0
-                diffuse = f"{r:.4f} {g:.4f} {b:.4f} 1"
-            except Exception:
-                pass
-
-    if visual is not None:
-        try:
-            uv = visual.uv
-            if uv is not None and len(uv) > 0 and uv.shape[0] == len(geom.vertices):
-                has_uv = True
-                texture_file = BODY_TEXTURE
-        except Exception:
-            pass
-
-    if diffuse is None:
-        diffuse = "0.8 0.8 0.8 1"
-
-    return MaterialInfo(name=mat_name, rgba=diffuse, has_uv=has_uv, texture_file=texture_file)
-
-
-def find_rotor_positions(merged: trimesh.Trimesh, body_center: np.ndarray) -> list[np.ndarray]:
-    verts = merged.vertices
-
-    z_mask = (verts[:, 2] > ROTOR_Z_LO) & (verts[:, 2] < ROTOR_Z_HI)
-    rotor_z_verts = verts[z_mask]
-
-    xy = rotor_z_verts[:, :2]
-    center_xy = body_center[:2]
-    distances = np.linalg.norm(xy - center_xy, axis=1)
-    threshold = np.percentile(distances, FAR_PERCENTILE)
-    far_mask = distances > threshold
-    far_verts = rotor_z_verts[far_mask]
-
-    logger.info("Far vertices at rotor height: %d (threshold=%.1f)", len(far_verts), threshold)
-
-    target_angles = [np.pi / 4, 3 * np.pi / 4, -3 * np.pi / 4, -np.pi / 4]
-    labels = ["FR", "FL", "BL", "BR"]
-    rotor_positions = []
-
-    angles = np.arctan2(far_verts[:, 1] - body_center[1], far_verts[:, 0] - body_center[0])
-
-    for label, ta in zip(labels, target_angles):
-        angle_diff = np.abs(np.arctan2(np.sin(angles - ta), np.cos(angles - ta)))
-        near_mask = angle_diff < np.pi / 4
-        if not np.any(near_mask):
-            logger.warning("No points found for rotor %s", label)
+        dist = float(np.linalg.norm(center - BODY_CENTER))
+        span = geom.bounds[1] - geom.bounds[0]
+        max_span = float(max(span))
+        is_near = abs(center[0]) < CENTER_XY_THRESH and abs(center[1]) < CENTER_XY_THRESH
+        if (max_span > BODY_MAX_SPAN and not is_near) or dist > BODY_MAX_DIST:
             continue
-        cluster = far_verts[near_mask]
-        cluster_center = cluster.mean(axis=0)
-        rotor_positions.append(cluster_center)
-        logger.info("Rotor %s: center=[%.1f, %.1f, %.1f], n=%d", label, cluster_center[0], cluster_center[1], cluster_center[2], len(cluster))
 
-    return rotor_positions
+        mat_name = "unknown"
+        rgba = "0.8 0.8 0.8 1"
+        visual = geom.visual
+        if visual is not None and hasattr(visual, "material"):
+            mat = visual.material
+            if hasattr(mat, "name") and mat.name:
+                mat_name = mat.name
+            if hasattr(mat, "diffuse"):
+                try:
+                    d = mat.diffuse
+                    rgba = f"{int(d[0])/255:.4f} {int(d[1])/255:.4f} {int(d[2])/255:.4f} 1"
+                except Exception:
+                    pass
 
+        n_faces = len(geom.faces)
+        if "mat_012" in mat_name and n_faces in (BLADE_FACE_COUNT, DISC_FACE_COUNT, MOTOR_SHELL_SMALL, MOTOR_SHELL_LARGE):
+            continue
 
-def create_blade_mesh(radius_m: float, n_blades: int = 2) -> trimesh.Trimesh:
-    blade_length = radius_m * 0.9
-    blade_width = radius_m * 0.12
-    blade_thickness = radius_m * 0.015
+        short = mat_name.replace("wurenji_lhcg_mat_", "mat_")
+        if short in ("mat_010", "mat_011", "mat_013", "mat_014", "mat_015", "mat_016", "mat_032"):
+            continue
 
-    blade = trimesh.creation.box(extents=[blade_length, blade_width, blade_thickness])
-    blade.apply_translation([blade_length / 2, 0, 0])
+        results.append((name, geom, mat_name, rgba))
 
-    blades = []
-    for i in range(n_blades):
-        angle = i * np.pi / n_blades
-        rotated = blade.copy()
-        rotation = trimesh.transformations.rotation_matrix(angle, [0, 0, 1])
-        rotated.apply_transform(rotation)
-        blades.append(rotated)
-
-    hub = trimesh.creation.cylinder(radius=blade_width * 0.5, height=blade_thickness * 2)
-    blades.append(hub)
-
-    return trimesh.util.concatenate(blades)
-
-
-def center_and_scale_mesh(mesh: trimesh.Trimesh, center: np.ndarray, scale: float) -> trimesh.Trimesh:
-    mesh = mesh.copy()
-    mesh.apply_translation(-center)
-    mesh.apply_scale(scale)
-    return mesh
+    logger.info("Body objects: %d", len(results))
+    return results
 
 
-def simplify_mesh(mesh: trimesh.Trimesh, target_faces: int) -> trimesh.Trimesh:
-    if len(mesh.faces) <= target_faces:
-        return mesh
-
-    logger.info("Simplifying mesh: %d -> %d faces", len(mesh.faces), target_faces)
-    mesh_simplifier = pyfqmr.Simplify()
-    mesh_simplifier.setMesh(mesh.vertices, mesh.faces)
-    mesh_simplifier.simplify_mesh(target_count=target_faces, aggressiveness=7, preserve_border=False, verbose=False)
-    vertices, faces, _ = mesh_simplifier.getMesh()
-
-    simplified = trimesh.Trimesh(vertices=vertices, faces=faces, process=True)
-    logger.info("Simplified: %d vertices, %d faces", len(simplified.vertices), len(simplified.faces))
-    return simplified
+def group_by_material(objects: list[tuple[str, trimesh.Trimesh, str, str]]) -> dict[str, tuple[list[trimesh.Trimesh], str]]:
+    groups: dict[str, tuple[list[trimesh.Trimesh], str]] = {}
+    for _, geom, mat_name, rgba in objects:
+        short = mat_name.replace("wurenji_lhcg_mat_", "mat_")
+        if short not in groups:
+            groups[short] = ([], rgba)
+        groups[short][0].append(geom)
+    return groups
 
 
-def simplify_part(geom: trimesh.Trimesh, target_faces: int) -> trimesh.Trimesh:
-    if len(geom.faces) <= target_faces:
-        return geom
-    try:
-        s = pyfqmr.Simplify()
-        s.setMesh(geom.vertices, geom.faces)
-        s.simplify_mesh(target_count=target_faces, aggressiveness=7, preserve_border=True, verbose=False)
-        verts, faces, _ = s.getMesh()
-        return trimesh.Trimesh(vertices=verts, faces=faces, process=True)
-    except Exception:
-        return geom
+def simplify_mesh(verts: np.ndarray, faces: np.ndarray, target: int) -> tuple[np.ndarray, np.ndarray]:
+    reduction = 1.0 - (target / len(faces))
+    reduction = max(0.1, min(0.95, reduction))
+    v1, f1 = quadric_simplify(verts, faces, target_reduction=reduction)
+    if len(f1) > MAX_FACES:
+        r2 = 1.0 - (target / len(f1))
+        v2, f2 = quadric_simplify(v1, f1, target_reduction=max(0.1, min(0.9, r2)))
+        return v2, f2
+    return v1, f1
 
 
-def export_obj_with_texture(mesh: trimesh.Trimesh, obj_path: pathlib.Path, texture_file: str) -> None:
-    mtl_filename = obj_path.stem + ".mtl"
-    mtl_path = obj_path.parent / mtl_filename
+def export_rotors(scene: trimesh.Scene) -> list[tuple[str, np.ndarray]]:
+    rotor_objects = []
+    for name, geom in scene.geometry.items():
+        if not isinstance(geom, trimesh.Trimesh):
+            continue
+        visual = geom.visual
+        mat_name = "unknown"
+        if visual is not None and hasattr(visual, 'material'):
+            mat = visual.material
+            if hasattr(mat, 'name') and mat.name:
+                mat_name = mat.name
+        short = mat_name.replace("wurenji_lhcg_mat_", "mat_")
+        if short not in ("mat_010", "mat_011", "mat_012", "mat_013", "mat_014", "mat_015", "mat_016", "mat_032"):
+            continue
+        center = geom.centroid
+        dist = float(np.linalg.norm(center - BODY_CENTER))
+        span = geom.bounds[1] - geom.bounds[0]
+        max_span = float(max(span))
+        is_near = abs(center[0]) < 80 and abs(center[1]) < 80
+        if (max_span > 300 and not is_near) or dist > 150:
+            continue
+        n_faces = len(geom.faces)
+        if short == "mat_012" and n_faces == BLADE_FACE_COUNT:
+            continue
+        rotor_objects.append((name, geom, center, n_faces))
 
-    mtl_content = (
-        f"newmtl {obj_path.stem}_mat\n"
-        f"Ka 0.2 0.2 0.2\n"
-        f"Kd 0.8 0.8 0.8\n"
-        f"Ks 0.0 0.0 0.0\n"
-        f"map_Kd {texture_file}\n"
-    )
-    mtl_path.write_text(mtl_content, encoding="utf-8")
+    arm_groups: dict[str, list] = {"FR": [], "RR": [], "RL": [], "FL": []}
+    for name, geom, center, n_faces in rotor_objects:
+        x, y = center[0] - BODY_CENTER[0], center[1] - BODY_CENTER[1]
+        if x > 0 and y < 0:
+            arm_groups["FR"].append((name, geom, center, n_faces))
+        elif x > 0 and y > 0:
+            arm_groups["RR"].append((name, geom, center, n_faces))
+        elif x < 0 and y > 0:
+            arm_groups["RL"].append((name, geom, center, n_faces))
+        else:
+            arm_groups["FL"].append((name, geom, center, n_faces))
 
-    mesh_obj = mesh.copy()
-    if mesh_obj.visual is None or not hasattr(mesh_obj.visual, "uv"):
-        mesh_obj.visual = trimesh.visual.ColorVisuals(mesh_obj)
+    rotor_entries = []
+    for arm_name, objects in arm_groups.items():
+        if not objects:
+            continue
 
-    export_data = trimesh.exchange.obj.export_obj(
-        mesh_obj,
-        include_texture=True,
-        mtl_name=mtl_filename,
-    )
-    obj_path.write_text(export_data, encoding="utf-8")
+        disc_z = [c[2] for _, _, c, nf in objects if nf == DISC_FACE_COUNT]
+        if len(disc_z) < 2:
+            continue
+        z_mid = (min(disc_z) + max(disc_z)) / 2.0
+
+        upper_parts = []
+        lower_parts = []
+        seen = set()
+        for name, geom, center, n_faces in objects:
+            key = (round(center[0], 1), round(center[1], 1), round(center[2], 1), n_faces)
+            if key in seen:
+                continue
+            seen.add(key)
+            if center[2] >= z_mid:
+                upper_parts.append(geom)
+            else:
+                lower_parts.append(geom)
+
+        for suffix, parts in [("upper", upper_parts), ("lower", lower_parts)]:
+            if not parts:
+                continue
+            merged = trimesh.util.concatenate(parts)
+            disc_centroid = merged.centroid.copy()
+
+            verts = merged.vertices.copy()
+            verts -= disc_centroid
+            verts *= SCALE
+
+            body_pos = (disc_centroid - BODY_CENTER) * SCALE
+
+            mesh = trimesh.Trimesh(vertices=verts, faces=merged.faces, process=True)
+            src_key = f"rotor_{arm_name}_{suffix}"
+            stl_path = MESHES_DIR / f"{src_key}.stl"
+            mesh.export(str(stl_path), file_type="stl")
+
+            dst_name = ROTOR_ARM_MAP.get(arm_name, arm_name)
+            dst_key = f"rotor_{dst_name}_{suffix}"
+            if dst_key != src_key:
+                shutil.copy2(str(stl_path), str(MESHES_DIR / f"{dst_key}.stl"))
+
+            rotor_entries.append((dst_key, body_pos))
+            logger.info("  %s: pos=(%.4f, %.4f, %.4f)",
+                        dst_key, body_pos[0], body_pos[1], body_pos[2])
+
+    return rotor_entries
 
 
 def generate_xml(
+    mesh_entries: list[tuple[str, str]],
+    rotor_entries: list[tuple[str, np.ndarray]],
     body_mass: float,
     body_inertia: np.ndarray,
-    material_meshes: list[tuple[str, MaterialInfo]],
-    texture_entries: list[tuple[str, str]],
 ) -> str:
     ix, iy, iz = body_inertia[0, 0], body_inertia[1, 1], body_inertia[2, 2]
-
-    xml_lines = [
+    lines = [
         '<mujoco model="dji_lhcg">',
         '  <compiler angle="radian" meshdir="meshes/" texturedir="meshes/" balanceinertia="true"/>',
         '',
@@ -306,36 +210,28 @@ def generate_xml(
         '    <texture name="texplane" type="2d" builtin="flat" rgb1="0.95 0.95 0.95" width="5120" height="5120"/>',
         '    <material name="MatPlane" texture="texplane" texrepeat="1 1" texuniform="true" reflectance="0"/>',
     ]
-
-    for tex_name, tex_file in texture_entries:
-        xml_lines.append(f'    <texture name="{tex_name}" type="2d" file="{tex_file}"/>')
-
-    for mesh_name, mat_info in material_meshes:
-        ext = "obj" if mat_info.has_uv else "stl"
-        xml_lines.append(f'    <mesh name="{mesh_name}" file="{mesh_name}.{ext}"/>')
-
-    for mesh_name, mat_info in material_meshes:
-        if mat_info.has_uv and mat_info.texture_file:
-            tex_name = mat_info.name + "_tex"
-            xml_lines.append(f'    <material name="{mat_info.name}_mat" texture="{tex_name}" rgba="{mat_info.rgba}" texuniform="false"/>')
-        else:
-            xml_lines.append(f'    <material name="{mat_info.name}_mat" rgba="{mat_info.rgba}"/>')
-
-    xml_lines.extend([
+    for mesh_name, _ in mesh_entries:
+        lines.append(f'    <mesh name="{mesh_name}" file="{mesh_name}.stl" scale="10 10 10"/>')
+    for rotor_key, _ in rotor_entries:
+        lines.append(f'    <mesh name="{rotor_key}" file="{rotor_key}.stl" scale="10 10 10"/>')
+    lines.extend([
         '  </asset>',
         '',
         '  <default>',
         '    <light castshadow="false"/>',
         '    <geom rgba="0.8 0.8 0.8 1"/>',
-        '',
         '    <default class="dji_lhcg">',
         '      <joint limited="true" range="-1.5 1.5" damping="0.1" armature="0.001"/>',
         '      <geom contype="1" conaffinity="1" condim="4" group="1" margin="0.001"/>',
-        '',
         '      <default class="main_body">',
         '        <geom type="mesh" contype="0" conaffinity="0" group="1" mass="0"/>',
         '      </default>',
-        '',
+        '      <default class="rotor_joint">',
+        '        <joint type="hinge" limited="false" damping="0.02" armature="0.0005"/>',
+        '      </default>',
+        '      <default class="rotor_geom">',
+        '        <geom type="mesh" contype="0" conaffinity="0" group="1" mass="0" rgba="0.0667 0.0667 0.0667 1"/>',
+        '      </default>',
         '      <default class="collision">',
         '        <geom contype="1" conaffinity="1" group="4" rgba="1 0.3 1 0.5" friction="2 0.0005 0.00001"/>',
         '      </default>',
@@ -351,160 +247,139 @@ def generate_xml(
         '',
         '    <body name="drone_frame" pos="0 0 0">',
         '      <joint name="drone_free" type="free"/>',
-        '      <body name="camera" pos="-0.5 0 0" euler="0 0 -1.570796">',
+        '      <body name="camera" pos="-5 0 0" euler="0 0 -1.570796">',
         '        <camera name="indi_eye_camera" pos="0 0 0" fovy="90"/>',
         '      </body>',
         '',
         '      <body name="Drone" childclass="dji_lhcg" pos="0 0 0">',
-        '        <site name="drone_body_center_site" pos="0 0 0" group="3" size="0.01" rgba="1 1 0 0.8"/>',
-        '        <site name="drone_up_site" pos="0 0 0.1" size="0.008" group="3" rgba="0 0.7 1 0.8"/>',
-        '',
+        '        <site name="imu" pos="0 0 0" size="0.01" rgba="0.5 0.5 0.5 1" group="0"/>',
+        '        <site name="drone_body_center_site" pos="0 0 0" group="3" size="0.05" rgba="1 1 0 0.8"/>',
+        '        <site name="drone_forward_site" pos="0 1.2 0" size="0.03" group="3" rgba="0 1 0 0.8"/>',
+        '        <site name="drone_up_site" pos="0 0 1.0" size="0.04" group="3" rgba="0 0.7 1 0.8"/>',
         f'        <inertial pos="0 0 0" mass="{body_mass:.4f}" diaginertia="{ix:.6f} {iy:.6f} {iz:.6f}"/>',
         '',
     ])
+    for mesh_name, rgba in mesh_entries:
+        lines.append(f'        <geom name="body_{mesh_name}" class="main_body" mesh="{mesh_name}" rgba="{rgba}"/>')
+    lines.append('        <geom name="body_col" class="collision" type="cylinder" size="1.5 0.4"/>')
 
-    for i, (mesh_name, mat_info) in enumerate(material_meshes):
-        xml_lines.append(
-            f'        <geom name="body_{mesh_name}" class="main_body" mesh="{mesh_name}" material="{mat_info.name}_mat" rgba="{mat_info.rgba}"/>'
-        )
+    rotor_specs = [
+        ("FL_upper_blade", "FL_joint", "0 0 1", "rotor_fl_site", "rotor_FL_upper"),
+        ("FL_lower_blade", "FL2_joint", "0 0 -1", "rotor_fl2_site", "rotor_FL_lower"),
+        ("FR_upper_blade", "FR_joint", "0 0 1", "rotor_fr_site", "rotor_FR_upper"),
+        ("FR_lower_blade", "FR2_joint", "0 0 -1", "rotor_fr2_site", "rotor_FR_lower"),
+        ("BL_upper_blade", "BL_joint", "0 0 1", "rotor_bl_site", "rotor_BL_upper"),
+        ("BL_lower_blade", "BL2_joint", "0 0 -1", "rotor_bl2_site", "rotor_BL_lower"),
+        ("BR_upper_blade", "BR_joint", "0 0 1", "rotor_br_site", "rotor_BR_upper"),
+        ("BR_lower_blade", "BR2_joint", "0 0 -1", "rotor_br2_site", "rotor_BR_lower"),
+    ]
 
-    xml_lines.append(
-        '        <geom name="body_col" class="collision" type="cylinder" size="0.15 0.04"/>'
-    )
+    rotor_pos_map = {key: pos for key, pos in rotor_entries}
+    for body_name, joint_name, axis, site_name, mesh_key in rotor_specs:
+        pos = rotor_pos_map.get(mesh_key)
+        if pos is None:
+            logger.warning("Missing rotor position for %s", mesh_key)
+            continue
+        px, py, pz = f"{pos[0]*MESH_SCALE:.3f}", f"{pos[1]*MESH_SCALE:.3f}", f"{pos[2]*MESH_SCALE:.3f}"
+        site_rgba = "1 0.5 0 0.8" if "2_" not in joint_name else "1 0.3 0 0.8"
+        lines.extend([
+            '',
+            f'        <body name="{body_name}" pos="{px} {py} {pz}">',
+            f'          <inertial pos="0 0 0" mass="0.03" diaginertia="3e-4 1.5e-4 1.5e-4"/>',
+            f'          <joint class="rotor_joint" name="{joint_name}" axis="{axis}"/>',
+            f'          <site name="{site_name}" pos="0 0 0" size="0.05" rgba="{site_rgba}"/>',
+            f'          <geom class="rotor_geom" mesh="{mesh_key}"/>',
+            '        </body>',
+        ])
 
-    xml_lines.extend([
+    lines.extend([
         '      </body>',
         '    </body>',
         '  </worldbody>',
         '',
         '  <sensor>',
-        '    <gyro name="body_gyro" site="drone_body_center_site"/>',
-        '    <accelerometer name="body_linacc" site="drone_body_center_site"/>',
-        '    <framequat name="body_quat" objtype="site" objname="drone_body_center_site"/>',
+        '    <gyro name="body_gyro" site="imu"/>',
+        '    <accelerometer name="body_linacc" site="imu"/>',
+        '    <framequat name="body_quat" objtype="site" objname="imu"/>',
         '  </sensor>',
         '</mujoco>',
         '',
     ])
-
-    return "\n".join(xml_lines)
+    return "\n".join(lines)
 
 
 def main() -> None:
     MESHES_DIR.mkdir(parents=True, exist_ok=True)
 
-    for f in MESHES_DIR.glob("*.stl"):
+    for f in MESHES_DIR.glob("mat_*.stl"):
         f.unlink()
-        logger.info("Removed old mesh: %s", f.name)
-    for f in MESHES_DIR.glob("*.obj"):
-        if f.name != "obj.obj":
-            f.unlink()
-            logger.info("Removed old mesh: %s", f.name)
-    for f in MESHES_DIR.glob("mat_*.mtl"):
+    for f in MESHES_DIR.glob("dji_body*.stl"):
         f.unlink()
-        logger.info("Removed old mtl: %s", f.name)
+    for f in MESHES_DIR.glob("rotor_*.stl"):
+        f.unlink()
 
     obj_path = SRC_DIR / "obj.obj"
     if not obj_path.exists():
-        logger.error("OBJ file not found: %s", obj_path)
+        logger.error("OBJ not found: %s", obj_path)
         sys.exit(1)
 
-    logger.info("Loading OBJ file: %s", obj_path)
-    scene = trimesh.load(str(obj_path), split_object=True, group_material=True)
-    logger.info("Loaded scene with %d geometries", len(scene.geometry))
+    logger.info("Loading OBJ (group_material=False)...")
+    scene = trimesh.load(str(obj_path), split_object=True, group_material=False)
+    logger.info("Loaded: %d geometries", len(scene.geometry))
 
-    body_parts, sweep_parts = load_and_classify(scene)
-
-    if not body_parts:
+    body_objects = classify_body(scene)
+    if not body_objects:
         logger.error("No body parts found!")
         sys.exit(1)
 
-    body_center = BODY_CENTER_ESTIMATE.copy()
-    logger.info("Using body center: [%.1f, %.1f, %.1f]", body_center[0], body_center[1], body_center[2])
+    groups = group_by_material(body_objects)
+    logger.info("Material groups: %d", len(groups))
 
-    material_meshes: list[tuple[str, MaterialInfo]] = []
-    texture_entries: list[tuple[str, str]] = []
-    total_faces = 0
+    mesh_entries = []
+    for mat_name, (parts, rgba) in sorted(groups.items()):
+        merged = trimesh.util.concatenate(parts)
+        n_faces = len(merged.faces)
+        merged.vertices -= BODY_CENTER
+        merged.vertices *= SCALE
 
-    for name, geom in body_parts:
-        mat_info = extract_material_info(name, geom)
-        mesh_name = mat_info.name
-
-        scaled = center_and_scale_mesh(geom, body_center, SCALE)
-
-        if len(scaled.faces) > MAX_FACES_PER_PART:
-            target = max(int(len(scaled.faces) * 0.5), 1000)
-            logger.info("Simplifying %s: %d -> %d faces (UV will be lost)", mesh_name, len(scaled.faces), target)
-            scaled = simplify_part(scaled, target)
-            mat_info.has_uv = False
-            mat_info.texture_file = None
-
-        if len(scaled.faces) == 0:
-            logger.warning("Skipping empty mesh: %s", mesh_name)
-            continue
-
-        if mat_info.has_uv and mat_info.texture_file:
-            obj_file = MESHES_DIR / f"{mesh_name}.obj"
-            export_obj_with_texture(scaled, obj_file, mat_info.texture_file)
-            logger.info("Exported %s: %d faces -> OBJ with texture %s", mesh_name, len(scaled.faces), mat_info.texture_file)
-
-            tex_name = f"{mat_info.name}_tex"
-            if tex_name not in [t[0] for t in texture_entries]:
-                texture_entries.append((tex_name, mat_info.texture_file))
+        if n_faces > MAX_FACES:
+            target = MAX_FACES - 10000
+            v, f = simplify_mesh(merged.vertices, merged.faces, target)
+            simplified = trimesh.Trimesh(vertices=v, faces=f, process=True)
+            logger.info("  %s: %d -> %df", mat_name, n_faces, len(simplified.faces))
         else:
-            mesh_path = MESHES_DIR / f"{mesh_name}.stl"
-            scaled.export(str(mesh_path), file_type="stl")
-            logger.info("Exported %s: %d faces -> STL (rgba=%s)", mesh_name, len(scaled.faces), mat_info.rgba)
+            simplified = merged
+            logger.info("  %s: %df (kept)", mat_name, n_faces)
 
-        material_meshes.append((mesh_name, mat_info))
-        total_faces += len(scaled.faces)
+        stl_path = MESHES_DIR / f"{mat_name}.stl"
+        simplified.export(str(stl_path), file_type="stl")
+        mesh_entries.append((mat_name, rgba))
 
-    logger.info("Total faces across all material meshes: %d", total_faces)
+    total = 0
+    for name, _ in mesh_entries:
+        p = MESHES_DIR / f"{name}.stl"
+        m = trimesh.load(str(p))
+        total += len(m.faces)
+    logger.info("Total faces: %d across %d meshes", total, len(mesh_entries))
 
-    body_mass = 1.5
-    body_inertia = np.diag([0.0347563, 0.0458929, 0.0806492])
+    logger.info("Exporting rotors (blade-only with radial scaling)...")
+    rotor_entries = export_rotors(scene)
 
-    logger.info("Body mass: %.4f kg", body_mass)
-    logger.info("Body inertia diag: [%.6f, %.6f, %.6f]", body_inertia[0, 0], body_inertia[1, 1], body_inertia[2, 2])
+    body_mass = 15.0
+    body_inertia = np.diag([6.2508, 3.7158, 2.8518])
 
-    xml_content = generate_xml(
-        body_mass=body_mass,
-        body_inertia=body_inertia,
-        material_meshes=material_meshes,
-        texture_entries=texture_entries,
-    )
-
+    xml_content = generate_xml(mesh_entries, rotor_entries, body_mass, body_inertia)
     xml_path = DST_DIR / "dji_lhcg.xml"
-    logger.info("Writing MuJoCo XML to %s", xml_path)
     xml_path.write_text(xml_content, encoding="utf-8")
+    logger.info("XML: %s", xml_path)
 
-    texture_files = [
-        ("wurenji-lhcg_001.jpg", "wurenji-lhcg_001.png"),
-        ("wurenji-lhcg_002.jpg", "wurenji-lhcg_002.png"),
-        ("wurenji-lhcg_003.tif", "wurenji-lhcg_003.png"),
-        ("wurenji-lhcg_004.jpg", "wurenji-lhcg_004.png"),
-        ("wurenji-lhcg_005.jpg", "wurenji-lhcg_005.png"),
-        ("wurenji-lhcg_006.jpg", "wurenji-lhcg_006.png"),
-    ]
-    from PIL import Image as PILImage
-    for src_name, dst_name in texture_files:
-        src = SRC_DIR / src_name
-        dst = MESHES_DIR / dst_name
-        if src.exists() and not dst.exists():
-            img = PILImage.open(str(src))
-            img.save(str(dst), "PNG")
-            logger.info("Converted texture: %s -> %s", src_name, dst_name)
-
-    mtl_src = SRC_DIR / "obj.mtl"
-    if mtl_src.exists():
-        shutil.copy2(str(mtl_src), str(MESHES_DIR / "obj.mtl"))
-        logger.info("Copied MTL file")
-
-    logger.info("Conversion complete!")
-    logger.info("Output directory: %s", DST_DIR)
-    mesh_files = sorted(set(p.name for p in list(MESHES_DIR.glob("*.stl")) + list(MESHES_DIR.glob("*.obj")) if p.name != "obj.obj"))
-    logger.info("Mesh files: %s", mesh_files)
-    tex_files = sorted(set(p.name for p in list(MESHES_DIR.glob("*.jpg")) + list(MESHES_DIR.glob("*.tif"))))
-    logger.info("Texture files: %s", tex_files)
+    import mujoco
+    model = mujoco.MjModel.from_xml_path(str(xml_path))
+    data = mujoco.MjData(model)
+    for _ in range(10):
+        mujoco.mj_step(model, data)
+    logger.info("MuJoCo OK: nbody=%d, ngeom=%d, nmesh=%d", model.nbody, model.ngeom, model.nmesh)
+    logger.info("Done!")
 
 
 if __name__ == "__main__":

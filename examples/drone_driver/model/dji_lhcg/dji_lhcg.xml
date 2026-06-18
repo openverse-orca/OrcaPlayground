@@ -4,76 +4,51 @@
   <asset>
     <texture name="texplane" type="2d" builtin="flat" rgb1="0.95 0.95 0.95" width="5120" height="5120"/>
     <material name="MatPlane" texture="texplane" texrepeat="1 1" texuniform="true" reflectance="0"/>
-    <texture name="mat_032_tex" type="2d" file="wurenji-lhcg_001.png"/>
-    <texture name="mat_018_tex" type="2d" file="wurenji-lhcg_001.png"/>
-    <texture name="mat_016_tex" type="2d" file="wurenji-lhcg_001.png"/>
-    <texture name="mat_015_tex" type="2d" file="wurenji-lhcg_001.png"/>
-    <texture name="mat_014_tex" type="2d" file="wurenji-lhcg_001.png"/>
-    <texture name="mat_013_tex" type="2d" file="wurenji-lhcg_001.png"/>
-    <texture name="mat_011_tex" type="2d" file="wurenji-lhcg_001.png"/>
-    <texture name="mat_010_tex" type="2d" file="wurenji-lhcg_001.png"/>
-    <texture name="mat_003_tex" type="2d" file="wurenji-lhcg_001.png"/>
-    <texture name="mat_002_tex" type="2d" file="wurenji-lhcg_001.png"/>
-    <mesh name="mat_032" file="mat_032.obj"/>
-    <mesh name="mat_031" file="mat_031.stl"/>
-    <mesh name="mat_030" file="mat_030.stl"/>
-    <mesh name="mat_026" file="mat_026.stl"/>
-    <mesh name="mat_021" file="mat_021.stl"/>
-    <mesh name="mat_020" file="mat_020.stl"/>
-    <mesh name="mat_019" file="mat_019.stl"/>
-    <mesh name="mat_018" file="mat_018.obj"/>
-    <mesh name="mat_016" file="mat_016.obj"/>
-    <mesh name="mat_015" file="mat_015.obj"/>
-    <mesh name="mat_014" file="mat_014.obj"/>
-    <mesh name="mat_013" file="mat_013.obj"/>
-    <mesh name="mat_012" file="mat_012.stl"/>
-    <mesh name="mat_011" file="mat_011.obj"/>
-    <mesh name="mat_010" file="mat_010.obj"/>
-    <mesh name="mat_009" file="mat_009.stl"/>
-    <mesh name="mat_008" file="mat_008.stl"/>
-    <mesh name="mat_007" file="mat_007.stl"/>
-    <mesh name="mat_006" file="mat_006.stl"/>
-    <mesh name="mat_004" file="mat_004.stl"/>
-    <mesh name="mat_003" file="mat_003.obj"/>
-    <mesh name="mat_002" file="mat_002.obj"/>
-    <mesh name="mat_001" file="mat_001.stl"/>
-    <material name="mat_032_mat" texture="mat_032_tex" rgba="0.9333 0.9333 0.9333 1" texuniform="false"/>
-    <material name="mat_031_mat" rgba="0.5882 0.5882 0.5882 1"/>
-    <material name="mat_030_mat" rgba="0.3137 0.3137 0.3137 1"/>
-    <material name="mat_026_mat" rgba="0.5020 0.5020 0.5020 1"/>
-    <material name="mat_021_mat" rgba="0.0706 0.0706 0.0706 1"/>
-    <material name="mat_020_mat" rgba="0.0196 0.0196 0.0196 1"/>
-    <material name="mat_019_mat" rgba="0.5882 0.5882 0.5882 1"/>
-    <material name="mat_018_mat" texture="mat_018_tex" rgba="0.0392 0.0392 0.0392 1" texuniform="false"/>
-    <material name="mat_016_mat" texture="mat_016_tex" rgba="0.0118 0.0118 0.0118 1" texuniform="false"/>
-    <material name="mat_015_mat" texture="mat_015_tex" rgba="0.0000 0.0000 0.0000 1" texuniform="false"/>
-    <material name="mat_014_mat" texture="mat_014_tex" rgba="0.8000 0.8000 0.8000 1" texuniform="false"/>
-    <material name="mat_013_mat" texture="mat_013_tex" rgba="0.8000 0.1922 0.1176 1" texuniform="false"/>
-    <material name="mat_012_mat" rgba="0.0667 0.0667 0.0667 1"/>
-    <material name="mat_011_mat" texture="mat_011_tex" rgba="0.8000 0.8000 0.8000 1" texuniform="false"/>
-    <material name="mat_010_mat" texture="mat_010_tex" rgba="0.8000 0.8000 0.8000 1" texuniform="false"/>
-    <material name="mat_009_mat" rgba="0.7569 0.5059 0.3020 1"/>
-    <material name="mat_008_mat" rgba="0.6784 0.3490 0.0784 1"/>
-    <material name="mat_007_mat" rgba="0.0902 0.0902 0.0902 1"/>
-    <material name="mat_006_mat" rgba="0.8235 0.8235 0.8235 1"/>
-    <material name="mat_004_mat" rgba="0.0667 0.0667 0.0667 1"/>
-    <material name="mat_003_mat" texture="mat_003_tex" rgba="0.5882 0.6627 0.6902 1" texuniform="false"/>
-    <material name="mat_002_mat" texture="mat_002_tex" rgba="0.0000 0.0000 0.0000 1" texuniform="false"/>
-    <material name="mat_001_mat" rgba="0.4078 0.4078 0.4078 1"/>
+    <mesh name="mat_001" file="mat_001.stl" scale="10 10 10"/>
+    <mesh name="mat_002" file="mat_002.stl" scale="10 10 10"/>
+    <mesh name="mat_003" file="mat_003.stl" scale="10 10 10"/>
+    <mesh name="mat_004" file="mat_004.stl" scale="10 10 10"/>
+    <mesh name="mat_005" file="mat_005.stl" scale="10 10 10"/>
+    <mesh name="mat_006" file="mat_006.stl" scale="10 10 10"/>
+    <mesh name="mat_007" file="mat_007.stl" scale="10 10 10"/>
+    <mesh name="mat_008" file="mat_008.stl" scale="10 10 10"/>
+    <mesh name="mat_009" file="mat_009.stl" scale="10 10 10"/>
+    <mesh name="mat_017" file="mat_017.stl" scale="10 10 10"/>
+    <mesh name="mat_018" file="mat_018.stl" scale="10 10 10"/>
+    <mesh name="mat_019" file="mat_019.stl" scale="10 10 10"/>
+    <mesh name="mat_020" file="mat_020.stl" scale="10 10 10"/>
+    <mesh name="mat_021" file="mat_021.stl" scale="10 10 10"/>
+    <mesh name="mat_023" file="mat_023.stl" scale="10 10 10"/>
+    <mesh name="mat_024" file="mat_024.stl" scale="10 10 10"/>
+    <mesh name="mat_025" file="mat_025.stl" scale="10 10 10"/>
+    <mesh name="mat_026" file="mat_026.stl" scale="10 10 10"/>
+    <mesh name="mat_030" file="mat_030.stl" scale="10 10 10"/>
+    <mesh name="mat_031" file="mat_031.stl" scale="10 10 10"/>
+    <mesh name="rotor_FR_upper" file="rotor_FR_upper.stl" scale="10 10 10"/>
+    <mesh name="rotor_FR_lower" file="rotor_FR_lower.stl" scale="10 10 10"/>
+    <mesh name="rotor_BR_upper" file="rotor_BR_upper.stl" scale="10 10 10"/>
+    <mesh name="rotor_BR_lower" file="rotor_BR_lower.stl" scale="10 10 10"/>
+    <mesh name="rotor_BL_upper" file="rotor_BL_upper.stl" scale="10 10 10"/>
+    <mesh name="rotor_BL_lower" file="rotor_BL_lower.stl" scale="10 10 10"/>
+    <mesh name="rotor_FL_upper" file="rotor_FL_upper.stl" scale="10 10 10"/>
+    <mesh name="rotor_FL_lower" file="rotor_FL_lower.stl" scale="10 10 10"/>
   </asset>
 
   <default>
     <light castshadow="false"/>
     <geom rgba="0.8 0.8 0.8 1"/>
-
     <default class="dji_lhcg">
       <joint limited="true" range="-1.5 1.5" damping="0.1" armature="0.001"/>
       <geom contype="1" conaffinity="1" condim="4" group="1" margin="0.001"/>
-
       <default class="main_body">
         <geom type="mesh" contype="0" conaffinity="0" group="1" mass="0"/>
       </default>
-
+      <default class="rotor_joint">
+        <joint type="hinge" limited="false" damping="0.02" armature="0.0005"/>
+      </default>
+      <default class="rotor_geom">
+        <geom type="mesh" contype="0" conaffinity="0" group="1" mass="0" rgba="0.0667 0.0667 0.0667 1"/>
+      </default>
       <default class="collision">
         <geom contype="1" conaffinity="1" group="4" rgba="1 0.3 1 0.5" friction="2 0.0005 0.00001"/>
       </default>
@@ -89,47 +64,101 @@
 
     <body name="drone_frame" pos="0 0 0">
       <joint name="drone_free" type="free"/>
-      <body name="camera" pos="-0.5 0 0" euler="0 0 -1.570796">
+      <body name="camera" pos="-5 0 0" euler="0 0 -1.570796">
         <camera name="indi_eye_camera" pos="0 0 0" fovy="90"/>
       </body>
 
       <body name="Drone" childclass="dji_lhcg" pos="0 0 0">
-        <site name="drone_body_center_site" pos="0 0 0" group="3" size="0.01" rgba="1 1 0 0.8"/>
-        <site name="drone_up_site" pos="0 0 0.1" size="0.008" group="3" rgba="0 0.7 1 0.8"/>
+        <site name="imu" pos="0 0 0" size="0.01" rgba="0.5 0.5 0.5 1" group="0"/>
+        <site name="drone_body_center_site" pos="0 0 0" group="3" size="0.05" rgba="1 1 0 0.8"/>
+        <site name="drone_forward_site" pos="0 1.2 0" size="0.03" group="3" rgba="0 1 0 0.8"/>
+        <site name="drone_up_site" pos="0 0 1.0" size="0.04" group="3" rgba="0 0.7 1 0.8"/>
+        <inertial pos="0 0 0" mass="15.0000" diaginertia="6.250800 3.715800 2.851800"/>
 
-        <inertial pos="0 0 0" mass="1.5000" diaginertia="0.034756 0.045893 0.080649"/>
+        <geom name="body_mat_001" class="main_body" mesh="mat_001" rgba="0.4078 0.4078 0.4078 1"/>
+        <geom name="body_mat_002" class="main_body" mesh="mat_002" rgba="0.0000 0.0000 0.0000 1"/>
+        <geom name="body_mat_003" class="main_body" mesh="mat_003" rgba="0.5882 0.6627 0.6902 1"/>
+        <geom name="body_mat_004" class="main_body" mesh="mat_004" rgba="0.0667 0.0667 0.0667 1"/>
+        <geom name="body_mat_005" class="main_body" mesh="mat_005" rgba="0.1451 0.1451 0.1451 1"/>
+        <geom name="body_mat_006" class="main_body" mesh="mat_006" rgba="0.8235 0.8235 0.8235 1"/>
+        <geom name="body_mat_007" class="main_body" mesh="mat_007" rgba="0.0902 0.0902 0.0902 1"/>
+        <geom name="body_mat_008" class="main_body" mesh="mat_008" rgba="0.6784 0.3490 0.0784 1"/>
+        <geom name="body_mat_009" class="main_body" mesh="mat_009" rgba="0.7569 0.5059 0.3020 1"/>
+        <geom name="body_mat_017" class="main_body" mesh="mat_017" rgba="0.0431 0.0431 0.0431 1"/>
+        <geom name="body_mat_018" class="main_body" mesh="mat_018" rgba="0.0392 0.0392 0.0392 1"/>
+        <geom name="body_mat_019" class="main_body" mesh="mat_019" rgba="0.5882 0.5882 0.5882 1"/>
+        <geom name="body_mat_020" class="main_body" mesh="mat_020" rgba="0.0196 0.0196 0.0196 1"/>
+        <geom name="body_mat_021" class="main_body" mesh="mat_021" rgba="0.0706 0.0706 0.0706 1"/>
+        <geom name="body_mat_023" class="main_body" mesh="mat_023" rgba="0.0510 0.0510 0.0510 1"/>
+        <geom name="body_mat_024" class="main_body" mesh="mat_024" rgba="0.5882 0.5882 0.5882 1"/>
+        <geom name="body_mat_025" class="main_body" mesh="mat_025" rgba="0.5882 0.5882 0.5882 1"/>
+        <geom name="body_mat_026" class="main_body" mesh="mat_026" rgba="0.5020 0.5020 0.5020 1"/>
+        <geom name="body_mat_030" class="main_body" mesh="mat_030" rgba="0.3137 0.3137 0.3137 1"/>
+        <geom name="body_mat_031" class="main_body" mesh="mat_031" rgba="0.5882 0.5882 0.5882 1"/>
+        <geom name="body_col" class="collision" type="cylinder" size="1.5 0.4"/>
 
-        <geom name="body_mat_032" class="main_body" mesh="mat_032" material="mat_032_mat" rgba="0.9333 0.9333 0.9333 1"/>
-        <geom name="body_mat_031" class="main_body" mesh="mat_031" material="mat_031_mat" rgba="0.5882 0.5882 0.5882 1"/>
-        <geom name="body_mat_030" class="main_body" mesh="mat_030" material="mat_030_mat" rgba="0.3137 0.3137 0.3137 1"/>
-        <geom name="body_mat_026" class="main_body" mesh="mat_026" material="mat_026_mat" rgba="0.5020 0.5020 0.5020 1"/>
-        <geom name="body_mat_021" class="main_body" mesh="mat_021" material="mat_021_mat" rgba="0.0706 0.0706 0.0706 1"/>
-        <geom name="body_mat_020" class="main_body" mesh="mat_020" material="mat_020_mat" rgba="0.0196 0.0196 0.0196 1"/>
-        <geom name="body_mat_019" class="main_body" mesh="mat_019" material="mat_019_mat" rgba="0.5882 0.5882 0.5882 1"/>
-        <geom name="body_mat_018" class="main_body" mesh="mat_018" material="mat_018_mat" rgba="0.0392 0.0392 0.0392 1"/>
-        <geom name="body_mat_016" class="main_body" mesh="mat_016" material="mat_016_mat" rgba="0.0118 0.0118 0.0118 1"/>
-        <geom name="body_mat_015" class="main_body" mesh="mat_015" material="mat_015_mat" rgba="0.0000 0.0000 0.0000 1"/>
-        <geom name="body_mat_014" class="main_body" mesh="mat_014" material="mat_014_mat" rgba="0.8000 0.8000 0.8000 1"/>
-        <geom name="body_mat_013" class="main_body" mesh="mat_013" material="mat_013_mat" rgba="0.8000 0.1922 0.1176 1"/>
-        <geom name="body_mat_012" class="main_body" mesh="mat_012" material="mat_012_mat" rgba="0.0667 0.0667 0.0667 1"/>
-        <geom name="body_mat_011" class="main_body" mesh="mat_011" material="mat_011_mat" rgba="0.8000 0.8000 0.8000 1"/>
-        <geom name="body_mat_010" class="main_body" mesh="mat_010" material="mat_010_mat" rgba="0.8000 0.8000 0.8000 1"/>
-        <geom name="body_mat_009" class="main_body" mesh="mat_009" material="mat_009_mat" rgba="0.7569 0.5059 0.3020 1"/>
-        <geom name="body_mat_008" class="main_body" mesh="mat_008" material="mat_008_mat" rgba="0.6784 0.3490 0.0784 1"/>
-        <geom name="body_mat_007" class="main_body" mesh="mat_007" material="mat_007_mat" rgba="0.0902 0.0902 0.0902 1"/>
-        <geom name="body_mat_006" class="main_body" mesh="mat_006" material="mat_006_mat" rgba="0.8235 0.8235 0.8235 1"/>
-        <geom name="body_mat_004" class="main_body" mesh="mat_004" material="mat_004_mat" rgba="0.0667 0.0667 0.0667 1"/>
-        <geom name="body_mat_003" class="main_body" mesh="mat_003" material="mat_003_mat" rgba="0.5882 0.6627 0.6902 1"/>
-        <geom name="body_mat_002" class="main_body" mesh="mat_002" material="mat_002_mat" rgba="0.0000 0.0000 0.0000 1"/>
-        <geom name="body_mat_001" class="main_body" mesh="mat_001" material="mat_001_mat" rgba="0.4078 0.4078 0.4078 1"/>
-        <geom name="body_col" class="collision" type="cylinder" size="0.15 0.04"/>
+        <body name="FL_upper_blade" pos="-0.875 -0.666 -0.043">
+          <inertial pos="0 0 0" mass="0.03" diaginertia="3e-4 1.5e-4 1.5e-4"/>
+          <joint class="rotor_joint" name="FL_joint" axis="0 0 1"/>
+          <site name="rotor_fl_site" pos="0 0 0" size="0.05" group="3"/>
+          <geom class="rotor_geom" mesh="rotor_FL_upper"/>
+        </body>
+
+        <body name="FL_lower_blade" pos="-0.875 -0.662 -0.219">
+          <inertial pos="0 0 0" mass="0.03" diaginertia="3e-4 1.5e-4 1.5e-4"/>
+          <joint class="rotor_joint" name="FL2_joint" axis="0 0 -1"/>
+          <site name="rotor_fl2_site" pos="0 0 0" size="0.05" group="3"/>
+          <geom class="rotor_geom" mesh="rotor_FL_lower"/>
+        </body>
+
+        <body name="FR_upper_blade" pos="0.876 -0.664 -0.023">
+          <inertial pos="0 0 0" mass="0.03" diaginertia="3e-4 1.5e-4 1.5e-4"/>
+          <joint class="rotor_joint" name="FR_joint" axis="0 0 1"/>
+          <site name="rotor_fr_site" pos="0 0 0" size="0.05" group="3"/>
+          <geom class="rotor_geom" mesh="rotor_FR_upper"/>
+        </body>
+
+        <body name="FR_lower_blade" pos="0.876 -0.667 -0.219">
+          <inertial pos="0 0 0" mass="0.03" diaginertia="3e-4 1.5e-4 1.5e-4"/>
+          <joint class="rotor_joint" name="FR2_joint" axis="0 0 -1"/>
+          <site name="rotor_fr2_site" pos="0 0 0" size="0.05" group="3"/>
+          <geom class="rotor_geom" mesh="rotor_FR_lower"/>
+        </body>
+
+        <body name="BL_upper_blade" pos="-0.871 0.667 0.224">
+          <inertial pos="0 0 0" mass="0.03" diaginertia="3e-4 1.5e-4 1.5e-4"/>
+          <joint class="rotor_joint" name="BL_joint" axis="0 0 1"/>
+          <site name="rotor_bl_site" pos="0 0 0" size="0.05" group="3"/>
+          <geom class="rotor_geom" mesh="rotor_BL_upper"/>
+        </body>
+
+        <body name="BL_lower_blade" pos="-0.872 0.663 0.024">
+          <inertial pos="0 0 0" mass="0.03" diaginertia="3e-4 1.5e-4 1.5e-4"/>
+          <joint class="rotor_joint" name="BL2_joint" axis="0 0 -1"/>
+          <site name="rotor_bl2_site" pos="0 0 0" size="0.05" group="3"/>
+          <geom class="rotor_geom" mesh="rotor_BL_lower"/>
+        </body>
+
+        <body name="BR_upper_blade" pos="0.875 0.663 0.166">
+          <inertial pos="0 0 0" mass="0.03" diaginertia="3e-4 1.5e-4 1.5e-4"/>
+          <joint class="rotor_joint" name="BR_joint" axis="0 0 1"/>
+          <site name="rotor_br_site" pos="0 0 0" size="0.05" group="3"/>
+          <geom class="rotor_geom" mesh="rotor_BR_upper"/>
+        </body>
+
+        <body name="BR_lower_blade" pos="0.876 0.667 -0.030">
+          <inertial pos="0 0 0" mass="0.03" diaginertia="3e-4 1.5e-4 1.5e-4"/>
+          <joint class="rotor_joint" name="BR2_joint" axis="0 0 -1"/>
+          <site name="rotor_br2_site" pos="0 0 0" size="0.05" group="3"/>
+          <geom class="rotor_geom" mesh="rotor_BR_lower"/>
+        </body>
       </body>
     </body>
   </worldbody>
 
   <sensor>
-    <gyro name="body_gyro" site="drone_body_center_site"/>
-    <accelerometer name="body_linacc" site="drone_body_center_site"/>
-    <framequat name="body_quat" objtype="site" objname="drone_body_center_site"/>
+    <gyro name="body_gyro" site="imu"/>
+    <accelerometer name="body_linacc" site="imu"/>
+    <framequat name="body_quat" objtype="site" objname="imu"/>
   </sensor>
 </mujoco>
