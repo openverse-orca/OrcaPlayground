@@ -102,12 +102,11 @@
           <body name="bracket_left_claw" pos="0 0 -0.3">
             <inertial pos="0 0 -0.15" mass="0.4" diaginertia="0.03 0.03 0.005"/>
             <joint type="slide" limited="true" axis="0 0 1" damping="3.0" armature="0.005" name="gripper_left_z_joint" range="-0.3 0.1"/>
-            <geom name="left_claw_plate" type="box" size="0.3 0.15 0.03" pos="0 0 -0.15" rgba="0.502 0.502 0.502 1" contype="1" conaffinity="1" condim="4" friction="2 0.005 0.0001"/>
-            <geom name="left_claw_rim_outer" type="box" size="0.03 0.15 0.15" pos="0.27 0 -0.15" rgba="0.502 0.502 0.502 1" contype="1" conaffinity="1" condim="4" friction="2 0.005 0.0001"/>
-            <geom name="left_claw_rim_inner" type="box" size="0.03 0.15 0.15" pos="-0.27 0 -0.15" rgba="0.502 0.502 0.502 1" contype="1" conaffinity="1" condim="4" friction="2 0.005 0.0001"/>
-            <geom name="left_claw_bottom" type="box" size="0.3 0.15 0.03" pos="0 0 -0.30" rgba="0.502 0.502 0.502 1" contype="1" conaffinity="1" condim="4" friction="2 0.005 0.0001"/>
-            <geom name="left_claw_net_1" type="capsule" size="0.01 0.28" pos="0.1 0 -0.22" euler="0 1.5708 0" rgba="0.3 0.3 0.3 0.6" contype="0" conaffinity="0" group="1"/>
-            <geom name="left_claw_net_2" type="capsule" size="0.01 0.28" pos="-0.1 0 -0.22" euler="0 1.5708 0" rgba="0.3 0.3 0.3 0.6" contype="0" conaffinity="0" group="1"/>
+            <geom name="left_claw_visual" type="mesh" mesh="mat_026" pos="0 0.02 -0.12" contype="0" conaffinity="0" group="1" mass="0" rgba="0.502 0.502 0.502 1"/>
+            <geom name="left_claw_col" type="box" size="0.35 0.15 0.3" pos="0 0 -0.15" contype="1" conaffinity="1" condim="4" group="4" rgba="1 0.3 1 0.3" friction="2 0.005 0.0001"/>
+            <geom name="left_claw_net_1" type="capsule" size="0.008 0.30" pos="0.10 0 -0.30" euler="0 1.5708 0" rgba="0.3 0.3 0.3 0.5" contype="0" conaffinity="0" group="1"/>
+            <geom name="left_claw_net_2" type="capsule" size="0.008 0.30" pos="-0.10 0 -0.30" euler="0 1.5708 0" rgba="0.3 0.3 0.3 0.5" contype="0" conaffinity="0" group="1"/>
+            <geom name="left_claw_net_3" type="capsule" size="0.008 0.25" pos="0 0 -0.25" euler="1.5708 0 0" rgba="0.3 0.3 0.3 0.5" contype="0" conaffinity="0" group="1"/>
             <site name="gripper_left_site" pos="0 0 -0.15" size="0.05" group="3" rgba="0 1 0 0.8"/>
           </body>
         </body>
@@ -119,12 +118,11 @@
           <body name="bracket_right_claw" pos="0 0 -0.3">
             <inertial pos="0 0 -0.15" mass="0.4" diaginertia="0.03 0.03 0.005"/>
             <joint type="slide" limited="true" axis="0 0 1" damping="3.0" armature="0.005" name="gripper_right_z_joint" range="-0.3 0.1"/>
-            <geom name="right_claw_plate" type="box" size="0.3 0.15 0.03" pos="0 0 -0.15" rgba="0.502 0.502 0.502 1" contype="1" conaffinity="1" condim="4" friction="2 0.005 0.0001"/>
-            <geom name="right_claw_rim_outer" type="box" size="0.03 0.15 0.15" pos="-0.27 0 -0.15" rgba="0.502 0.502 0.502 1" contype="1" conaffinity="1" condim="4" friction="2 0.005 0.0001"/>
-            <geom name="right_claw_rim_inner" type="box" size="0.03 0.15 0.15" pos="0.27 0 -0.15" rgba="0.502 0.502 0.502 1" contype="1" conaffinity="1" condim="4" friction="2 0.005 0.0001"/>
-            <geom name="right_claw_bottom" type="box" size="0.3 0.15 0.03" pos="0 0 -0.30" rgba="0.502 0.502 0.502 1" contype="1" conaffinity="1" condim="4" friction="2 0.005 0.0001"/>
-            <geom name="right_claw_net_1" type="capsule" size="0.01 0.28" pos="0.1 0 -0.22" euler="0 1.5708 0" rgba="0.3 0.3 0.3 0.6" contype="0" conaffinity="0" group="1"/>
-            <geom name="right_claw_net_2" type="capsule" size="0.01 0.28" pos="-0.1 0 -0.22" euler="0 1.5708 0" rgba="0.3 0.3 0.3 0.6" contype="0" conaffinity="0" group="1"/>
+            <geom name="right_claw_visual" type="mesh" mesh="mat_026" pos="0 0.02 -0.12" contype="0" conaffinity="0" group="1" mass="0" rgba="0.502 0.502 0.502 1"/>
+            <geom name="right_claw_col" type="box" size="0.35 0.15 0.3" pos="0 0 -0.15" contype="1" conaffinity="1" condim="4" group="4" rgba="1 0.3 1 0.3" friction="2 0.005 0.0001"/>
+            <geom name="right_claw_net_1" type="capsule" size="0.008 0.30" pos="0.10 0 -0.30" euler="0 1.5708 0" rgba="0.3 0.3 0.3 0.5" contype="0" conaffinity="0" group="1"/>
+            <geom name="right_claw_net_2" type="capsule" size="0.008 0.30" pos="-0.10 0 -0.30" euler="0 1.5708 0" rgba="0.3 0.3 0.3 0.5" contype="0" conaffinity="0" group="1"/>
+            <geom name="right_claw_net_3" type="capsule" size="0.008 0.25" pos="0 0 -0.25" euler="1.5708 0 0" rgba="0.3 0.3 0.3 0.5" contype="0" conaffinity="0" group="1"/>
             <site name="gripper_right_site" pos="0 0 -0.15" size="0.05" group="3" rgba="0 1 0 0.8"/>
           </body>
         </body>
