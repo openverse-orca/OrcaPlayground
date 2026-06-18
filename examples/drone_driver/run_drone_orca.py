@@ -43,6 +43,8 @@ DRONE_JOINT_SUFFIXES = [
     "BR2_joint",
     "gripper_left_joint",
     "gripper_right_joint",
+    "gripper_left_z_joint",
+    "gripper_right_z_joint",
 ]
 DRONE_ACTUATOR_SUFFIXES: list[str] = []
 DRONE_BODY_SUFFIXES = ["drone_frame", "Drone"]
