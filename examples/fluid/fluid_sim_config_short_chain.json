@@ -1,5 +1,7 @@
 {
   "description": "MuJoCo↔OrcaLink↔SPH 短链（无 OrcaStudio 50051）；场景固定在 SPH_bug/scene_3chain",
+  "build_mode": "release",
+  "build_mode_comment": "debug=启用 debug.force_position_trace 采集；release=强制关闭 CP/子步 CSV（见 fluid_sim_config_short_chain.release.json）",
   "scene_3chain_dir": "/home/hjadmin/OrcaApr24/SPH_bug/scene_3chain",
   "orcagym": {
     "address": "",
@@ -36,7 +38,7 @@
           "speed_ratio_threshold": 1.5
         },
         "sync_params": {
-          "sync_window_size": 2
+          "sync_window_size": 1
         }
       }
     },
@@ -72,7 +74,7 @@
             "discard_on_clamp": true
           },
           "debug": {
-            "log_clamped_forces": true,
+            "log_clamped_forces": false,
             "log_threshold_n": 1000.0
           }
         }
@@ -126,13 +128,13 @@
   "debug": {
     "verbose_logging": false,
     "force_position_trace": {
-      "enabled": true,
+      "enabled": false,
       "output_base_dir": "/home/hjadmin/OrcaApr24/SPH_bug/scene_3chain/debug_data",
       "body_aliases_file": "/home/hjadmin/OrcaApr24/SPH_bug/scene_3chain/body_debug_aliases.json",
       "substeps_per_macro": 20,
       "substep_trace": {
-        "enabled": true,
-        "max_macros": 10,
+        "enabled": false,
+        "max_macros": 200,
         "analyze_script": "/home/hjadmin/OrcaApr24/SPH_bug/scene_3chain/cp_substeps_analyze.py"
       }
     }
@@ -151,7 +153,12 @@
     "bright_environment": true,
     "headlight_ambient": 0.55,
     "headlight_diffuse": 0.92,
-    "background_rgba": [0.78, 0.81, 0.88, 1.0],
+    "background_rgba": [
+      0.78,
+      0.81,
+      0.88,
+      1.0
+    ],
     "geom_emissive_boost": 0.18
   }
 }

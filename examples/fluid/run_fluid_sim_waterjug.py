@@ -2,8 +2,8 @@
 """
 全链路 WaterJug 预定轨迹仿真（基于 run_fluid_sim.py）。
 
-与已废弃的 run_fluid_sim_auto.py 区别：
-  - 默认 fluid_sim_config_waterjug.json：force_position + lag_compensated（与 run_fluid_sim.py 对齐）
+与 run_fluid_sim_auto.py 区别：
+  - 默认 fluid_sim_config_auto.json：force_position + lag_compensated + water_jug_trajectory
   - initial_z_offset_m=0，关闭 sph_scene 竖直偏移，避免 MuJoCo 与 OrcaSPH 初值错位
   - SceneGenerator 按 force_position 跳过 AnchorPoints
 
@@ -37,7 +37,7 @@ if current_file_dir not in sys.path:
 
 import run_fluid_sim as rf
 
-DEFAULT_CONFIG = "fluid_sim_config_waterjug.json"
+DEFAULT_CONFIG = "fluid_sim_config_auto.json"
 LOG_BASENAME = "run_fluid_sim_waterjug"
 
 

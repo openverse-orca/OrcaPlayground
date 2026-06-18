@@ -1,3 +1,4 @@
+"""OrcaStudio 自动开关卡并进入 Game 模式（供 one_click / Cloth Studio 等脚本引用）。"""
 import os
 import sys
 
@@ -19,17 +20,15 @@ result = gen.open_level_no_prompt(LEVEL_NAME)
 if not result:
     print(f"[AUTO_START] ERROR: Failed to open level '{LEVEL_NAME}'")
     sys.exit(1)
-print(f"[AUTO_START] Level open request sent successfully")
+print("[AUTO_START] Level open request sent successfully")
 
 print(f"[AUTO_START] Step 3: Waiting {SCENE_LOAD_WAIT_SEC}s for scene to load...")
 gen.idle_wait(SCENE_LOAD_WAIT_SEC)
 
-print(f"[AUTO_START] Step 4: Entering game mode (Run -> Start)...")
+print("[AUTO_START] Step 4: Entering game mode (Run -> Start)...")
 gen.enter_game_mode()
-print(f"[AUTO_START] Game mode request sent")
+print("[AUTO_START] Game mode request sent")
 
-print(f"[AUTO_START] Step 5: Waiting {GAME_MODE_SETTLE_SEC}s for MuJoCo to initialize and ports to open...")
+print(f"[AUTO_START] Step 5: Waiting {GAME_MODE_SETTLE_SEC}s for game mode to settle...")
 gen.idle_wait(GAME_MODE_SETTLE_SEC)
-
-print(f"[AUTO_START] === Auto-start complete ===")
-print(f"[AUTO_START] OrcaGym port (50051) should now be open and MuJoCo ready")
+print("[AUTO_START] === Auto-Start Complete ===")

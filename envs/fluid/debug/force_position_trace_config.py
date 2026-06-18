@@ -29,7 +29,7 @@ def is_force_position_trace_enabled(config: Dict[str, Any]) -> bool:
     - `build_mode` 为 ``debug``（``release`` 时强制关闭，忽略 trace.enabled）；
     - `debug.force_position_trace.enabled` 为 true。
     """
-    build_mode = str(config.get("build_mode", "debug")).strip().lower()
+    build_mode = str(config.get("build_mode", "release")).strip().lower()
     if build_mode != "debug":
         return False
     return bool(config.get("debug", {}).get("force_position_trace", {}).get("enabled", False))
