@@ -58,7 +58,6 @@ OrcaLab 会自动加载工作目录下的 `.orcalab/config.toml` 配置文件。
    - `run_wheeled_chassis` - 轮式底盘仿真
    - `run_xbot_orca` - XBot 机器人仿真
    - `run_sim_loop` - 空循环仿真
-   - `run_fluid_sim` - 流体仿真
 
 配置文件位置：`.orcalab/config.toml`
 
@@ -86,7 +85,6 @@ pip install -e ".[legged_gym]"
 python examples/character/run_character.py
 python examples/xbot/run_xbot_orca.py
 python examples/legged_gym/run_legged_rl.py --config examples/legged_gym/configs/sb3_ppo_config.yaml --train
-python examples/fluid/run_fluid_sim.py
 ```
 
 ## 📦 项目结构
@@ -100,7 +98,6 @@ OrcaPlayground/
 │   ├── legged_gym/    # 足式机器人 RL 训练（含 README.md）
 │   ├── wheeled_chassis/ # 轮式底盘（含 README.md）
 │   ├── xbot/          # XBot 机器人（含 README.md）
-│   ├── fluid/         # 流体仿真（含 README.md）
 │   └── ...            # 更多示例
 ├── .orcalab/          # OrcaLab 配置文件
 │   └── config.toml    # 外部程序配置
@@ -118,7 +115,6 @@ OrcaPlayground/
 - **ZQ SA01 人形** - [`examples/zq_sa01/README.md`](examples/zq_sa01/README.md)
 - **G1 人形** - [`examples/g1/README.md`](examples/g1/README.md)
 - **场景复制** - [`examples/replicator/README.md`](examples/replicator/README.md)
-- **流体仿真** - [`examples/fluid/README.md`](examples/fluid/README.md)
 
 > **⚠️ 重要提示：资产准备**
 > 
@@ -180,7 +176,6 @@ pip install -e ".[g1]"
 pip install -e ".[xbot]"
 pip install -e ".[zq_sa01]"
 pip install -e ".[so101]"
-pip install -e ".[fluid]"
 
 # 一次安装所有样例依赖
 pip install -e ".[all]"
@@ -205,7 +200,6 @@ OrcaLab 配置文件位于 `.orcalab/config.toml`，OrcaLab 启动时会自动�
 - `legged_train` - 足式机器人训练
 - `wheeled_chassis` - 轮式底盘仿真
 - `xbot_orca` - XBot 仿真
-- `run_fluid_sim` - 流体仿真
 
 ### 添加新程序
 
