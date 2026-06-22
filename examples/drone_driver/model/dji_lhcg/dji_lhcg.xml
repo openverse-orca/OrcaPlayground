@@ -21,8 +21,8 @@
     <mesh name="mat_023" file="mat_023.stl" scale="10 10 10"/>
     <mesh name="mat_024" file="mat_024.stl" scale="10 10 10"/>
     <mesh name="mat_025" file="mat_025.stl" scale="10 10 10"/>
-    <mesh name="mat_026" file="mat_026.stl" scale="10 10 10"/>
-    <mesh name="mat_030" file="mat_030.stl" scale="10 10 10"/>
+    <mesh name="mat_026_left" file="mat_026_left.obj" scale="10 10 10"/>
+    <mesh name="mat_026_right" file="mat_026_right.obj" scale="10 10 10"/>
     <mesh name="mat_031" file="mat_031.stl" scale="10 10 10"/>
     <mesh name="rotor_FR_upper" file="rotor_FR_upper.stl" scale="10 10 10"/>
     <mesh name="rotor_FR_lower" file="rotor_FR_lower.stl" scale="10 10 10"/>
@@ -95,27 +95,22 @@
         <geom name="body_mat_031" class="main_body" mesh="mat_031" rgba="0.5882 0.5882 0.5882 1"/>
         <geom name="body_col" class="collision" type="cylinder" size="1.5 0.4"/>
 
-        <body name="bracket_left" pos="0 0 0">
-          <inertial pos="-0.16 0 -0.32" mass="0.5" diaginertia="0.05 0.02 0.05"/>
-          <joint type="slide" limited="true" axis="1 0 0" damping="5.0" armature="0.01" name="gripper_left_joint" range="0 0.4"/>
-          <geom name="bracket_left_rod" type="capsule" size="0.015 0.18" pos="-0.16 0 -0.10" rgba="0.6 0.6 0.6 1" contype="0" conaffinity="0" group="1"/>
-          <geom name="bracket_left_bar" type="box" size="0.14 0.02 0.02" pos="-0.16 0 -0.30" rgba="0.502 0.502 0.502 1" contype="1" conaffinity="1" condim="4" friction="2 0.005 0.0001"/>
-          <geom name="bracket_left_rim" type="box" size="0.02 0.02 0.18" pos="-0.02 0 -0.32" rgba="0.502 0.502 0.502 1" contype="1" conaffinity="1" condim="4" friction="2 0.005 0.0001"/>
-          <geom name="bracket_left_outer" type="box" size="0.02 0.02 0.18" pos="-0.30 0 -0.32" rgba="0.502 0.502 0.502 1" contype="0" conaffinity="0" group="1"/>
-          <geom name="bracket_left_bottom" type="box" size="0.14 0.02 0.02" pos="-0.16 0 -0.41" rgba="0.502 0.502 0.502 1" contype="1" conaffinity="1" condim="4" friction="2 0.005 0.0001"/>
-          <site name="gripper_left_site" pos="-0.16 0 -0.32" size="0.05" group="3" rgba="0 1 0 0.8"/>
+        <body name="gripper_left" pos="0 0 0">
+          <inertial pos="-0.18 0 -0.32" mass="0.8" diaginertia="0.02 0.08 0.06"/>
+          <joint type="hinge" limited="true" axis="0 1 0" damping="20.0" armature="0.1" name="gripper_left_joint" range="-0.4 0"/>
+          <geom name="gripper_left_visual" type="mesh" mesh="mat_026_left" contype="0" conaffinity="0" group="1" rgba="0.5020 0.5020 0.5020 1"/>
+          <geom name="gripper_left_col" type="box" size="0.05 0.04 0.30" pos="-0.18 0 -0.32" contype="1" conaffinity="1" condim="4" group="4" rgba="1 0.3 1 0.3" friction="2 0.005 0.0001"/>
+          <site name="gripper_left_site" pos="-0.18 0 -0.58" size="0.03" group="3" rgba="0 1 0 0.8"/>
         </body>
 
-        <body name="bracket_right" pos="0 0 0">
-          <inertial pos="0.16 0 -0.32" mass="0.5" diaginertia="0.05 0.02 0.05"/>
-          <joint type="slide" limited="true" axis="-1 0 0" damping="5.0" armature="0.01" name="gripper_right_joint" range="0 0.4"/>
-          <geom name="bracket_right_rod" type="capsule" size="0.015 0.18" pos="0.16 0 -0.10" rgba="0.6 0.6 0.6 1" contype="0" conaffinity="0" group="1"/>
-          <geom name="bracket_right_bar" type="box" size="0.14 0.02 0.02" pos="0.16 0 -0.30" rgba="0.502 0.502 0.502 1" contype="1" conaffinity="1" condim="4" friction="2 0.005 0.0001"/>
-          <geom name="bracket_right_rim" type="box" size="0.02 0.02 0.18" pos="0.02 0 -0.32" rgba="0.502 0.502 0.502 1" contype="1" conaffinity="1" condim="4" friction="2 0.005 0.0001"/>
-          <geom name="bracket_right_outer" type="box" size="0.02 0.02 0.18" pos="0.30 0 -0.32" rgba="0.502 0.502 0.502 1" contype="0" conaffinity="0" group="1"/>
-          <geom name="bracket_right_bottom" type="box" size="0.14 0.02 0.02" pos="0.16 0 -0.41" rgba="0.502 0.502 0.502 1" contype="1" conaffinity="1" condim="4" friction="2 0.005 0.0001"/>
-          <site name="gripper_right_site" pos="0.16 0 -0.32" size="0.05" group="3" rgba="0 1 0 0.8"/>
+        <body name="gripper_right" pos="0 0 0">
+          <inertial pos="0.18 0 -0.32" mass="0.8" diaginertia="0.02 0.08 0.06"/>
+          <joint type="hinge" limited="true" axis="0 1 0" damping="20.0" armature="0.1" name="gripper_right_joint" range="0 0.4"/>
+          <geom name="gripper_right_visual" type="mesh" mesh="mat_026_right" contype="0" conaffinity="0" group="1" rgba="0.5020 0.5020 0.5020 1"/>
+          <geom name="gripper_right_col" type="box" size="0.05 0.04 0.30" pos="0.18 0 -0.32" contype="1" conaffinity="1" condim="4" group="4" rgba="1 0.3 1 0.3" friction="2 0.005 0.0001"/>
+          <site name="gripper_right_site" pos="0.18 0 -0.58" size="0.03" group="3" rgba="0 1 0 0.8"/>
         </body>
+
 
         <body name="FL_upper_blade" pos="-0.875 -0.666 -0.043">
           <inertial pos="0 0 0" mass="0.03" diaginertia="3e-4 1.5e-4 1.5e-4"/>

@@ -198,16 +198,38 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         self._frame_body_id = int(self.model.body_name2id(self._drone_frame_body))
 
         self._gripper_joints: dict[str, str] = {}
+        _gripper_resolve_errors: list[str] = []
         for gname in ("gripper_left_joint", "gripper_right_joint"):
             try:
-                self._gripper_joints[gname] = self._resolve_name("joints", gname)
-            except (KeyError, Exception):
-                pass
+                resolved = self._resolve_name("joints", gname)
+                self._gripper_joints[gname] = resolved
+                _logger.info(f"[DroneOrcaEnv] gripper joint resolved via scene_binding: {gname} -> {resolved}")
+            except (KeyError, Exception) as e:
+                _gripper_resolve_errors.append(f"scene_binding: {e}")
+                try:
+                    mjm = self.gym._mjModel
+                    jid = mujoco.mj_name2id(mjm, mujoco.mjtObj.mjOBJ_JOINT, gname)
+                    if jid >= 0:
+                        self._gripper_joints[gname] = gname
+                        _logger.info(f"[DroneOrcaEnv] gripper joint resolved via MjModel direct: {gname} (jid={jid})")
+                    else:
+                        _gripper_resolve_errors.append(f"MjModel direct: jid=-1 for '{gname}'")
+                except Exception as e2:
+                    _gripper_resolve_errors.append(f"MjModel direct: {e2}")
         self._gripper_enabled = len(self._gripper_joints) == 2
         if self._gripper_enabled:
-            _logger.info("[DroneOrcaEnv] 抓取机构已启用: G=收拢, H=扩张")
+            _logger.info("[DroneOrcaEnv] 抓取机构已启用: Z=收拢(抓取), X=扩张(释放) (键盘) / LB=收拢, RB=扩张 (手柄)")
+        else:
+            _logger.warning(f"[DroneOrcaEnv] 抓取机构未启用, resolved={len(self._gripper_joints)}/2, errors={_gripper_resolve_errors}")
+            _logger.info(f"[DroneOrcaEnv] scene_binding joints_by_suffix={self._scene_binding.get('joints_by_suffix', {})}")
+            try:
+                all_joints = [self.gym._mjModel.joint(i).name
+                              for i in range(self.gym._mjModel.njnt)]
+                _logger.info(f"[DroneOrcaEnv] all MjModel joints: {all_joints}")
+            except Exception:
+                pass
         self._gripper_target: float = 0.0
-        self._gripper_close_speed: float = 1.0
+        self._gripper_close_speed: float = 2.0
         fixed_r = float(vertical_fixed_thrust_over_hover)
         use_fixed_thrust = fixed_r >= 0.0
         ramp_on = bool(vertical_thrust_ramp) and not use_fixed_thrust
@@ -645,7 +667,10 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         if self._gripper_enabled:
             lb = int(state["buttons"].get("LB", 0))
             rb = int(state["buttons"].get("RB", 0))
-            self._gripper_target = float(np.clip(rb - lb, -1.0, 1.0))
+            new_target = float(np.clip(rb - lb, -1.0, 1.0))
+            if abs(new_target - self._gripper_target) > 0.01:
+                _logger.info(f"[DroneOrcaEnv] gripper_target changed: {self._gripper_target:.2f} -> {new_target:.2f} (LB={lb} RB={rb})")
+            self._gripper_target = new_target
         return command, reset_requested
 
     def _read_keyboard_only_command(self) -> tuple[np.ndarray, bool]:
@@ -670,9 +695,12 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
                 dtype=np.float32,
             )
         if self._gripper_enabled:
-            g_val = float(state.get("G", 0))
-            h_val = float(state.get("H", 0))
-            self._gripper_target = float(np.clip(h_val - g_val, -1.0, 1.0))
+            close_val = float(state.get("Z", 0))
+            open_val = float(state.get("X", 0))
+            new_target = float(np.clip(open_val - close_val, -1.0, 1.0))
+            if abs(new_target - self._gripper_target) > 0.01:
+                _logger.info(f"[DroneOrcaEnv] gripper_target changed: {self._gripper_target:.2f} -> {new_target:.2f} (Z=close={close_val:.1f} X=open={open_val:.1f})")
+            self._gripper_target = new_target
         return command, reset_requested
 
     def _build_autoplay_command(self) -> np.ndarray:
@@ -1406,14 +1434,24 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         max_delta = self._gripper_close_speed * dt
         qpos_update = {}
         qvel_update = {}
+        if not hasattr(self, '_gripper_diag_logged'):
+            self._gripper_diag_logged = True
+            _logger.info(f"[DroneOrcaEnv] _update_gripper first call: target={self._gripper_target:.2f}, joints={self._gripper_joints}")
         for gname, full_name in self._gripper_joints.items():
             jid = int(mujoco.mj_name2id(mjm, mujoco.mjtObj.mjOBJ_JOINT, full_name))
             if jid < 0:
+                _logger.warning(f"[DroneOrcaEnv] gripper joint '{gname}' -> full_name='{full_name}' not found in MjModel")
                 continue
+            qadr = int(mjm.jnt_qposadr[jid])
             adr = int(mjm.jnt_dofadr[jid])
             jrange = mjm.jnt_range[jid]
-            current_pos = float(mjd.qpos[adr])
-            target_pos = self._gripper_target * jrange[1] if self._gripper_target > 0 else self._gripper_target * abs(jrange[0])
+            current_pos = float(mjd.qpos[qadr])
+            if self._gripper_target < 0:
+                lo, hi = float(jrange[0]), float(jrange[1])
+                target_pos = hi if abs(hi) > abs(lo) else lo
+                target_pos *= min(abs(self._gripper_target), 1.0)
+            else:
+                target_pos = 0.0
             target_pos = float(np.clip(target_pos, jrange[0], jrange[1]))
             delta = float(np.clip(target_pos - current_pos, -max_delta, max_delta))
             new_pos = float(np.clip(current_pos + delta, jrange[0], jrange[1]))
