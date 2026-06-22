@@ -759,5 +759,6 @@ def format_layout_report(layout: ClothRobotSceneLayout) -> str:
     return "\n".join(lines)
 
 
-# 模块 import 时加载默认 JSON，同步 DURATION_SEC / CLOSE_T0 等。
-reload_gripper_trajectory()
+# 模块 import 时加载默认 JSON，同步 DURATION_SEC / CLOSE_T0 等（文件缺失时跳过）。
+if DEFAULT_GRIPPER_KEYFRAMES_JSON.is_file():
+    reload_gripper_trajectory()

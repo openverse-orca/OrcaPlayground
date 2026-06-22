@@ -360,6 +360,71 @@ def resolve_vtk_path(mesh_name: str, search_dir: Path | None = None) -> Path:
     raise FileNotFoundError(f"VTK not found for mesh={mesh_name!r}")
 
 
+def is_procedural_cloth_mesh(mesh_name: str) -> bool:
+    """
+    判断 session 中的 ``cloth.mesh`` 是否为 XPBD 程序化矩形 sheet。
+
+    形如 ``procedural:yixuan_h03`` 时无 VTK 文件，局部网格由 ``cloth_nx/ny`` 与 spacing 生成。
+    """
+    return str(mesh_name).startswith("procedural:")
+
+
+def build_procedural_rect_sheet_local_points(
+    cloth: dict[str, Any],
+    frame: dict[str, Any] | None = None,
+) -> np.ndarray:
+    """
+    按 ``phys_world_add_sheet`` 规则生成矩形 sheet 局部顶点（Y-up 布料局部系，z=0 平面）。
+
+    RectCloth ``studio_frame_align`` 时 ``grid_x=cloth_ny``（短边）、``grid_y=cloth_nx``（长边），
+    ``grid_centered=1`` 时原点在矩形几何中心。顶点顺序 ``idx = i * grid_y + j``，与 C 端一致。
+    """
+    cloth_nx = int(cloth.get("cloth_nx") or 0)
+    cloth_ny = int(cloth.get("cloth_ny") or 0)
+    spacing = float(cloth.get("cloth_spacing_m") or 0.0618)
+    grid_x = int((frame or {}).get("grid_x") or cloth_ny or 0)
+    grid_y = int((frame or {}).get("grid_y") or cloth_nx or 0)
+    grid_centered = bool((frame or {}).get("grid_centered", cloth.get("discovered", False)))
+    if grid_x < 1 or grid_y < 1:
+        raise ValueError(f"invalid procedural grid: grid_x={grid_x} grid_y={grid_y}")
+
+    pts: list[list[float]] = []
+    for i in range(grid_x):
+        for j in range(grid_y):
+            if grid_centered:
+                x = (i - 0.5 * (grid_x - 1)) * spacing
+                y = (j - 0.5 * (grid_y - 1)) * spacing
+            else:
+                x = i * spacing - 0.5 * grid_x * spacing
+                y = j * spacing
+            pts.append([x, y, 0.0])
+    return np.array(pts, dtype=np.float64)
+
+
+def resolve_cloth_local_points(
+    cloth: dict[str, Any],
+    mesh_name: str,
+    out_dir: Path,
+    vtk_search_dir: Path | None = None,
+) -> tuple[np.ndarray, str]:
+    """
+    解析布料局部顶点：程序化 sheet 用网格公式；否则读 VTK 文件。
+
+    返回 ``(local_points, source_label)``，``source_label`` 写入对比 CSV 元数据。
+    """
+    if is_procedural_cloth_mesh(mesh_name):
+        frame_path = out_dir / "xpbd_init_cloth_frame.json"
+        frame: dict[str, Any] | None = None
+        if frame_path.is_file():
+            import json
+
+            frame = json.loads(frame_path.read_text(encoding="utf-8"))
+        return build_procedural_rect_sheet_local_points(cloth, frame), mesh_name
+
+    vtk_path = resolve_vtk_path(mesh_name, vtk_search_dir)
+    return load_vtk_points(vtk_path), str(vtk_path)
+
+
 def run_cloth_init_compare(
     model: mujoco.MjModel,
     data: mujoco.MjData,
@@ -392,8 +457,7 @@ def run_cloth_init_compare(
     center_yup = tuple(float(x) for x in (cloth.get("center_yup") or [0, 0.312, 0]))
     quat_yup = tuple(float(x) for x in (cloth.get("quat_wxyz_yup") or [1, 0, 0, 0]))
 
-    vtk_path = resolve_vtk_path(mesh_name, vtk_search_dir)
-    vtk_local = load_vtk_points(vtk_path)
+    vtk_local, local_source = resolve_cloth_local_points(cloth, mesh_name, out_dir, vtk_search_dir)
     xpbd_expected = transform_vtk_to_yup_world(vtk_local, center_yup, quat_yup)
 
     studio_raw = collect_studio_mesh_vertices_yup(model, data, body_name)
@@ -422,7 +486,7 @@ def run_cloth_init_compare(
         "session": str(session_path) if session_path else "",
         "config": str(config_path) if config_path else "",
         "cloth_body": body_name,
-        "vtk": str(vtk_path),
+        "vtk": local_source,
         "studio_vertex_source": studio_source,
         "cloth_center_yup": str(center_yup),
         "cloth_quat_wxyz_yup": str(quat_yup),

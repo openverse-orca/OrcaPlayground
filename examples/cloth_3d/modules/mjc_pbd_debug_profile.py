@@ -16,7 +16,7 @@ DEBUG_PROFILE: dict[str, Any] = {
     "publish_only": False,
     "export_csv": True,
     "export_recv_yup_csv": True,
-    "export_anchor_substep_csv": False,
+    "export_anchor_substep_csv": True,
     "export_body_track_monitor_csv": True,
     "export_sync_seq_monitor": True,
     "export_macro_timing_pair": True,

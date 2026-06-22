@@ -1,6 +1,6 @@
 {
-  "description": "test20260508 openloong 全链路 debug：MuJoCo/OrcaLink/XPBD 刚体+布料 CSV 与实时监控",
-  "extends": "cloth_sim_config.test20260508_openloong.json",
+  "description": "openloong 全链路 debug（关卡名由 LEVEL 运行时注入）",
+  "extends": "cloth_sim_config.openloong.json",
   "orcagym": {
     "debug_session": {
       "subdir_prefix": "cloth_debug",

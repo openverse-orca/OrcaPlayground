@@ -78,7 +78,7 @@ class ClothOrcaLinkBridge:
         port = require_orcalink_port(self._ol)
         client_cfg = self._ol.get("client", {})
         session_cfg = dict(client_cfg.get("session", {}))
-        if self._config.get("debug", {}).get("publish_only", True):
+        if self._config.get("debug", {}).get("publish_only", False):
             session_cfg["expected_clients"] = 1
         pos_ch = client_cfg.get("channels", {}).get("position", {})
         force_ch = client_cfg.get("channels", {}).get("force", {})
