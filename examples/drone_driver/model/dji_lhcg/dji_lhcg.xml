@@ -23,7 +23,6 @@
     <mesh name="mat_025" file="mat_025.stl" scale="10 10 10"/>
     <mesh name="mat_026_left" file="mat_026_left.obj" scale="10 10 10"/>
     <mesh name="mat_026_right" file="mat_026_right.obj" scale="10 10 10"/>
-    <mesh name="mat_031" file="mat_031.stl" scale="10 10 10"/>
     <mesh name="rotor_FR_upper" file="rotor_FR_upper.stl" scale="10 10 10"/>
     <mesh name="rotor_FR_lower" file="rotor_FR_lower.stl" scale="10 10 10"/>
     <mesh name="rotor_BR_upper" file="rotor_BR_upper.stl" scale="10 10 10"/>
@@ -92,22 +91,34 @@
         <geom name="body_mat_023" class="main_body" mesh="mat_023" rgba="0.0510 0.0510 0.0510 1"/>
         <geom name="body_mat_024" class="main_body" mesh="mat_024" rgba="0.5882 0.5882 0.5882 1"/>
         <geom name="body_mat_025" class="main_body" mesh="mat_025" rgba="0.5882 0.5882 0.5882 1"/>
-        <geom name="body_mat_031" class="main_body" mesh="mat_031" rgba="0.5882 0.5882 0.5882 1"/>
         <geom name="body_col" class="collision" type="cylinder" size="1.5 0.4"/>
 
         <body name="gripper_left" pos="0 0 0">
           <inertial pos="-0.18 0 -0.32" mass="0.8" diaginertia="0.02 0.08 0.06"/>
-          <joint type="hinge" limited="true" axis="0 1 0" damping="20.0" armature="0.1" name="gripper_left_joint" range="-0.4 0"/>
-          <geom name="gripper_left_visual" type="mesh" mesh="mat_026_left" contype="0" conaffinity="0" group="1" rgba="0.5020 0.5020 0.5020 1"/>
-          <geom name="gripper_left_col" type="box" size="0.05 0.04 0.30" pos="-0.18 0 -0.32" contype="1" conaffinity="1" condim="4" group="4" rgba="1 0.3 1 0.3" friction="2 0.005 0.0001"/>
+          <joint type="hinge" limited="true" axis="0 -1 0" damping="20.0" armature="0.1" name="gripper_left_joint" range="0 0.4"/>
+          <geom name="gripper_left_visual" type="mesh" mesh="mat_026_left" contype="0" conaffinity="0" group="1" rgba="0.02 0.02 0.02 1"/>
+          <geom name="gripper_left_col1" type="cylinder" size="0.015778571 0.022297250" pos="-0.212424278 -0.347873211 -0.580970526" quat="0.898035407 0.437570065 0.040848836 0.019903699" contype="1" conaffinity="1" condim="4" group="4" rgba="1 0.3 1 0.3" friction="2 0.005 0.0001"/>
+          <geom name="gripper_left_col2" type="cylinder" size="0.015778571 0.210724592" pos="-0.183559597 -0.318753242 -0.336232901" quat="0.990463257 -0.124591723 0.058436256 -0.006676923" contype="1" conaffinity="1" condim="4" group="4" rgba="1 0.3 1 0.3" friction="2 0.005 0.0001"/>
+          <geom name="gripper_left_col3" type="cylinder" size="0.015778571 0.022297250" pos="-0.208529592 -0.364868164 -0.552533388" quat="0.157293171 -0.986148179 -0.008290905 0.051979739" contype="1" conaffinity="1" condim="4" group="4" rgba="1 0.3 1 0.3" friction="2 0.005 0.0001"/>
+          <geom name="gripper_left_col4" type="cylinder" size="0.015778571 0.253364325" pos="-0.179436207 0.340702057 -0.302446604" quat="0.990453422 0.124669954 0.058268592 0.008008195" contype="1" conaffinity="1" condim="4" group="4" rgba="1 0.3 1 0.3" friction="2 0.005 0.0001"/>
+          <geom name="gripper_left_col5" type="cylinder" size="0.015778571 0.357263476" pos="-0.214279354 0.015786648 -0.596223831" quat="0.707107067 0.707106471 0 0" contype="1" conaffinity="1" condim="4" group="4" rgba="1 0.3 1 0.3" friction="2 0.005 0.0001"/>
+          <geom name="gripper_left_col6" type="cylinder" size="0.015778571 0.022297250" pos="-0.208529592 0.395726204 -0.552533388" quat="0.157293171 0.986148179 -0.008290899 -0.051979739" contype="1" conaffinity="1" condim="4" group="4" rgba="1 0.3 1 0.3" friction="2 0.005 0.0001"/>
+          <geom name="gripper_left_col7" type="cylinder" size="0.015778571 0.022297250" pos="-0.212424278 0.375842810 -0.580970526" quat="0.898035407 -0.437570065 0.040848836 -0.019903703" contype="1" conaffinity="1" condim="4" group="4" rgba="1 0.3 1 0.3" friction="2 0.005 0.0001"/>
           <site name="gripper_left_site" pos="-0.18 0 -0.58" size="0.03" group="3" rgba="0 1 0 0.8"/>
         </body>
 
         <body name="gripper_right" pos="0 0 0">
           <inertial pos="0.18 0 -0.32" mass="0.8" diaginertia="0.02 0.08 0.06"/>
-          <joint type="hinge" limited="true" axis="0 1 0" damping="20.0" armature="0.1" name="gripper_right_joint" range="0 0.4"/>
-          <geom name="gripper_right_visual" type="mesh" mesh="mat_026_right" contype="0" conaffinity="0" group="1" rgba="0.5020 0.5020 0.5020 1"/>
-          <geom name="gripper_right_col" type="box" size="0.05 0.04 0.30" pos="0.18 0 -0.32" contype="1" conaffinity="1" condim="4" group="4" rgba="1 0.3 1 0.3" friction="2 0.005 0.0001"/>
+          <joint type="hinge" limited="true" axis="0 -1 0" damping="20.0" armature="0.1" name="gripper_right_joint" range="-0.4 0"/>
+          <geom name="gripper_right_visual" type="mesh" mesh="mat_026_right" contype="0" conaffinity="0" group="1" rgba="0.02 0.02 0.02 1"/>
+          <geom name="gripper_right_col1" type="cylinder" size="0.015778571 0.022297250" pos="0.211068511 0.375554800 -0.581195831" quat="0.898035407 -0.437570065 -0.040848825 0.019903695" contype="1" conaffinity="1" condim="4" group="4" rgba="1 0.3 1 0.3" friction="2 0.005 0.0001"/>
+          <geom name="gripper_right_col2" type="cylinder" size="0.015778571 0.357263476" pos="0.213226318 0.015786648 -0.596223831" quat="0.707107067 0.707106471 0 0" contype="1" conaffinity="1" condim="4" group="4" rgba="1 0.3 1 0.3" friction="2 0.005 0.0001"/>
+          <geom name="gripper_right_col3" type="cylinder" size="0.015778571 0.253364325" pos="0.179804087 0.344474792 -0.309813261" quat="0.990463316 0.124591522 -0.058436111 -0.006676911" contype="1" conaffinity="1" condim="4" group="4" rgba="1 0.3 1 0.3" friction="2 0.005 0.0001"/>
+          <geom name="gripper_right_col4" type="box" size="0.05 0.04 0.30" pos="0.18 0 -0.32" contype="1" conaffinity="1" condim="4" group="4" rgba="1 0.3 1 0.3" friction="2 0.005 0.0001"/>
+          <geom name="gripper_right_col5" type="cylinder" size="0.015778571 0.022297250" pos="0.208214402 0.395372391 -0.553614616" quat="0.157293171 0.986148179 0.008290905 0.051979739" contype="1" conaffinity="1" condim="4" group="4" rgba="1 0.3 1 0.3" friction="2 0.005 0.0001"/>
+          <geom name="gripper_right_col6" type="cylinder" size="0.015778571 0.210724592" pos="0.183168769 -0.320612907 -0.343174815" quat="0.990453422 -0.124669954 -0.058268592 0.008008195" contype="1" conaffinity="1" condim="4" group="4" rgba="1 0.3 1 0.3" friction="2 0.005 0.0001"/>
+          <geom name="gripper_right_col7" type="cylinder" size="0.015778571 0.022297250" pos="0.208143711 -0.364511967 -0.553621650" quat="0.157293171 -0.986148179 0.008290899 -0.051979739" contype="1" conaffinity="1" condim="4" group="4" rgba="1 0.3 1 0.3" friction="2 0.005 0.0001"/>
+          <geom name="gripper_right_col8" type="cylinder" size="0.015778571 0.022297250" pos="0.211230278 -0.347596645 -0.581186771" quat="0.898035407 0.437570065 -0.040848825 -0.019903695" contype="1" conaffinity="1" condim="4" group="4" rgba="1 0.3 1 0.3" friction="2 0.005 0.0001"/>
           <site name="gripper_right_site" pos="0.18 0 -0.58" size="0.03" group="3" rgba="0 1 0 0.8"/>
         </body>
 
