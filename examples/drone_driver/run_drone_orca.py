@@ -37,8 +37,13 @@ DRONE_JOINT_SUFFIXES = [
     "FR_joint",
     "BL_joint",
     "BR_joint",
+    "FL2_joint",
+    "FR2_joint",
+    "BL2_joint",
+    "BR2_joint",
+    "gripper_left_joint",
+    "gripper_right_joint",
 ]
-# 桨关节由环境直接写 qpos/qvel 做动画；模型中不再挂 position 执行器，避免与脚本驱动冲突
 DRONE_ACTUATOR_SUFFIXES: list[str] = []
 DRONE_BODY_SUFFIXES = ["drone_frame", "Drone"]
 DRONE_SITE_SUFFIXES = [
@@ -47,6 +52,10 @@ DRONE_SITE_SUFFIXES = [
     "rotor_fr_site",
     "rotor_bl_site",
     "rotor_br_site",
+    "rotor_fl2_site",
+    "rotor_fr2_site",
+    "rotor_bl2_site",
+    "rotor_br2_site",
 ]
 
 
@@ -127,6 +136,7 @@ def register_env(
     drone_model: str = DEFAULT_DRONE_MODEL,
     diag_logs_enabled: bool = True,
     diag_every_env_steps: int = 0,
+    ctrl_device: str = "keyboard",
 ) -> tuple[str, dict]:
     orcagym_addr_str = orcagym_addr.replace(":", "-")
     env_id = "DroneOrca-OrcaGym-" + orcagym_addr_str + f"-{env_index:03d}"
@@ -153,6 +163,7 @@ def register_env(
         "drone_model": drone_model,
         "diag_logs_enabled": bool(diag_logs_enabled),
         "diag_every_env_steps": int(diag_every_env_steps),
+        "ctrl_device": ctrl_device,
     }
     gym.register(
         id=env_id,
@@ -185,6 +196,7 @@ def run_simulation(
     drone_model: str = DEFAULT_DRONE_MODEL,
     diag_logs_enabled: bool = True,
     diag_every_env_steps: int = 0,
+    ctrl_device: str = "keyboard",
 ) -> None:
     env = None
     try:
@@ -222,6 +234,7 @@ def run_simulation(
             drone_model=profile.key,
             diag_logs_enabled=diag_logs_enabled,
             diag_every_env_steps=diag_every_env_steps,
+            ctrl_device=ctrl_device,
         )
         env = gym.make(env_id)
         obs, info = env.reset()
@@ -240,6 +253,10 @@ def run_simulation(
                 _logger.info(f"已启用 periodic 动力学定位日志：every={int(diag_every_env_steps)} env steps")
         if autoplay:
             _logger.info("已启用 autoplay：无人机将持续执行前进、横移、升降和偏航扰动，便于反复调试")
+        if ctrl_device == "xbox":
+            _logger.info("控制设备: Xbox手柄 | 左摇杆:前后左右 | RT/RT:升降 | 右摇杆X:偏航 | A键:重置")
+        else:
+            _logger.info("控制设备: 键盘 | W/S:前后 A/D:左右 R/F:升降 Q/E:偏航 Space:重置")
         if vertical_z_only_physics:
             xy_k = float(vertical_keyboard_xy_force_factor)
             planar = (
@@ -378,8 +395,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         "Run drone orca communication demo",
         description=(
-            "默认：full 四旋翼模式。W/S、A/D 控制前后/左右平移（伴随机身轻微倾斜），"
-            "R/F 控制集体升降，Q/E 控制偏航。"
+            "默认：full 四旋翼模式。键盘: W/S、A/D 控制前后/左右平移，R/F 升降，Q/E 偏航。"
+            "手柄: 左摇杆前后左右，RT/LT 升降，右摇杆X 偏航，A键 重置。"
         ),
     )
     parser.add_argument("--orcagym_addr", type=str, default="localhost:50051")
@@ -391,6 +408,13 @@ if __name__ == "__main__":
         type=str,
         default=DEFAULT_DRONE_MODEL,
         help="无人机参数配置，默认 Drone_ver_1.0，可传 x2 / skydio_x2 等别名",
+    )
+    parser.add_argument(
+        "--ctrl-device",
+        type=str,
+        choices=("keyboard", "xbox"),
+        default="keyboard",
+        help="控制设备: keyboard(键盘,默认) 或 xbox(Xbox手柄)",
     )
     parser.add_argument(
         "--diag-logs",
@@ -559,4 +583,5 @@ if __name__ == "__main__":
             drone_model=profile.key,
             diag_logs_enabled=bool(args.diag_logs),
             diag_every_env_steps=max(0, int(args.diag_every_env_steps)),
+            ctrl_device=args.ctrl_device,
         )
