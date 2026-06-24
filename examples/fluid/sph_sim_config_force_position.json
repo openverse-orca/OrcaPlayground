@@ -52,14 +52,15 @@
         "comment": "external: 跳过 PBD 刚体积分；SPH 刚体由 position_follow 跟随 MuJoCo；流体力仍采集并发 MuJoCo"
       },
       "position_follow": {
-        "mode": "lag_compensated",
-        "kp": 180.0,
-        "velocity_cap_mps": 1.0,
-        "snap_at_macro_end": false,
-        "lag_compensated": {
-          "min_lag_frames": 1
-        },
-        "comment": "默认 lag_compensated：v_sph=v_mj+clamp(Δx/T_remain,cap)；SPH 刚体 external 跟随 MuJoCo。可由 fluid JSON 的 orcasph.position_follow 覆盖。"
+        "scheme": "vel_uniform",
+        "velocity_cap_mps": 10.0,
+        "include_mujoco_linear_velocity": false,
+        "compensate_rotation_com_drift": true,
+        "comment": "vel_uniform + compensate_rotation_com_drift（方案 B）；legacy: lag_compensated"
+      },
+      "rotation_follow": {
+        "scheme": "rot_slerp",
+        "comment": "rot_slerp 宏内 slerp 闭合 q_mj；legacy: snap"
       }
     },
     "spring_constraint": {

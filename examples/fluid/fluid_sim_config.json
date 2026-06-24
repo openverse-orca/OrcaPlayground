@@ -1,7 +1,7 @@
 {
-  "description": "Fluid-MuJoCo 全链路配置：force_position + lag_compensated（T_remain），与 scene_3chain 短链 orcasph_config 耦合同参",
-  "build_mode": "debug",
-  "build_mode_comment": "debug=CP/子步 CSV；排查 SPH 刚体不跟随时用 --build-mode debug",
+  "description": "Fluid-MuJoCo 全链路配置：force_position + vel_uniform/rot_slerp（方案 B）",
+  "build_mode": "release",
+  "build_mode_comment": "release=日常/遥操；debug=CP/子步 CSV。CLI: --build-mode debug",
   "orcagym": {
     "address": "localhost:50051",
     "agent_name": "NoRobot",
@@ -103,14 +103,13 @@
     "config_template": "sph_sim_config_force_position.json",
     "sphscale": 1.0,
     "position_follow": {
-      "mode": "lag_compensated",
-      "kp": 180.0,
-      "velocity_cap_mps": 1.0,
-      "snap_at_macro_end": false,
-      "lag_compensated": {
-        "min_lag_frames": 1
-      },
-      "comment": "与 scene_3chain/orcasph_config.json 一致：v_sph=v_mj+clamp(Δx/T_remain,cap)"
+      "scheme": "vel_uniform",
+      "velocity_cap_mps": 10.0,
+      "include_mujoco_linear_velocity": false,
+      "compensate_rotation_com_drift": true
+    },
+    "rotation_follow": {
+      "scheme": "rot_slerp"
     },
     "rigid_body_dynamics": {
       "mode": "external",
@@ -133,11 +132,11 @@
   "debug": {
     "verbose_logging": false,
     "force_position_trace": {
-      "enabled": true,
+      "enabled": false,
       "output_base_dir": "~/.orcagym/tmp/debug_data",
       "substeps_per_macro": 20,
       "substep_trace": {
-        "enabled": true,
+        "enabled": false,
         "max_macros": 30
       },
       "comment": "release 下不采集 CP1–CP6；debug 时 enabled=true 且 build_mode=debug"

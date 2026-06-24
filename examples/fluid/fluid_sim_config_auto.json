@@ -102,14 +102,13 @@
     "config_template": "sph_sim_config_force_position.json",
     "sphscale": 1.0,
     "position_follow": {
-      "mode": "lag_compensated",
-      "kp": 180.0,
-      "velocity_cap_mps": 1.0,
-      "snap_at_macro_end": false,
-      "lag_compensated": {
-        "min_lag_frames": 1
-      },
-      "comment": "v_sph=v_mj+clamp(Δx/T_remain,cap)；与 fluid_sim_config.json 一致"
+      "scheme": "vel_uniform",
+      "velocity_cap_mps": 10.0,
+      "include_mujoco_linear_velocity": false,
+      "compensate_rotation_com_drift": true
+    },
+    "rotation_follow": {
+      "scheme": "rot_slerp"
     },
     "rigid_body_dynamics": {
       "mode": "external",

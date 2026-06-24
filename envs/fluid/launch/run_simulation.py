@@ -514,9 +514,14 @@ def _init_force_position_debug_trace(ctx: FluidSimulationContext) -> None:
         os.environ["ORCA_FP_SUBSTEP_MAX_MACROS"] = str(
             int(substep_trace.get("max_macros", 10))
         )
+        if substep_trace.get("rot_com_compare", True):
+            os.environ["ORCA_FP_ROT_COM_COMPARE"] = "1"
+        else:
+            os.environ.pop("ORCA_FP_ROT_COM_COMPARE", None)
     else:
         os.environ.pop("ORCA_FP_SUBSTEP_TRACE", None)
         os.environ.pop("ORCA_FP_SUBSTEP_MAX_MACROS", None)
+        os.environ.pop("ORCA_FP_ROT_COM_COMPARE", None)
 
     body_aliases: Dict[str, str] = {}
     alias_file = dbg.get("body_aliases_file")

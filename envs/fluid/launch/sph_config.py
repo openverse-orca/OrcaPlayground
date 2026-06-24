@@ -40,7 +40,7 @@ def _apply_fluid_bridge_to_orcasph(orcasph_config: dict, fluid_config: dict) -> 
 
     - 设置 ``coupling_mode``（与 Python OrcaLinkBridge 一致）；
     - **不**合并 ``orcalink.bridge.<mode>.channels``（Python 与 SPH 的 publish/subscribe 视角相反，由 SPH 模板提供）；
-    - 可选 ``orcasph.position_follow`` / ``orcasph.rigid_body_dynamics`` 覆盖模板；
+    - 可选 ``orcasph.position_follow`` / ``orcasph.rotation_follow`` / ``orcasph.rigid_body_dynamics`` 覆盖模板；
     - 同步 ``orcalink.client.session.sync_params`` → ``orcalink_client.session``。
     """
     coupling_mode = _resolve_coupling_mode(fluid_config)
@@ -54,12 +54,21 @@ def _apply_fluid_bridge_to_orcasph(orcasph_config: dict, fluid_config: dict) -> 
         if pf_override:
             _deep_merge(fp, {"position_follow": pf_override})
             logger.info(
-                "[OrcaSPH] position_follow override: mode=%s",
-                pf_override.get("mode", "proportional"),
+                "[OrcaSPH] position_follow override: scheme=%s velocity_cap_mps=%s compensate_rotation_com_drift=%s",
+                pf_override.get("scheme", "lag_compensated"),
+                pf_override.get("velocity_cap_mps", 1.0),
+                pf_override.get("compensate_rotation_com_drift", False),
             )
         rbd_override = orcasph_cfg.get("rigid_body_dynamics")
         if rbd_override:
             _deep_merge(fp, {"rigid_body_dynamics": rbd_override})
+        rot_override = orcasph_cfg.get("rotation_follow")
+        if rot_override:
+            _deep_merge(fp, {"rotation_follow": rot_override})
+            logger.info(
+                "[OrcaSPH] rotation_follow override: scheme=%s",
+                rot_override.get("scheme", "snap"),
+            )
 
     sync_params = (
         (fluid_config.get("orcalink") or {})
