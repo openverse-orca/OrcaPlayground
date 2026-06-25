@@ -324,12 +324,15 @@ def run_simulation(
                 time.sleep(realtime_step - elapsed_time.total_seconds())
 
     except KeyboardInterrupt:
-        print("Simulation stopped")
-    except ValueError:
-        _logger.error("仿真出错")
+        pass
+    except Exception as e:
+        _logger.error(f"仿真出错: {e}")
     finally:
         if env is not None:
-            env.close()
+            try:
+                env.close()
+            except Exception:
+                pass
 
 
 def run_takeoff_bisection(
@@ -410,16 +413,19 @@ def run_takeoff_bisection(
             f"判据为 hold={bisect_hold_s}s 内 Δz≥{bisect_dz_m}m（与 env 内「持续起飞」vz+Δz+时间判据可略有差异）"
         )
     except KeyboardInterrupt:
-        print("Bisection stopped")
-    except ValueError:
-        _logger.error("仿真出错")
+        pass
+    except Exception as e:
+        _logger.error(f"仿真出错: {e}")
     finally:
         if env is not None:
             try:
                 env.unwrapped.set_vertical_quiet_diag_logs(False)
             except Exception:
                 pass
-            env.close()
+            try:
+                env.close()
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":

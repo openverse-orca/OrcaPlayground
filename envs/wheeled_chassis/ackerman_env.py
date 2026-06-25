@@ -11,6 +11,9 @@ import orca_gym.adapters.robosuite.utils.transform_utils as transform_utils
 from orca_gym.environment.orca_gym_env import RewardType
 from orca_gym.environment.orca_gym_local_env import OrcaGymLocalEnv
 
+# 抑制 pygame 启动 banner
+os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
+
 
 class AckermanEnv(OrcaGymLocalEnv):
     """
@@ -88,7 +91,17 @@ class AckermanEnv(OrcaGymLocalEnv):
         # print("Scaled action range: ", scaled_action_range)
         self.action_space = self.generate_action_space(scaled_action_range)
 
-    
+    def close(self) -> None:
+        if hasattr(self, "_keyboard") and self._keyboard is not None:
+            try:
+                # KeyboardInput.close() 不关闭底层 source，需手动关闭 gRPC channel
+                if hasattr(self._keyboard, "_source") and hasattr(self._keyboard._source, "close"):
+                    self._keyboard._source.close()
+            except Exception:
+                pass
+            self._keyboard = None
+        super().close()
+
     def render_callback(self, mode='human') -> None:
         if mode == "human":
             self.render()

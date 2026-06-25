@@ -1,4 +1,5 @@
 import math
+import os
 from dataclasses import dataclass, replace
 from typing import Optional
 
@@ -12,6 +13,9 @@ from orca_gym.devices.xbox_joystick import XboxJoystick, XboxJoystickManager
 from orca_gym.environment.orca_gym_local_env import OrcaGymLocalEnv
 from orca_gym.log.orca_log import get_orca_logger
 from orca_gym.utils import rotations
+
+# 抑制 pygame 启动 banner
+os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 
 _logger = get_orca_logger()
 
@@ -490,6 +494,13 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
             self._joystick_manager.close()
             self._joystick_manager = None
             self._joystick = None
+        if hasattr(self, "_keyboard") and self._keyboard is not None:
+            try:
+                if hasattr(self._keyboard, "_source") and hasattr(self._keyboard._source, "close"):
+                    self._keyboard._source.close()
+            except Exception:
+                pass
+            self._keyboard = None
         super().close()
 
     def reset_model(self):
