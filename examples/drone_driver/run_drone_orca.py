@@ -31,18 +31,13 @@ _DEFAULT_DRONE_PROFILE = get_drone_model_profile(DEFAULT_DRONE_MODEL)
 DEFAULT_VERTICAL_KEYBOARD_BASE_TMG = float(_DEFAULT_DRONE_PROFILE.vertical_keyboard_baseline_tmg)
 DEFAULT_VERTICAL_XY_FORCE_FACTOR = float(_DEFAULT_DRONE_PROFILE.vertical_xy_force_factor)
 
+# 场景扫描必选后缀：所有机型都必须具备的关节/site
 DRONE_JOINT_SUFFIXES = [
     "drone_free",
     "FL_joint",
     "FR_joint",
     "BL_joint",
     "BR_joint",
-    "FL2_joint",
-    "FR2_joint",
-    "BL2_joint",
-    "BR2_joint",
-    "gripper_left_joint",
-    "gripper_right_joint",
 ]
 DRONE_ACTUATOR_SUFFIXES: list[str] = []
 DRONE_BODY_SUFFIXES = ["drone_frame", "Drone"]
@@ -52,6 +47,18 @@ DRONE_SITE_SUFFIXES = [
     "rotor_fr_site",
     "rotor_bl_site",
     "rotor_br_site",
+]
+
+# 可选后缀：仅部分机型具备，环境初始化时按需解析（已有容错）
+DRONE_OPTIONAL_JOINT_SUFFIXES = [
+    "FL2_joint",
+    "FR2_joint",
+    "BL2_joint",
+    "BR2_joint",
+    "gripper_left_joint",
+    "gripper_right_joint",
+]
+DRONE_OPTIONAL_SITE_SUFFIXES = [
     "rotor_fl2_site",
     "rotor_fr2_site",
     "rotor_bl2_site",
@@ -86,7 +93,31 @@ def resolve_drone_scene_binding(orcagym_addr: str, time_step: float) -> tuple[li
         "bodies_by_suffix": dict(match.matched_names.get("bodies", {})),
         "sites_by_suffix": dict(match.matched_names.get("sites", {})),
     }
+    # 补充可选后缀：双层旋翼、抓取机构等，仅部分机型具备
+    _collect_optional_suffixes(
+        report.scene_names, match.prefix, scene_binding,
+        DRONE_OPTIONAL_JOINT_SUFFIXES, DRONE_OPTIONAL_SITE_SUFFIXES,
+    )
     return agent_names, scene_binding
+
+
+def _collect_optional_suffixes(
+    scene_names,
+    prefix: str,
+    scene_binding: dict,
+    optional_joints: list[str],
+    optional_sites: list[str],
+) -> None:
+    """将场景中存在的可选后缀补充到 scene_binding，缺失则跳过。"""
+    prefix_token = f"{prefix}_" if prefix else ""
+    for suffix in optional_joints:
+        full_name = f"{prefix_token}{suffix}"
+        if full_name in scene_names.joints:
+            scene_binding["joints_by_suffix"][suffix] = full_name
+    for suffix in optional_sites:
+        full_name = f"{prefix_token}{suffix}"
+        if full_name in scene_names.sites:
+            scene_binding["sites_by_suffix"][suffix] = full_name
 
 
 def sceneinfo(scene, stage: str, orcagym_address: str):

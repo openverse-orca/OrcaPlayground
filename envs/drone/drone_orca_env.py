@@ -171,13 +171,13 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
             RotorSpec("BR_joint", 1.0),
         ]
         self._secondary_rotor_map: dict[str, str] = {}
+        joints_by_suffix = self._scene_binding.get("joints_by_suffix", {})
         for ps in self._primary_rotor_specs:
             sec_name = ps.joint_suffix.replace("_joint", "2_joint")
-            try:
-                self._resolve_name("joints", sec_name)
+            # _resolve_name 的 fallback (self.joint) 只做前缀拼接不做存在性校验，
+            # 所以必须先查 scene_binding 确认场景中确实存在该关节
+            if sec_name in joints_by_suffix:
                 self._secondary_rotor_map[ps.joint_suffix] = sec_name
-            except (KeyError, Exception):
-                pass
         self._rotor_specs = list(self._primary_rotor_specs)
         for primary_name, sec_name in self._secondary_rotor_map.items():
             primary_spec = next(s for s in self._primary_rotor_specs if s.joint_suffix == primary_name)
@@ -200,12 +200,14 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         self._gripper_joints: dict[str, str] = {}
         _gripper_resolve_errors: list[str] = []
         for gname in ("gripper_left_joint", "gripper_right_joint"):
-            try:
-                resolved = self._resolve_name("joints", gname)
+            # _resolve_name 的 fallback (self.joint) 只做前缀拼接不做存在性校验，
+            # 所以必须先查 scene_binding 确认场景中确实存在该关节
+            if gname in joints_by_suffix:
+                resolved = joints_by_suffix[gname]
                 self._gripper_joints[gname] = resolved
                 _logger.info(f"[DroneOrcaEnv] gripper joint resolved via scene_binding: {gname} -> {resolved}")
-            except (KeyError, Exception) as e:
-                _gripper_resolve_errors.append(f"scene_binding: {e}")
+            else:
+                _gripper_resolve_errors.append(f"scene_binding: {gname} not found")
                 try:
                     mjm = self.gym._mjModel
                     jid = mujoco.mj_name2id(mjm, mujoco.mjtObj.mjOBJ_JOINT, gname)
@@ -333,10 +335,15 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         else:
             self._body_J = np.diag(np.array([6.0, 4.0, 3.0], dtype=np.float64))
         self._body_J_inv = np.linalg.inv(self._body_J)
-        self._ctbr_omega_max_rp = 1.2
-        self._ctbr_omega_max_yaw = 1.0
-        self._ctbr_Kp = np.diag(np.array([5.0, 5.0, 5.0], dtype=np.float64))
+        self._ctbr_omega_max_rp = float(full_cfg.ctbr_omega_max_rp)
+        self._ctbr_omega_max_yaw = float(full_cfg.ctbr_omega_max_yaw)
+        self._ctbr_Kp_scalar = float(full_cfg.ctbr_Kp)
+        self._ctbr_Kp = np.diag(np.array([self._ctbr_Kp_scalar] * 3, dtype=np.float64))
+        self._ctbr_use_inertia_scaling = bool(full_cfg.ctbr_use_inertia_scaling)
         self._ctbr_max_torque_norm = float(self._aero.drag.max_body_torque_norm)
+        self._attitude_recover_kp_idle = float(full_cfg.attitude_recover_kp_idle)
+        self._attitude_recover_kp_active = float(full_cfg.attitude_recover_kp_active)
+        self._torque_warmup_s = float(full_cfg.torque_warmup_s)
 
         free_lo, free_hi = _joint_dof_bounds(mjm, self._free_joint)
         self._free_dof_lo = free_lo
@@ -1055,9 +1062,9 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         tilt_rad = float(math.acos(np.clip(zb_body[2], -1.0, 1.0)))
         max_tilt_rad = math.radians(float(self._model_profile.full_mode.max_tilt_deg))
         if planar_idle:
-            Kp_att = 3.0
+            Kp_att = self._attitude_recover_kp_idle
         else:
-            Kp_att = 1.0
+            Kp_att = self._attitude_recover_kp_active
         omega_des_b[0:2] += tilt_err_rp[0:2] * Kp_att
 
         # 倾角硬限：超过 max_tilt 时强力回正
@@ -1066,9 +1073,14 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
             omega_des_b[0:2] += tilt_err_rp[0:2] * omega_des_rp * over_ratio * 3.0
 
         omega_err = omega_des_b - omega_b_raw
-        prop = self._body_J @ (self._ctbr_Kp @ omega_err)
-        Jw = self._body_J @ omega_b_raw
-        fb_lin = np.cross(omega_b_raw, Jw)
+        if self._ctbr_use_inertia_scaling:
+            prop = self._body_J @ (self._ctbr_Kp @ omega_err)
+            Jw = self._body_J @ omega_b_raw
+            fb_lin = np.cross(omega_b_raw, Jw)
+        else:
+            # 小惯量机体：Kp 直接为力矩/角速率误差，不乘 body_J
+            prop = self._ctbr_Kp @ omega_err
+            fb_lin = np.zeros(3, dtype=np.float64)
         tau_b_cmd = prop + fb_lin
 
         tnorm = float(np.linalg.norm(tau_b_cmd))
@@ -1109,9 +1121,9 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         f_w = f_w + f_drag_w
 
         tau_b_tot = tau_b_cmd + tau_drag_b
-        # reset 后前几百毫秒先软启动 torque，避免小惯量机体在同步/初始误差尚未消散时被第一帧大力矩打翻。
-        warmup_s = 0.35
-        if sim_since_reset < warmup_s:
+        # reset 后先软启动 torque，避免小惯量机体在同步/初始误差尚未消散时被第一帧大力矩打翻。
+        warmup_s = self._torque_warmup_s
+        if warmup_s > 0.0 and sim_since_reset < warmup_s:
             a = sim_since_reset / warmup_s
             torque_scale = 0.25 + 0.75 * a
             tau_b_tot *= torque_scale

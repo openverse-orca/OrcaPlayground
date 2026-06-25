@@ -115,6 +115,19 @@ class FullModeControlConfig:
     max_tilt_deg: float = 18.0
     planar_forward_axis_body: tuple[float, float, float] = (0.0, 1.0, 0.0)
     planar_right_axis_body: tuple[float, float, float] = (1.0, 0.0, 0.0)
+    # CTBR 角速率环 P 增益（对角阵元素），作用于 omega_err 后再乘 body_J 得力矩
+    ctbr_Kp: float = 5.0
+    # CTBR 是否乘 body_J：大惯量机体用 True（逆动力学公式），小惯量机体用 False（Kp 直接为力矩/角速率误差）
+    ctbr_use_inertia_scaling: bool = True
+    # CTBR 最大目标角速率 (rad/s)
+    ctbr_omega_max_rp: float = 1.2
+    ctbr_omega_max_yaw: float = 1.0
+    # 姿态回正增益：松杆时（idle）和操控时（active）
+    attitude_recover_kp_idle: float = 3.0
+    attitude_recover_kp_active: float = 1.0
+    # reset 后力矩暖机时间 (s)
+    torque_warmup_s: float = 0.35
+    # 以下 scale 参数保留兼容，当前 CTBR 控制器使用上方直接参数
     attitude_kp_scale: float = 1.0
     attitude_kd_scale: float = 1.0
     attitude_rate_cap_scale: float = 1.0
@@ -219,6 +232,14 @@ DRONE_MODEL_PROFILES: dict[str, DroneModelProfile] = {
         full_mode=FullModeControlConfig(
             planar_forward_axis_body=(-1.0, 0.0, 0.0),
             planar_right_axis_body=(0.0, -1.0, 0.0),
+            # 小无人机惯量 ~1e-4，CTBR 不乘 body_J，Kp 直接为力矩/角速率误差
+            ctbr_Kp=0.012,
+            ctbr_use_inertia_scaling=False,
+            ctbr_omega_max_rp=2.5,
+            ctbr_omega_max_yaw=2.0,
+            attitude_recover_kp_idle=4.0,
+            attitude_recover_kp_active=1.5,
+            torque_warmup_s=0.25,
         ),
     ),
     "x2": DroneModelProfile(
@@ -232,6 +253,14 @@ DRONE_MODEL_PROFILES: dict[str, DroneModelProfile] = {
             max_tilt_deg=12.0,
             planar_forward_axis_body=(-1.0, 0.0, 0.0),
             planar_right_axis_body=(0.0, -1.0, 0.0),
+            # x2 惯量 ~0.02，CTBR 不乘 body_J，Kp 直接为力矩/角速率误差
+            ctbr_Kp=0.08,
+            ctbr_use_inertia_scaling=False,
+            ctbr_omega_max_rp=2.0,
+            ctbr_omega_max_yaw=1.5,
+            attitude_recover_kp_idle=3.5,
+            attitude_recover_kp_active=1.2,
+            torque_warmup_s=0.30,
             attitude_kp_scale=1.35,
             attitude_kd_scale=1.20,
             attitude_rate_cap_scale=1.35,
@@ -261,6 +290,13 @@ DRONE_MODEL_PROFILES: dict[str, DroneModelProfile] = {
             max_tilt_deg=10.0,
             planar_forward_axis_body=(0.0, 1.0, 0.0),
             planar_right_axis_body=(1.0, 0.0, 0.0),
+            # dji_lhcg 惯量 ~6，CTBR 乘 body_J，Kp=5 与原硬编码一致
+            ctbr_Kp=5.0,
+            ctbr_omega_max_rp=1.2,
+            ctbr_omega_max_yaw=1.0,
+            attitude_recover_kp_idle=3.0,
+            attitude_recover_kp_active=1.0,
+            torque_warmup_s=0.35,
             attitude_kp_scale=100.0,
             attitude_kd_scale=100.0,
             attitude_rate_cap_scale=3.0,
