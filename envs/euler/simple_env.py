@@ -23,7 +23,7 @@ from typing import Any
 import numpy as np
 from gymnasium import spaces
 
-from orca_gym.environment.orca_gym_euler_env import OrcaGymEulerEnv
+from orca_gym.environment.euler.orca_gym_euler_env import OrcaGymEulerEnv
 
 _SCENE_XML = os.path.join(os.path.dirname(__file__), "scenes", "simple_pendulum.xml")
 
@@ -91,10 +91,11 @@ class SimpleEulerEnv(OrcaGymEulerEnv):
         # 随机初始角度（小范围扰动，使摆杆从接近直立开始）
         qpos = self.init_qpos + self.np_random.uniform(-0.1, 0.1, self.model.nq)
         qvel = self.init_qvel + self.np_random.uniform(-0.1, 0.1, self.model.nv)
-        self.gym._sim._mjData.qpos[:] = qpos
-        self.gym._sim._mjData.qvel[:] = qvel
-        self.gym.mj_forward()
-        self.gym.sync_to_view()
+        # 合规：通过 Env 公共方法设置状态（K3/K5 + §6.3 W1）
+        self.set_joint_qpos(qpos)
+        self.set_joint_qvel(qvel)
+        self.mj_forward()       # 更新派生量
+        self._sync_view()       # 同步到 DataView
         self._step_count = 0
         return self._get_obs(), {}
 
