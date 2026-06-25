@@ -18,7 +18,7 @@
 - **CUDA 驱动**：已安装 NVIDIA 驱动，`nvidia-smi` 可正常输出
 - **conda**：已安装 Anaconda 或 Miniconda
 - **TRAE IDE**：已安装 TRAE CN 版（sandbox 旁路依赖此 IDE 的白名单功能）
-- **OrcaGym 已就绪**：`orca` 环境中已安装 OrcaGym 及其 GPU 运行时（Flow / Warp 原生 CUDA 库）。OrcaGym 的环境配置见 `../OrcaGym/DEVELOPMENT_GUIDE.md`
+- **OrcaGym 已就绪**：`orca` 环境中已安装 OrcaGym 及其 GPU 运行时（Flow / Warp 原生 CUDA 库）。OrcaGym 的环境配置见 `../OrcaGym/DEVELOPER_GUIDE.md`
 
 ## 步骤 1：创建 orca conda 环境
 
