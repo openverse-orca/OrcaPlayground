@@ -70,8 +70,8 @@
           "enabled": true,
           "rigid_body": {
             "enabled": true,
-            "max_acceleration_g": 10.0,
-            "discard_on_clamp": true
+            "max_acceleration_g": 0.8,
+            "discard_on_clamp": false
           },
           "debug": {
             "log_clamped_forces": false,

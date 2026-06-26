@@ -1,5 +1,5 @@
 {
-  "description": "Fluid-MuJoCo 全链路配置：force_position + vel_uniform/rot_slerp（方案 B）",
+  "description": "Fluid-MuJoCo 全链路配置：force_position + vel_uniform/rot_slerp（方案 B，velocity_cap_mps=10）",
   "build_mode": "release",
   "build_mode_comment": "release=日常/遥操；debug=CP/子步 CSV。CLI: --build-mode debug",
   "orcagym": {
@@ -69,8 +69,8 @@
           "enabled": true,
           "rigid_body": {
             "enabled": true,
-            "max_acceleration_g": 10.0,
-            "discard_on_clamp": true
+            "max_acceleration_g": 0.8,
+            "discard_on_clamp": false
           },
           "debug": {
             "log_clamped_forces": false,

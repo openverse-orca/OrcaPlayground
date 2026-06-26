@@ -61,6 +61,19 @@
       "rotation_follow": {
         "scheme": "rot_slerp",
         "comment": "rot_slerp 宏内 slerp 闭合 q_mj；legacy: snap"
+      },
+      "force_clamping": {
+        "enabled": true,
+        "rigid_body": {
+          "enabled": true,
+          "max_acceleration_g": 0.8,
+          "discard_on_clamp": false,
+          "comment": "SPH→MuJoCo 流体力总力钳制：F_max=m*0.8g；scale 保留方向"
+        },
+        "debug": {
+          "log_clamped_forces": true,
+          "log_threshold_n": 1.0
+        }
       }
     },
     "spring_constraint": {
@@ -82,8 +95,8 @@
         "enabled": true,
         "rigid_body": {
           "enabled": true,
-          "max_acceleration_g": 10.0,
-          "discard_on_clamp": true
+          "max_acceleration_g": 0.8,
+          "discard_on_clamp": false
         },
         "debug": {
           "log_clamped_forces": true,
@@ -177,8 +190,8 @@
         "enabled": true,
         "rigid_body": {
           "enabled": true,
-          "max_acceleration_g": 10.0,
-          "discard_on_clamp": true
+          "max_acceleration_g": 0.8,
+          "discard_on_clamp": false
         }
       },
       "force_inference": {

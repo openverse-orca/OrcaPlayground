@@ -133,7 +133,7 @@ class SimEnv(OrcaGymLocalEnv):
             if action is None:
                 ctrl = np.zeros(self.nu, dtype=np.float32)
                 for i in range(self.nu):
-                    ctrl[i] = 50
+                    ctrl[i] = 20
             else:
                 ctrl = np.asarray(action, dtype=np.float32).reshape(self.nu)
 
