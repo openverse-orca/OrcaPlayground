@@ -220,6 +220,10 @@
             <geom pos="0.0039635 0 -0.054" type="mesh" contype="0" conaffinity="0" group="1"
               density="0" rgba="0.2 0.2 0.2 1" mesh="head_link" />
             <geom pos="0.0039635 0 -0.054" type="mesh" rgba="0.2 0.2 0.2 1" mesh="head_link" group="3"/>
+            <body name="camera_head" pos="0.00 0 0.4" euler="0.0 0 -1.570">
+              <site name="camera_head_site" size="0.01" group="3"/>
+              <camera name="camera_head" user="7070 7071" fovy="75"/>
+            </body>
             <geom pos="0.0039635 0 -0.054" quat="1 0 0 0" type="mesh" contype="0" conaffinity="0"
               group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="waist_support_link" />
             <geom pos="0.0039635 0 -0.054" quat="1 0 0 0" type="mesh" rgba="0.7 0.7 0.7 1"
