@@ -97,3 +97,36 @@ bash -c "<conda-base>/envs/orca/bin/python examples/euler/run_simple.py"
 ### CPU 测试无需旁路
 
 仅使用 CPU 或纯 NumPy 的测试可在 sandbox 内直接运行，无需白名单旁路。应将 GPU 依赖的测试与 CPU 测试分离，GPU 测试标记为仅在 sandbox 外运行。
+
+## 规则 4：API 隔离强制
+
+本仓库采用 `_` 前缀社区约定 + ruff SLF001 静态检查，引导 AI 和用户走公共 API（OrcaGym 架构 §7）。
+
+### 禁止穿墙访问
+
+不得访问以下 `_` 前缀内部属性（类内部合法的 `self._xxx` 委托除外）：
+
+- `env._gym` / `env._stub` / `env._channel` / `env._studio_bridge`
+- `env._gym._sim` / `env._gym._sim._mjData` / `env._gym._sim._mjModel`
+- 任何自研类（含本仓库 env 子类）的 `_` 前缀属性
+
+### 必须使用公共 API
+
+| 操作 | 正确 | 禁止 |
+|------|------|------|
+| 读取状态 | `env.data.qpos` / `env.data.body_xpos(name)` / `env.query_*()` | `env._gym._sim._mjData.qpos` |
+| 写入状态 | `env.set_joint_qpos()` / `env.apply_body_force()` | `env._gym._sim._mjData.xfrc_applied[...]` |
+| 步进 | `env.do_simulation(ctrl, n_frames)` / `env.step()` | `env._gym._sim._mjData.step()` |
+| 求解器配置 | `env.sim_config.timestep = 0.002` | `env._gym._sim._mjModel.opt.timestep = 0.002` |
+
+### 必须执行 ruff
+
+提交代码前必须执行，零报警方可提交：
+
+    <conda-base>/envs/orca/bin/python -m ruff check --select SLF001 envs/ examples/
+
+### 缺失功能时扩展公共方法
+
+若公共 API 不满足需求，**暂停并提交用户决策**，不要穿墙访问内部属性。扩展途径：
+- 在 OrcaGym 侧添加公共方法（联系 OrcaGym 开发者）
+- 在本仓库 env 子类中添加公共访问器
