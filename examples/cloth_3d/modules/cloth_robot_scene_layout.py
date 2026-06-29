@@ -57,6 +57,43 @@ OPENLOONG_TELE_ARM_JOINT_VALUES: dict[str, float] = {
     "J_arm_r_07": 0.0,
 }
 
+# 与 ``g1_omnipicker_conf`` / ``data_collection_cloth_tele`` 双臂 neutral 一致
+G1_TELE_ARM_JOINT_VALUES: dict[str, float] = {
+    "idx21_arm_l_joint1": 0.0,
+    "idx22_arm_l_joint2": 0.0,
+    "idx23_arm_l_joint3": 0.0,
+    "idx24_arm_l_joint4": -0.87,
+    "idx25_arm_l_joint5": 0.0,
+    "idx26_arm_l_joint6": 0.0,
+    "idx27_arm_l_joint7": 0.0,
+    "idx61_arm_r_joint1": 0.0,
+    "idx62_arm_r_joint2": 0.0,
+    "idx63_arm_r_joint3": 0.0,
+    "idx64_arm_r_joint4": 0.87,
+    "idx65_arm_r_joint5": 0.0,
+    "idx66_arm_r_joint6": 0.0,
+    "idx67_arm_r_joint7": 0.0,
+}
+
+
+def tele_joint_values_for_session(session: dict[str, Any]) -> dict[str, float]:
+    """
+    返回与 ``data_collection_cloth_tele`` 复位一致的 tele 关节 neutral。
+
+    优先读 session ``orcagym.default_joint_values``；否则按 ``mjc_agent_prefix`` /
+    ``agent_name`` 在 G1 与 openloong 表之间选择。
+    """
+    og = session.get("orcagym") or {}
+    from_session = og.get("default_joint_values")
+    if isinstance(from_session, dict) and from_session:
+        return {str(k): float(v) for k, v in from_session.items()}
+
+    prefix = str(og.get("mjc_agent_prefix", "")).lower()
+    agent = str(og.get("agent_name", "")).lower()
+    if "g1" in prefix or "g1" in agent or "omnipicker" in prefix:
+        return dict(G1_TELE_ARM_JOINT_VALUES)
+    return dict(OPENLOONG_TELE_ARM_JOINT_VALUES)
+
 
 @dataclass(frozen=True)
 class ClothRobotGripperKeyframe:

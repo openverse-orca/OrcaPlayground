@@ -294,13 +294,21 @@ def load_body_map_ordered(model: mujoco.MjModel, config: dict[str, Any]) -> list
     return entries
 
 
-def validate_body_map(model: mujoco.MjModel, entries: list[BodyMapEntry]) -> list[str]:
+def validate_body_map(
+    model: mujoco.MjModel,
+    entries: list[BodyMapEntry],
+    *,
+    body_only: bool = False,
+) -> list[str]:
+    """body_only=True 时仅校验 body 存在（body_track 模式不要求 anchor SITE）。"""
     errors: list[str] = []
     for e in entries:
         try:
             _body_id(model, e.mjc_body_name)
         except ValueError:
             errors.append(f"missing body: {e.mjc_body_name}")
+            continue
+        if body_only:
             continue
         if not e.anchor_sites:
             errors.append(f"{e.mjc_body_name}: no anchor sites")

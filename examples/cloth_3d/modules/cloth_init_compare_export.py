@@ -349,15 +349,99 @@ def write_summary_csv(
         w.writerows(rows)
 
 
-def resolve_vtk_path(mesh_name: str, search_dir: Path | None = None) -> Path:
-    """解析 VTK：优先 ``XPBD/data``，其次 ``search_dir``。"""
-    candidates = [XPBD_DATA / mesh_name, REPO_ROOT / "XPBD" / "data" / Path(mesh_name).name]
+def resolve_vtk_path(
+    mesh_name: str,
+    search_dir: Path | None = None,
+    *,
+    level: str | None = None,
+    asset_dir: Path | str | None = None,
+) -> Path:
+    """
+    解析 VTK：优先场景权威 ``Assets/<level>/`` 或 ``asset_dir``，其次 ``search_dir``。
+
+    联调路径不查 ``XPBD/data``。
+    """
+    raw = Path(mesh_name).expanduser()
+    if raw.is_file():
+        return raw.resolve()
+
+    basename = raw.name
+    candidates: list[Path] = []
+    if asset_dir:
+        candidates.append(Path(asset_dir) / basename)
+    if level and str(level).strip():
+        try:
+            from modules.masked_vtk_assets import level_assets_dir  # noqa: WPS433
+
+            candidates.append(level_assets_dir(level) / basename)
+        except Exception:
+            candidates.append(REPO_ROOT / "OrcaStudio_2409" / "Assets" / level / basename)
     if search_dir is not None:
-        candidates.insert(1, search_dir / mesh_name)
-    for p in candidates:
-        if p.is_file():
-            return p.resolve()
-    raise FileNotFoundError(f"VTK not found for mesh={mesh_name!r}")
+        candidates.append(search_dir / mesh_name)
+        candidates.append(search_dir / basename)
+
+    for path in candidates:
+        if path.is_file():
+            return path.resolve()
+    raise FileNotFoundError(
+        f"VTK not found for mesh={mesh_name!r} (level={level!r}, asset_dir={asset_dir!r})"
+    )
+
+
+def is_masked_sheet_cloth(cloth: dict[str, Any]) -> bool:
+    """
+    判断 session ``cloth`` 是否为掩码矩形 sheet（XPBD ``phys_world_add_sheet_masked``）。
+
+    依据 ``topo_type=masked_sheet``，或同时具备 ``mask_path`` 与 ``cloth_nx/cloth_ny``。
+    """
+    topo = str(cloth.get("topo_type") or "").strip().lower()
+    if topo == "masked_sheet":
+        return True
+    if cloth.get("mask_path") and cloth.get("cloth_nx") and cloth.get("cloth_ny"):
+        return True
+    return False
+
+
+def build_masked_sheet_local_points(cloth: dict[str, Any]) -> np.ndarray:
+    """
+    按 XPBD ``phys_world_add_sheet_masked``（``grid_centered=1``，可选 ``cook_y_flip=1``）生成掩码布局部顶点。
+
+    遍历 ``cloth_nx × cloth_ny`` 格点，仅保留 ``.mask`` 中 active 的格点；
+    局部坐标：``x = (i - 0.5*(nx-1))*spacing``，
+    ``y = ±(j - 0.5*(ny-1))*spacing``（``cook_y_flip`` 时取负），``z = 0``。
+    顶点顺序与 C 端 ``compact_idx`` 递增一致，供与 ``xpbd_init_particles.csv`` 逐点对比。
+    """
+    nx = int(cloth.get("cloth_nx") or cloth.get("nx") or 0)
+    ny = int(cloth.get("cloth_ny") or cloth.get("ny") or 0)
+    spacing = float(cloth.get("cloth_spacing_m") or cloth.get("spacing") or 0.0)
+    mask_path = str(cloth.get("mask_path") or "").strip()
+    if nx < 1 or ny < 1 or spacing <= 0.0 or not mask_path:
+        raise ValueError(
+            f"masked sheet requires cloth_nx/ny, cloth_spacing_m, mask_path; got nx={nx} ny={ny} "
+            f"spacing={spacing} mask={mask_path!r}"
+        )
+    from modules.scene_cloth_config import cloth_meta_cook_y_flip, read_mask_active_flags  # noqa: WPS433
+
+    cook_y_flip = cloth_meta_cook_y_flip(cloth)
+    flags = read_mask_active_flags(Path(mask_path))
+    grid_count = nx * ny
+    if len(flags) != grid_count:
+        raise ValueError(f"mask length {len(flags)} != grid {grid_count} (nx={nx} ny={ny})")
+
+    pts: list[list[float]] = []
+    for i in range(nx):
+        for j in range(ny):
+            grid_idx = i * ny + j
+            if not flags[grid_idx]:
+                continue
+            x = (i - 0.5 * (nx - 1)) * spacing
+            y = (j - 0.5 * (ny - 1)) * spacing
+            if cook_y_flip:
+                y = -y
+            pts.append([x, y, 0.0])
+    if not pts:
+        raise ValueError(f"masked sheet has zero active vertices (mask={mask_path})")
+    return np.array(pts, dtype=np.float64)
 
 
 def is_procedural_cloth_mesh(mesh_name: str) -> bool:
@@ -421,7 +505,15 @@ def resolve_cloth_local_points(
             frame = json.loads(frame_path.read_text(encoding="utf-8"))
         return build_procedural_rect_sheet_local_points(cloth, frame), mesh_name
 
-    vtk_path = resolve_vtk_path(mesh_name, vtk_search_dir)
+    if is_masked_sheet_cloth(cloth):
+        return build_masked_sheet_local_points(cloth), f"masked_sheet:{cloth.get('mask_path')}"
+
+    vtk_path = resolve_vtk_path(
+        mesh_name,
+        vtk_search_dir,
+        level=str(cloth.get("level") or ""),
+        asset_dir=cloth.get("asset_dir"),
+    )
     return load_vtk_points(vtk_path), str(vtk_path)
 
 

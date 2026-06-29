@@ -1,0 +1,30 @@
+{
+  "description": "掩码衬衫初态对比：Studio bounds vs XPBD 粒子；完整刚体 + OrcaLink 仿真对比",
+  "extends": "cloth_sim_config.json",
+  "orcagym": {
+    "debug_session": {
+      "subdir_prefix": "cloth_debug",
+      "comment": "ClothInit_*.csv 写入 dataCollection_cloth/logs/cloth_debug_{timestamp}/"
+    }
+  },
+  "orcalink": {
+    "enabled": true,
+    "auto_start": true,
+    "port": 50361,
+    "startup_delay": 3
+  },
+  "debug": {
+    "export_cloth_init_compare": true,
+    "cloth_init_compare_tolerance_mm": 5.0,
+    "cloth_init_compare_wait_sec": 18.0,
+    "cloth_init_compare_particle_tolerance_mm": 1.0,
+    "cloth_bbox_compare_tolerance_mm": 5.0,
+    "cloth_bbox_orientation_tolerance_deg": 5.0,
+    "export_cloth_orientation_compare": true,
+    "init_compare_sim": true
+  },
+  "xpbd": {
+    "cloth_discover_only": false,
+    "startup_delay": 8.0
+  }
+}

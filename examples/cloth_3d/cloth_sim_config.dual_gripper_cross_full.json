@@ -79,7 +79,8 @@
     "shear_compliance": 0.005,
     "bend_compliance": 1000.0,
     "grip_side": "both",
-    "lock_radius_m": 0.04
+    "lock_radius_m": 0.06,
+    "finger_close_ratio": 0.85
   },
   "particle_render": {
     "enabled": true,

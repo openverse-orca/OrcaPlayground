@@ -155,8 +155,15 @@ class ClothOrcaLinkBridge:
                         if seq is None:
                             break
 
+                async def _drain_stale_position(max_rounds: int = 64) -> None:
+                    for _ in range(max_rounds):
+                        frames = await self._client.subscribe_anchor_frames(max_count=1)
+                        if not frames:
+                            break
+
                 self._loop.run_until_complete(_drain_stale_force())
-                logger.info("sync: 已排空 ch21 残留 FORCE")
+                self._loop.run_until_complete(_drain_stale_position())
+                logger.info("sync: 已排空 ch21 残留 FORCE 与 ch20 残留 POSITION")
         return self._connected
 
     def should_pause(self) -> bool:

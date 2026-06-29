@@ -161,12 +161,38 @@ def merge_cloth_discovery(config: dict[str, Any], discovered: list[dict[str, Any
     out = dict(config)
     cloth_cfg = dict(out.get("cloth") or {})
     primary = discovered[0]
-    cloth_cfg.setdefault("mesh", primary.get("vtk_asset_path") or cloth_cfg.get("mesh", "shirt_v4.vtk"))
-    if primary.get("vtk_asset_path"):
-        cloth_cfg["mesh"] = primary["vtk_asset_path"]
+    vtk = primary.get("vtk_asset_path") or primary.get("mesh")
+    if vtk:
+        cloth_cfg["mesh"] = vtk
+    else:
+        cloth_cfg.setdefault("mesh", cloth_cfg.get("mesh") or "procedural:rect_sheet")
     for key in ("mass_kg", "thickness_m", "stretch_compliance", "shear_compliance", "bend_compliance", "lock_radius_m"):
         if key in primary and key not in cloth_cfg:
             cloth_cfg[key] = primary[key]
+    for key in (
+        "level",
+        "asset_dir",
+        "mask_path",
+        "meta_json_path",
+        "idxmap_path",
+        "compact_count",
+        "align_mode",
+        "nx",
+        "ny",
+        "spacing",
+        "topo_type",
+        "cloth_nx",
+        "cloth_ny",
+        "cloth_spacing_m",
+    ):
+        if key in primary and primary[key] not in (None, ""):
+            cloth_cfg[key] = primary[key]
+    if "cloth_nx" in primary and "nx" not in cloth_cfg:
+        cloth_cfg["nx"] = primary["cloth_nx"]
+    if "cloth_ny" in primary and "ny" not in cloth_cfg:
+        cloth_cfg["ny"] = primary["cloth_ny"]
+    if "cloth_spacing_m" in primary and "spacing" not in cloth_cfg:
+        cloth_cfg["spacing"] = primary["cloth_spacing_m"]
     cloth_cfg["body_name"] = primary.get("body_name")
     cloth_cfg["discovered"] = True
     cloth_cfg["discovered_cloths"] = discovered
