@@ -159,7 +159,17 @@ def make_env(
     render_mode: str
 ) -> callable:
     def _init():
-        # 注册环境，确保子进程中也能访问
+        import logging
+        import warnings
+        logging.disable(logging.CRITICAL)
+        warnings.filterwarnings("ignore")
+
+        try:
+            from orca_gym.utils.reward_printer import RewardPrinter
+            RewardPrinter.PRINT_DETAIL = False
+        except Exception:
+            pass
+
         env_id = register_env(
             orcagym_addr=orcagym_addr, 
             env_name=env_name, 

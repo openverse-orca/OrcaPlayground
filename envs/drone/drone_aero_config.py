@@ -115,6 +115,19 @@ class FullModeControlConfig:
     max_tilt_deg: float = 18.0
     planar_forward_axis_body: tuple[float, float, float] = (0.0, 1.0, 0.0)
     planar_right_axis_body: tuple[float, float, float] = (1.0, 0.0, 0.0)
+    # CTBR 角速率环 P 增益（对角阵元素），作用于 omega_err 后再乘 body_J 得力矩
+    ctbr_Kp: float = 5.0
+    # CTBR 是否乘 body_J：大惯量机体用 True（逆动力学公式），小惯量机体用 False（Kp 直接为力矩/角速率误差）
+    ctbr_use_inertia_scaling: bool = True
+    # CTBR 最大目标角速率 (rad/s)
+    ctbr_omega_max_rp: float = 1.2
+    ctbr_omega_max_yaw: float = 1.0
+    # 姿态回正增益：松杆时（idle）和操控时（active）
+    attitude_recover_kp_idle: float = 3.0
+    attitude_recover_kp_active: float = 1.0
+    # reset 后力矩暖机时间 (s)
+    torque_warmup_s: float = 0.35
+    # 以下 scale 参数保留兼容，当前 CTBR 控制器使用上方直接参数
     attitude_kp_scale: float = 1.0
     attitude_kd_scale: float = 1.0
     attitude_rate_cap_scale: float = 1.0
@@ -178,6 +191,40 @@ _X2_AERO_CONFIG = replace(
     ground_effect=_X2_GROUND_EFFECT_CONFIG,
 )
 
+_DJI_LHCG_DRAG_CONFIG = replace(
+    DEFAULT_DRONE_AERO_CONFIG.drag,
+    linear_xy=10.0,
+    linear_z=14.0,
+    quadratic_xy=5.0,
+    quadratic_z=8.0,
+    angular_xy=1.6,
+    angular_z=1.6,
+    world_xy_velocity_damping=10.0,
+    angular_drag_torque_axis_max=18.0,
+    zero_cmd_angular_hold_k=1.0,
+    zero_cmd_angular_torque_axis_max=3.5,
+    max_body_torque_norm=38.0,
+    quad_world_xy_stick_force_factor=0.06,
+    full_mode_thrust_lpf_tau_s=0.16,
+    zero_cmd_xy_hold_k=12.0,
+    zero_cmd_xy_hold_force_cap=85.0,
+    zero_cmd_z_hold_k=15.0,
+    zero_cmd_z_hold_force_cap=40.0,
+)
+_DJI_LHCG_GROUND_EFFECT_CONFIG = replace(
+    DEFAULT_DRONE_AERO_CONFIG.ground_effect,
+    rotor_radius=0.45,
+    min_height=0.30,
+    active_height=0.80,
+    gain=0.06,
+    max_factor=1.06,
+)
+_DJI_LHCG_AERO_CONFIG = replace(
+    DEFAULT_DRONE_AERO_CONFIG,
+    drag=_DJI_LHCG_DRAG_CONFIG,
+    ground_effect=_DJI_LHCG_GROUND_EFFECT_CONFIG,
+)
+
 DRONE_MODEL_PROFILES: dict[str, DroneModelProfile] = {
     "Drone_ver_1.0": DroneModelProfile(
         key="Drone_ver_1.0",
@@ -185,6 +232,14 @@ DRONE_MODEL_PROFILES: dict[str, DroneModelProfile] = {
         full_mode=FullModeControlConfig(
             planar_forward_axis_body=(-1.0, 0.0, 0.0),
             planar_right_axis_body=(0.0, -1.0, 0.0),
+            # 小无人机惯量 ~1e-4，CTBR 不乘 body_J，Kp 直接为力矩/角速率误差
+            ctbr_Kp=0.012,
+            ctbr_use_inertia_scaling=False,
+            ctbr_omega_max_rp=2.5,
+            ctbr_omega_max_yaw=2.0,
+            attitude_recover_kp_idle=4.0,
+            attitude_recover_kp_active=1.5,
+            torque_warmup_s=0.25,
         ),
     ),
     "x2": DroneModelProfile(
@@ -198,6 +253,14 @@ DRONE_MODEL_PROFILES: dict[str, DroneModelProfile] = {
             max_tilt_deg=12.0,
             planar_forward_axis_body=(-1.0, 0.0, 0.0),
             planar_right_axis_body=(0.0, -1.0, 0.0),
+            # x2 惯量 ~0.02，CTBR 不乘 body_J，Kp 直接为力矩/角速率误差
+            ctbr_Kp=0.08,
+            ctbr_use_inertia_scaling=False,
+            ctbr_omega_max_rp=2.0,
+            ctbr_omega_max_yaw=1.5,
+            attitude_recover_kp_idle=3.5,
+            attitude_recover_kp_active=1.2,
+            torque_warmup_s=0.30,
             attitude_kp_scale=1.35,
             attitude_kd_scale=1.20,
             attitude_rate_cap_scale=1.35,
@@ -216,6 +279,42 @@ DRONE_MODEL_PROFILES: dict[str, DroneModelProfile] = {
         vertical_keyboard_baseline_tmg=1.0022,
         vertical_xy_force_factor=0.04,
     ),
+    "dji_lhcg": DroneModelProfile(
+        key="dji_lhcg",
+        display_name="DJI LHCG (10x)",
+        aero=_DJI_LHCG_AERO_CONFIG,
+        full_mode=FullModeControlConfig(
+            thrust_cmd_scale_over_hover=0.38,
+            tau_yaw_over_hover=0.012,
+            thrust_max_over_hover=2.2,
+            max_tilt_deg=10.0,
+            planar_forward_axis_body=(0.0, 1.0, 0.0),
+            planar_right_axis_body=(1.0, 0.0, 0.0),
+            # dji_lhcg 惯量 ~6，CTBR 乘 body_J，Kp=5 与原硬编码一致
+            ctbr_Kp=5.0,
+            ctbr_omega_max_rp=1.2,
+            ctbr_omega_max_yaw=1.0,
+            attitude_recover_kp_idle=3.0,
+            attitude_recover_kp_active=1.0,
+            torque_warmup_s=0.35,
+            attitude_kp_scale=100.0,
+            attitude_kd_scale=100.0,
+            attitude_rate_cap_scale=3.0,
+            attitude_torque_limit_scale=100.0,
+            idle_attitude_kp_scale=5.0,
+            idle_attitude_torque_limit_scale=2.5,
+            hover_rotor_speed=42.0,
+            rotor_speed_delta=24.0,
+            rotor_ramp_rate=80.0,
+            demo_rotor_bias=(0.0, 0.0, 0.0, 0.0),
+            reset_height_offset_m=1.80,
+            fullmode_reset_thrust_ramp_s=0.0,
+            fullmode_reset_thrust_start_factor=1.00,
+            fullmode_reset_minimal_stab_s=0.0,
+        ),
+        vertical_keyboard_baseline_tmg=1.0022,
+        vertical_xy_force_factor=0.03,
+    ),
 }
 
 DRONE_MODEL_ALIASES: dict[str, str] = {
@@ -226,6 +325,9 @@ DRONE_MODEL_ALIASES: dict[str, str] = {
     "x2": "x2",
     "skydio_x2": "x2",
     "skydio-x2": "x2",
+    "dji_lhcg": "dji_lhcg",
+    "dji-lhcg": "dji_lhcg",
+    "lhcg": "dji_lhcg",
 }
 
 

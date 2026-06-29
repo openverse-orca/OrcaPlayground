@@ -30,7 +30,7 @@ class PositionPublishModule:
         print(f"[PRINT-DEBUG] PositionPublishModule.__init__() - END (rigid_bodies count: {len(rigid_bodies_config)})", file=sys.stderr, flush=True)
         logger.debug(f"PositionPublishModule.__init__() - Initialized with {len(rigid_bodies_config)} rigid bodies")
     
-    def publish_positions(self):
+    def publish_positions(self, macro_step: Optional[int] = None):
         """Publish rigid body positions (ForcePositionMode, SpringConstraintMode)"""
         if not self.client or not self.loop:
             return
@@ -38,9 +38,25 @@ class PositionPublishModule:
         try:
             positions = self._collect_body_positions()
             if positions:
-                self.loop.run_until_complete(
+                publish_seq = int(self.client.publish_sequence) if hasattr(
+                    self.client, "publish_sequence"
+                ) else None
+                try:
+                    from ..debug.force_position_debug_trace import get_active_trace
+                    trace = get_active_trace()
+                except ImportError:
+                    trace = None
+                published = self.loop.run_until_complete(
                     self.client.publish_positions(positions)
                 )
+                if (
+                    trace is not None
+                    and publish_seq is not None
+                    and published
+                    and trace.should_log_cp1(publish_seq)
+                ):
+                    trace.log_cp1_pre_publish(publish_seq, positions, env=self.env)
+                    trace.mark_cp1_logged(publish_seq)
         except Exception as e:
             logger.error(f"Error publishing positions: {e}", exc_info=True)
     
@@ -94,9 +110,12 @@ class PositionPublishModule:
             # 2. 更新 MuJoCo 数据
             self.env.mj_forward()
             
-            # 3. 批量查询 body 位置、旋转矩阵和四元数（使用 OrcaGym API）
-            # 返回值是三个扁平数组的元组: (xpos, xmat, xquat)
-            xpos_flat, xmat_flat, xquat_flat = self.env.get_body_xpos_xmat_xquat(body_names)
+            # 3. 批量查询位姿 + 世界系线速度
+            xvel_list = None
+            if hasattr(self.env, 'get_body_xpos_xmat_xquat_xvel'):
+                xpos_flat, xmat_flat, xquat_flat, xvel_list = self.env.get_body_xpos_xmat_xquat_xvel(body_names)
+            else:
+                xpos_flat, xmat_flat, xquat_flat = self.env.get_body_xpos_xmat_xquat(body_names)
             
             # 4. 解析扁平数组
             num_bodies = len(body_names)
@@ -108,21 +127,35 @@ class PositionPublishModule:
                 object_id = body_to_object_id.get(body_name, body_name)
                 pos = xpos_list[i]
                 quat = xquat_list[i]
+                lin_vel = xvel_list[i] if xvel_list is not None else np.zeros(3, dtype=np.float64)
                 
                 # Convert to position data structure
                 try:
-                    from data_structures import RigidBodyPosition
-                    position_data = RigidBodyPosition()
-                    position_data.object_id = object_id
-                    position_data.position = np.array(pos, dtype=np.float32)
-                    position_data.rotation = np.array(quat, dtype=np.float32)
+                    from orcalink_client.data_structures import RigidBodyPosition
+                    position_data = RigidBodyPosition(
+                        object_id=object_id,
+                        position=np.array(pos, dtype=np.float32),
+                        rotation=np.array(quat, dtype=np.float32),
+                        linear_velocity=np.array(lin_vel, dtype=np.float32),
+                        has_linear_velocity=(xvel_list is not None),
+                    )
                 except ImportError:
-                    # Fallback: create dict-like object
-                    position_data = type('RigidBodyPosition', (), {
-                        'object_id': object_id,
-                        'position': np.array(pos, dtype=np.float32),
-                        'rotation': np.array(quat, dtype=np.float32)
-                    })()
+                    try:
+                        from data_structures import RigidBodyPosition
+                        position_data = RigidBodyPosition()
+                        position_data.object_id = object_id
+                        position_data.position = np.array(pos, dtype=np.float32)
+                        position_data.rotation = np.array(quat, dtype=np.float32)
+                        position_data.linear_velocity = np.array(lin_vel, dtype=np.float32)
+                        position_data.has_linear_velocity = (xvel_list is not None)
+                    except ImportError:
+                        position_data = type('RigidBodyPosition', (), {
+                            'object_id': object_id,
+                            'position': np.array(pos, dtype=np.float32),
+                            'rotation': np.array(quat, dtype=np.float32),
+                            'linear_velocity': np.array(lin_vel, dtype=np.float32),
+                            'has_linear_velocity': (xvel_list is not None),
+                        })()
                 
                 positions.append(position_data)
                 logger.debug(f"_collect_body_positions - Collected body '{body_name}' -> object_id '{object_id}', pos={pos}")

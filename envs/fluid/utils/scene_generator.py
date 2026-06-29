@@ -12,7 +12,7 @@ import logging
 from pathlib import Path
 
 from ..paths import FLUID_PACKAGE_DIR
-from ..launch.sph_config import _deep_merge
+from ..launch.sph_config import _deep_merge, _resolve_coupling_mode
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass, asdict
 import sys
@@ -46,7 +46,15 @@ class GeomInfo:
 class SceneGenerator:
     """MuJoCo to SPH 场景生成器"""
     
-    def __init__(self, env, config: Dict = None, config_path: str = None, runtime_config: Dict = None):
+    def __init__(
+        self,
+        env,
+        config: Dict = None,
+        config_path: str = None,
+        runtime_config: Dict = None,
+        coupling_mode: Optional[str] = None,
+        fluid_config: Optional[Dict] = None,
+    ):
         """
         初始化 SceneGenerator
         
@@ -54,11 +62,15 @@ class SceneGenerator:
             env: OrcaGymLocalEnv 实例
             config: 配置字典（场景模板配置，直接传入）
             config_path: 场景模板配置文件路径（优先从路径加载）
-            runtime_config: 运行时配置（必须包含 orcalink_bridge.shared_modules.spring_force）
+            runtime_config: 运行时配置（SPH 模板，含 orcalink_bridge）
+            coupling_mode: 显式耦合模式（优先）；缺省时从 fluid_config / runtime_config 解析
+            fluid_config: 完整 fluid JSON（用于解析 simulation.sync_mode / orcalink.bridge）
         """
         self.env = env
         self.config = self._load_config(config_path) if config_path else config or {}
         self.runtime_config = runtime_config or {}
+        self.fluid_config = fluid_config or {}
+        self._coupling_mode_override = coupling_mode
 
         # particleRadius — authoritative value used throughout scene generation.
         # Initialized from scene_config.json as a safe default; overridden early in
@@ -72,6 +84,10 @@ class SceneGenerator:
         # MJCF *_SPH_PARTICLE_RENDER_BOUNDS site User[1] (PRBTransmissionMode), if present
         self.particle_render_transmission_tag: Optional[int] = None
 
+        # sphscale — world scaling factor for SPH simulation.
+        # Read from MJCF site User[2]; enlarges all SPH geometry by this factor.
+        self.sphscale: float = 1.0
+
         # 保存 scene 文件所在的目录（用于相对路径转换）
         self.scene_dir = None  # 在 generate_complete_scene 中设置
         
@@ -82,7 +98,23 @@ class SceneGenerator:
         # 基准目录：envs.fluid 包根（与原先 scene_generator 位于 fluid/ 下时一致）
         self._base_dir = str(FLUID_PACKAGE_DIR)
         
-        logger.info(f"SceneGenerator initialized")
+        logger.info(
+            "SceneGenerator initialized (coupling_mode=%s)",
+            self.get_coupling_mode(),
+        )
+
+    def get_coupling_mode(self) -> str:
+        """解析当前场景生成应使用的 OrcaLink 耦合模式。"""
+        if self._coupling_mode_override:
+            return self._coupling_mode_override
+        if self.fluid_config:
+            return _resolve_coupling_mode(self.fluid_config)
+        bridge = (self.runtime_config.get("orcalink_bridge") or {})
+        return bridge.get("coupling_mode") or "multi_point_force"
+
+    def uses_force_position_coupling(self) -> bool:
+        return self.get_coupling_mode() == "force_position"
+
     
     def _resolve_geometry_path(self, geometry_file: str) -> str:
         """
@@ -521,23 +553,24 @@ class SceneGenerator:
             logger.error(f"Error extracting mocap bodies for '{body_name}': {e}", exc_info=True)
             return []
     
-    def convert_local_coord_z_to_y(self, local_pos_mj: np.ndarray) -> List[float]:
+    def convert_local_coord_z_to_y(self, local_pos_mj: np.ndarray, sphscale: float = 1.0) -> List[float]:
         """
-        转换本地坐标从 MuJoCo Z-up 到 SPH Y-up
+        转换本地坐标从 MuJoCo Z-up 到 SPH Y-up，可选 sphscale 缩放
         
         坐标系转换规则：
             MuJoCo Z-up: X right, Y forward, Z up
             SPH Y-up:    X right, Z forward, Y up
         
-        转换公式：[x, y, z] → [x, z, -y]
+        转换公式：[x, y, z] → [x*s, z*s, -y*s]
         
         Args:
             local_pos_mj: MuJoCo 本地坐标 [x, y, z]
+            sphscale: SPH 世界缩放因子（默认 1.0 = 不缩放）
         
         Returns:
-            SPH 本地坐标 [x, z, -y]
+            SPH 本地坐标 [x*s, z*s, -y*s]
         """
-        return [float(local_pos_mj[0]), float(local_pos_mj[2]), -float(local_pos_mj[1])]
+        return [float(local_pos_mj[0]) * sphscale, float(local_pos_mj[2]) * sphscale, -float(local_pos_mj[1]) * sphscale]
     
     def extract_site_local_positions_for_body(self, body_name: str) -> List[Dict]:
         """
@@ -798,21 +831,22 @@ class SceneGenerator:
             logger.error(error_msg, exc_info=True)
             raise RuntimeError(error_msg) from e
     
-    def convert_coordinate_z_to_y(self, pos: np.ndarray, quat: np.ndarray) -> Tuple[List, List, float]:
+    def convert_coordinate_z_to_y(self, pos: np.ndarray, quat: np.ndarray, sphscale: float = 1.0) -> Tuple[List, List, float]:
         """
-        坐标系转换：MuJoCo Z-up → SPH Y-up
+        坐标系转换：MuJoCo Z-up → SPH Y-up，可选 sphscale 缩放
         
         坐标系定义：
             MuJoCo Z-up: X right, Y forward, Z up
             SPH Y-up:    X right, Z forward, Y up
             
-        转换公式：
-            位置: [x, y, z] → [x, z, -y]
-            旋转: 绕 X 轴旋转 -90 度
+        转换公式（与 CoordinateTransform.h / GrpcDataMapper 一致）：
+            位置: v_sph = [x, z, -y] * sphscale
+            旋转: R_sph = A * R_orca，A = [[1,0,0],[0,0,1],[0,-1,0]]
         
         Args:
             pos: 位置 [x, y, z]
             quat: 四元数 [w, x, y, z]
+            sphscale: SPH 世界缩放因子（默认 1.0 = 不缩放）
             
         Returns:
             Tuple: (translation, rotationAxis, rotationAngle)
@@ -820,16 +854,16 @@ class SceneGenerator:
         try:
             from scipy.spatial.transform import Rotation as R
             
-            # 位置转换：MuJoCo Z-up [x, y, z] → SPH Y-up [x, z, -y]
-            translation = [float(pos[0]), float(pos[2]), -float(pos[1])]
+            # 位置转换：MuJoCo Z-up [x, y, z] → SPH Y-up [x*s, z*s, -y*s]
+            translation = [float(pos[0]) * sphscale, float(pos[2]) * sphscale, -float(pos[1]) * sphscale]
             
-            # 四元数转换（MuJoCo 格式 [w, x, y, z] → SciPy 格式 [x, y, z, w]）
+            # 四元数：MuJoCo [w,x,y,z] → SciPy [x,y,z,w]，再 R_sph = A * R_orca
             rot = R.from_quat([float(quat[1]), float(quat[2]), float(quat[3]), float(quat[0])])
-            
-            # 应用坐标系变换矩阵（绕X轴旋转-90度）
-            # 从 Z-up 到 Y-up：Y → -Z, Z → Y，相当于绕 X 轴旋转 -90 度
-            transform = R.from_euler('x', -90, degrees=True)
-            rot_transformed = transform * rot
+            orca_to_sph = np.array(
+                [[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, -1.0, 0.0]],
+                dtype=float,
+            )
+            rot_transformed = R.from_matrix(orca_to_sph @ rot.as_matrix())
             
             # 转换为轴角表示
             rotvec = rot_transformed.as_rotvec()
@@ -885,7 +919,8 @@ class SceneGenerator:
             # 坐标转换
             translation, rot_axis, rot_angle = self.convert_coordinate_z_to_y(
                 body_info['position'],
-                body_info['quaternion']
+                body_info['quaternion'],
+                sphscale=self.sphscale
             )
             
             # 生成 entityName
@@ -903,18 +938,18 @@ class SceneGenerator:
                 "entityName": entity_name,
                 "geometryFile": body_info['geom_info'].mesh_name,
                 "isDynamic": is_dynamic,
-                "density": default_rb.get('density', 500),  # 保留作为默认值
-                "mass": body_info['mass'],  # 新增：从 MuJoCo 读取的质量
+                "density": default_rb.get('density', 500),
+                "mass": body_info['mass'] * (self.sphscale ** 3),
                 "translation": translation,
                 "rotationAxis": rot_axis,
                 "rotationAngle": rot_angle,
-                "scale": body_info['geom_info'].scale if body_info['geom_info'].scale else [1, 1, 1],
+                "scale": [s * self.sphscale for s in (body_info['geom_info'].scale if body_info['geom_info'].scale else [1, 1, 1])],
                 "velocity": [0, 0, 0],
                 "restitution": default_rb.get('restitution', 0.5),
                 "friction": default_rb.get('friction', 0.25),
                 "color": [0.5, 0.5, 0.5, 1.0],
-                "collisionObjectType": 2,  # 固定为 Box（刚体碰撞关闭时不影响）
-                "collisionObjectScale": body_info['geom_info'].scale if body_info['geom_info'].scale else [1.0, 1.0, 1.0],
+                "collisionObjectType": 2,
+                "collisionObjectScale": [s * self.sphscale for s in (body_info['geom_info'].scale if body_info['geom_info'].scale else [1, 1, 1])],
                 "mapInvert": default_rb.get('mapInvert', False),
                 "mapThickness": default_rb.get('mapThickness', 0.0),
                 "mapResolution": default_rb.get('mapResolution', [20, 20, 20])
@@ -946,8 +981,7 @@ class SceneGenerator:
         site_points = []
         for site in site_infos:
             world_pos_mj = np.array(site['world_position'])
-            # 坐标系转换 Z-up → Y-up
-            world_pos_sph = self.convert_local_coord_z_to_y(world_pos_mj)
+            world_pos_sph = self.convert_local_coord_z_to_y(world_pos_mj, sphscale=self.sphscale)
             site_points.append({
                 "point_id": site['site_name'],
                 "initial_world_pos": world_pos_sph
@@ -958,11 +992,10 @@ class SceneGenerator:
         mocap_points = []
         for mocap in mocap_infos:
             world_pos_mj = np.array(mocap['world_position'])
-            # 坐标系转换 Z-up → Y-up (和 site 统一处理)
-            world_pos_sph = self.convert_local_coord_z_to_y(world_pos_mj)
+            world_pos_sph = self.convert_local_coord_z_to_y(world_pos_mj, sphscale=self.sphscale)
             mocap_points.append({
                 "point_id": mocap['mocap_name'],
-                "world_pos": world_pos_sph  # 全局坐标（已转换为 SPH Y-up）
+                "world_pos": world_pos_sph
             })
         
         if not site_points and not mocap_points:
@@ -1129,6 +1162,20 @@ class SceneGenerator:
                             f"particle_render.grpc merged from MJCF site user[1] "
                             f"(tag={tag}): {dict(grpc)}"
                         )
+
+            # user[2]: sphscale — world scaling factor for SPH simulation
+            if len(user_data) >= 3:
+                try:
+                    sphscale = float(user_data[2])
+                    if sphscale < 1.0:
+                        logger.warning(f"[SPHSCALE] sphscale={sphscale} < 1.0, clamping to 1.0")
+                        sphscale = 1.0
+                    self.sphscale = sphscale
+                    logger.info(f"[SPHSCALE] sphscale initialized from MJCF site: {sphscale}")
+                except (TypeError, ValueError):
+                    self.sphscale = 1.0
+            else:
+                self.sphscale = 1.0
         except Exception as e:
             logger.warning(f"_init_particle_radius failed: {e}; using default {self.particle_radius}")
 
@@ -1251,18 +1298,21 @@ class SceneGenerator:
 
             # Z-up → Y-up 轴置换：[hx, hy, hz]_zup → [hx, hz, hy]_yup
             half_yup = np.array([half_zup[0], half_zup[2], half_zup[1]], dtype=float)
-            center_yup = np.array(self.convert_local_coord_z_to_y(center_zup), dtype=float)
+            center_yup = np.array(self.convert_local_coord_z_to_y(center_zup, sphscale=self.sphscale), dtype=float)
 
             pr_section = sph_config.get("particle_render", {})
 
             # ---- particle_frame ----
             pf_cfg = pr_section.get("particle_frame", {})
             vsr_pf = float(pf_cfg.get("voxel_size_ratio", 1.0))
-            voxel_pf = self.particle_radius * vsr_pf
+            # [SPHSCALE] Use real-space particle radius for grid resolution calculation
+            # so that gridRes is consistent across sphscale values
+            real_particle_radius = self.particle_radius / self.sphscale if self.sphscale > 1.0 else self.particle_radius
+            voxel_pf = real_particle_radius * vsr_pf
             # ---- voxel_grid ----
             vg_cfg = pr_section.get("voxel_grid", {})
             vsr_vg = float(vg_cfg.get("voxel_size_ratio", 1.0))
-            voxel_vg = self.particle_radius * 2.0 * vsr_vg
+            voxel_vg = real_particle_radius * 2.0 * vsr_vg
 
             if voxel_pf <= 0:
                 logger.warning(
@@ -1366,6 +1416,16 @@ class SceneGenerator:
             # 必须在所有依赖 self.particle_radius 的代码之前调用。
             self._init_particle_radius()
 
+            # 应用 sphscale 到 particleRadius
+            original_particle_radius = self.particle_radius
+            if self.sphscale != 1.0:
+                self.particle_radius *= self.sphscale
+                try:
+                    self.config["scene_template"]["Configuration"]["particleRadius"] = self.particle_radius
+                except (KeyError, TypeError):
+                    pass
+                logger.info(f"[SPHSCALE] particleRadius: original={original_particle_radius} → scaled={self.particle_radius}")
+
             # 生成主刚体
             main_rigid_bodies = self.generate_scene_json(output_path=None)["RigidBodies"]
             
@@ -1375,11 +1435,11 @@ class SceneGenerator:
             logger.info(f"Detected {len(detected_blocks)} FluidBlocks")
             if detected_blocks:
                 for b in detected_blocks:
-                    start_yup_raw = np.array(self.convert_local_coord_z_to_y(np.array(b["start"])))
-                    end_yup_raw = np.array(self.convert_local_coord_z_to_y(np.array(b["end"])))
+                    start_yup_raw = np.array(self.convert_local_coord_z_to_y(np.array(b["start"]), sphscale=self.sphscale))
+                    end_yup_raw = np.array(self.convert_local_coord_z_to_y(np.array(b["end"]), sphscale=self.sphscale))
                     start_yup = np.minimum(start_yup_raw, end_yup_raw).tolist()
                     end_yup = np.maximum(start_yup_raw, end_yup_raw).tolist()
-                    translation_yup = self.convert_local_coord_z_to_y(np.array(b["position"]))
+                    translation_yup = self.convert_local_coord_z_to_y(np.array(b["position"]), sphscale=self.sphscale)
                     fb_entry = {
                         "start_yup": start_yup,
                         "end_yup": end_yup,
@@ -1424,19 +1484,22 @@ class SceneGenerator:
                     pr_bounds = self._find_particle_render_bounds()
                     if pr_bounds is not None:
                         center_zup, half_zup = pr_bounds
-                        center_yup = np.array(self.convert_local_coord_z_to_y(center_zup))
-                        # Axis permutation for half-extents: Z-up [hx,hy,hz] → Y-up [hx,hz,hy]
+                        center_yup = np.array(self.convert_local_coord_z_to_y(center_zup, sphscale=self.sphscale))
                         half_yup = np.array([half_zup[0], half_zup[2], half_zup[1]], dtype=float)
-                        wall_scale       = (half_yup * 2.0).tolist()
+                        wall_scale       = (half_yup * 2.0 * self.sphscale).tolist()
                         wall_translation = center_yup.tolist()
                         wall_collision_scale = wall_scale
                         logger.info(
                             f"Wall sized from ParticleRenderBoundsComponent: "
                             f"scale={wall_scale}, translation={wall_translation}")
                     else:
+                        if self.sphscale != 1.0:
+                            wall_scale = [s * self.sphscale for s in wall_scale]
+                            wall_translation = [t * self.sphscale for t in wall_translation]
+                            wall_collision_scale = [s * self.sphscale for s in wall_collision_scale]
                         logger.info(
                             f"No ParticleRenderBoundsComponent found; "
-                            f"using wall_rigid_body config defaults: "
+                            f"using wall_rigid_body config defaults (sphscale={self.sphscale}): "
                             f"scale={wall_scale}, translation={wall_translation}")
                     
                     wall_rigid_body = {
@@ -1486,34 +1549,44 @@ class SceneGenerator:
             # 添加刚体
             complete_scene["RigidBodies"] = all_rigid_bodies
             
-            # 生成 AnchorPoints
-            logger.info("Generating AnchorPoints configuration...")
-            anchor_points = []
-            for main_rb in main_rigid_bodies:
-                main_body_name = main_rb.get("entityName")
-                if not main_body_name:
-                    continue
-                rb_id = main_rb.get("id")
-                if rb_id is None:
-                    continue
-                
-                # 跳过静态刚体（不需要锚点）
-                if main_rb.get("isDynamic") == False:
-                    logger.info(f"  Skipping anchor points for static body '{main_body_name}'")
-                    continue
-                
-                anchor_point = self.generate_anchor_points(main_body_name, rb_id)
-                if anchor_point:
-                    anchor_points.append(anchor_point)
-                    logger.info(f"  Generated {len(anchor_point['site_points'])} site points + "
-                               f"{len(anchor_point['mocap_points'])} mocap points for '{main_body_name}'")
-            
-            # 添加到场景
-            if anchor_points:
-                complete_scene["AnchorPoints"] = anchor_points
-                logger.info(f"Total: {len(anchor_points)} rigid bodies with anchor points")
-            
-            # 注意：不再生成辅助刚体和约束，虚拟锚点粒子将在运行时通过 PBD 创建
+            coupling_mode = self.get_coupling_mode()
+            if self.uses_force_position_coupling():
+                logger.info(
+                    "coupling_mode=force_position: skip AnchorPoints in auto-generated scene "
+                    "(rigid bodies follow MuJoCo via position_follow; no virtual anchor particles)"
+                )
+            else:
+                # multi_point_force / spring_constraint：生成 AnchorPoints 供虚拟锚点粒子
+                logger.info(
+                    "Generating AnchorPoints configuration (coupling_mode=%s)...",
+                    coupling_mode,
+                )
+                anchor_points = []
+                for main_rb in main_rigid_bodies:
+                    main_body_name = main_rb.get("entityName")
+                    if not main_body_name:
+                        continue
+                    rb_id = main_rb.get("id")
+                    if rb_id is None:
+                        continue
+
+                    if main_rb.get("isDynamic") == False:
+                        logger.info(f"  Skipping anchor points for static body '{main_body_name}'")
+                        continue
+
+                    anchor_point = self.generate_anchor_points(main_body_name, rb_id)
+                    if anchor_point:
+                        anchor_points.append(anchor_point)
+                        logger.info(
+                            f"  Generated {len(anchor_point['site_points'])} site points + "
+                            f"{len(anchor_point['mocap_points'])} mocap points for '{main_body_name}'"
+                        )
+
+                if anchor_points:
+                    complete_scene["AnchorPoints"] = anchor_points
+                    logger.info(f"Total: {len(anchor_points)} rigid bodies with anchor points")
+
+            # force_position：无 AnchorPoints；multi_point_force：虚拟锚点由 PBD 在运行时创建
             
             # 添加 FluidBlocks：使用已计算的 fluid_blocks_yup，无重复 identify
             if include_fluid_blocks:
@@ -1549,6 +1622,22 @@ class SceneGenerator:
                 with open(output_path, 'w') as f:
                     json.dump(complete_scene, f, indent=2)
                 logger.info(f"Complete scene with anchor system saved to {output_path}")
+            
+            # sphscale 验证日志
+            if self.sphscale != 1.0:
+                all_positions = []
+                for rb in all_rigid_bodies:
+                    t = rb.get("translation", [])
+                    if t and any(abs(v) > 1e-10 for v in t):
+                        all_positions.append(np.array(t))
+                if all_positions:
+                    center = np.mean(all_positions, axis=0)
+                    max_dist = max(np.linalg.norm(p) for p in all_positions)
+                    logger.info(f"[SPHSCALE] Scene center: {center.tolist()}, "
+                               f"max distance from origin: {max_dist:.4f}m")
+                logger.info(f"[SPHSCALE] Validation PASSED: sphscale={self.sphscale}, "
+                           f"particleRadius={self.particle_radius}, "
+                           f"{len(all_rigid_bodies)} rigid bodies scaled")
             
             logger.info(f"Generated complete scene with {len(all_rigid_bodies)} rigid bodies "
                        f"(virtual anchor particles will be created at runtime via PBD)")

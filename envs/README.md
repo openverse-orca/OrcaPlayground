@@ -136,6 +136,12 @@ envs/
 ├── zq_sa01/                     # 🏃 ZQ SA01 人形
 │   └── zq_sa01_env.py
 │
+├── franka_rl/                   # 🦾 Franka 多机械臂 RL 训练
+│   ├── franka_gym_env.py        #   Gym 训练环境（OrcaGymAsyncEnv）
+│   ├── franka_agent.py          #   机器人 Agent（观测/奖励/mocap 控制）
+│   ├── franka_config.py         #   全局配置（机器人参数 + 任务配置）
+│   └── franka_robot_locator.py  #   场景扫描与机器人发现
+│
 └── mujoco/                      # 🏋️ MuJoCo 示例
     └── ant_orcagym.py
 ```
@@ -170,6 +176,25 @@ python examples/legged_gym/run_legged_sim.py \
 ```
 
 **详细文档**: [examples/legged_gym/README.md](../examples/legged_gym/README.md)
+
+## 🦾 Franka 多机械臂 RL (franka_rl)
+
+Franka Panda 多机械臂并行强化学习训练环境，支持 SB3 + HER。
+
+**包含**:
+- Reach（末端到达）和 Pick & Place（抓取放置）两种任务
+- 多机械臂场景扫描与自动发现（`franka_robot_locator`）
+- 局部坐标系隔离，多臂策略共享
+- Mocap + PD Position Control 控制方式
+- TQC / SAC / DDPG / PPO 算法支持
+
+**SB3 训练**:
+```bash
+python examples/franka_rl/run_franka_rl.py \
+    --config examples/franka_rl/configs/reach_tqc_config.yaml --train
+```
+
+**详细文档**: [examples/franka_rl/README.md](../examples/franka_rl/README.md)
 
 ## 🦾 机械臂操作 (manipulation)
 

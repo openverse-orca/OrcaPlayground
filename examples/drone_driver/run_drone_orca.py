@@ -31,6 +31,7 @@ _DEFAULT_DRONE_PROFILE = get_drone_model_profile(DEFAULT_DRONE_MODEL)
 DEFAULT_VERTICAL_KEYBOARD_BASE_TMG = float(_DEFAULT_DRONE_PROFILE.vertical_keyboard_baseline_tmg)
 DEFAULT_VERTICAL_XY_FORCE_FACTOR = float(_DEFAULT_DRONE_PROFILE.vertical_xy_force_factor)
 
+# 场景扫描必选后缀：所有机型都必须具备的关节/site
 DRONE_JOINT_SUFFIXES = [
     "drone_free",
     "FL_joint",
@@ -38,7 +39,6 @@ DRONE_JOINT_SUFFIXES = [
     "BL_joint",
     "BR_joint",
 ]
-# 桨关节由环境直接写 qpos/qvel 做动画；模型中不再挂 position 执行器，避免与脚本驱动冲突
 DRONE_ACTUATOR_SUFFIXES: list[str] = []
 DRONE_BODY_SUFFIXES = ["drone_frame", "Drone"]
 DRONE_SITE_SUFFIXES = [
@@ -47,6 +47,22 @@ DRONE_SITE_SUFFIXES = [
     "rotor_fr_site",
     "rotor_bl_site",
     "rotor_br_site",
+]
+
+# 可选后缀：仅部分机型具备，环境初始化时按需解析（已有容错）
+DRONE_OPTIONAL_JOINT_SUFFIXES = [
+    "FL2_joint",
+    "FR2_joint",
+    "BL2_joint",
+    "BR2_joint",
+    "gripper_left_joint",
+    "gripper_right_joint",
+]
+DRONE_OPTIONAL_SITE_SUFFIXES = [
+    "rotor_fl2_site",
+    "rotor_fr2_site",
+    "rotor_bl2_site",
+    "rotor_br2_site",
 ]
 
 
@@ -77,7 +93,31 @@ def resolve_drone_scene_binding(orcagym_addr: str, time_step: float) -> tuple[li
         "bodies_by_suffix": dict(match.matched_names.get("bodies", {})),
         "sites_by_suffix": dict(match.matched_names.get("sites", {})),
     }
+    # 补充可选后缀：双层旋翼、抓取机构等，仅部分机型具备
+    _collect_optional_suffixes(
+        report.scene_names, match.prefix, scene_binding,
+        DRONE_OPTIONAL_JOINT_SUFFIXES, DRONE_OPTIONAL_SITE_SUFFIXES,
+    )
     return agent_names, scene_binding
+
+
+def _collect_optional_suffixes(
+    scene_names,
+    prefix: str,
+    scene_binding: dict,
+    optional_joints: list[str],
+    optional_sites: list[str],
+) -> None:
+    """将场景中存在的可选后缀补充到 scene_binding，缺失则跳过。"""
+    prefix_token = f"{prefix}_" if prefix else ""
+    for suffix in optional_joints:
+        full_name = f"{prefix_token}{suffix}"
+        if full_name in scene_names.joints:
+            scene_binding["joints_by_suffix"][suffix] = full_name
+    for suffix in optional_sites:
+        full_name = f"{prefix_token}{suffix}"
+        if full_name in scene_names.sites:
+            scene_binding["sites_by_suffix"][suffix] = full_name
 
 
 def sceneinfo(scene, stage: str, orcagym_address: str):
@@ -127,6 +167,7 @@ def register_env(
     drone_model: str = DEFAULT_DRONE_MODEL,
     diag_logs_enabled: bool = True,
     diag_every_env_steps: int = 0,
+    ctrl_device: str = "keyboard",
 ) -> tuple[str, dict]:
     orcagym_addr_str = orcagym_addr.replace(":", "-")
     env_id = "DroneOrca-OrcaGym-" + orcagym_addr_str + f"-{env_index:03d}"
@@ -153,6 +194,7 @@ def register_env(
         "drone_model": drone_model,
         "diag_logs_enabled": bool(diag_logs_enabled),
         "diag_every_env_steps": int(diag_every_env_steps),
+        "ctrl_device": ctrl_device,
     }
     gym.register(
         id=env_id,
@@ -185,6 +227,7 @@ def run_simulation(
     drone_model: str = DEFAULT_DRONE_MODEL,
     diag_logs_enabled: bool = True,
     diag_every_env_steps: int = 0,
+    ctrl_device: str = "keyboard",
 ) -> None:
     env = None
     try:
@@ -222,6 +265,7 @@ def run_simulation(
             drone_model=profile.key,
             diag_logs_enabled=diag_logs_enabled,
             diag_every_env_steps=diag_every_env_steps,
+            ctrl_device=ctrl_device,
         )
         env = gym.make(env_id)
         obs, info = env.reset()
@@ -240,6 +284,10 @@ def run_simulation(
                 _logger.info(f"已启用 periodic 动力学定位日志：every={int(diag_every_env_steps)} env steps")
         if autoplay:
             _logger.info("已启用 autoplay：无人机将持续执行前进、横移、升降和偏航扰动，便于反复调试")
+        if ctrl_device == "xbox":
+            _logger.info("控制设备: Xbox手柄 | 左摇杆:前后左右 | RT/RT:升降 | 右摇杆X:偏航 | A键:重置")
+        else:
+            _logger.info("控制设备: 键盘 | W/S:前后 A/D:左右 R/F:升降 Q/E:偏航 Space:重置")
         if vertical_z_only_physics:
             xy_k = float(vertical_keyboard_xy_force_factor)
             planar = (
@@ -276,12 +324,15 @@ def run_simulation(
                 time.sleep(realtime_step - elapsed_time.total_seconds())
 
     except KeyboardInterrupt:
-        print("Simulation stopped")
-    except ValueError:
-        _logger.error("仿真出错")
+        pass
+    except Exception as e:
+        _logger.error(f"仿真出错: {e}")
     finally:
         if env is not None:
-            env.close()
+            try:
+                env.close()
+            except Exception:
+                pass
 
 
 def run_takeoff_bisection(
@@ -362,24 +413,27 @@ def run_takeoff_bisection(
             f"判据为 hold={bisect_hold_s}s 内 Δz≥{bisect_dz_m}m（与 env 内「持续起飞」vz+Δz+时间判据可略有差异）"
         )
     except KeyboardInterrupt:
-        print("Bisection stopped")
-    except ValueError:
-        _logger.error("仿真出错")
+        pass
+    except Exception as e:
+        _logger.error(f"仿真出错: {e}")
     finally:
         if env is not None:
             try:
                 env.unwrapped.set_vertical_quiet_diag_logs(False)
             except Exception:
                 pass
-            env.close()
+            try:
+                env.close()
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         "Run drone orca communication demo",
         description=(
-            "默认：full 四旋翼模式。W/S、A/D 控制前后/左右平移（伴随机身轻微倾斜），"
-            "R/F 控制集体升降，Q/E 控制偏航。"
+            "默认：full 四旋翼模式。键盘: W/S、A/D 控制前后/左右平移，R/F 升降，Q/E 偏航。"
+            "手柄: 左摇杆前后左右，RT/LT 升降，右摇杆X 偏航，A键 重置。"
         ),
     )
     parser.add_argument("--orcagym_addr", type=str, default="localhost:50051")
@@ -391,6 +445,13 @@ if __name__ == "__main__":
         type=str,
         default=DEFAULT_DRONE_MODEL,
         help="无人机参数配置，默认 Drone_ver_1.0，可传 x2 / skydio_x2 等别名",
+    )
+    parser.add_argument(
+        "--ctrl-device",
+        type=str,
+        choices=("keyboard", "xbox"),
+        default="keyboard",
+        help="控制设备: keyboard(键盘,默认) 或 xbox(Xbox手柄)",
     )
     parser.add_argument(
         "--diag-logs",
@@ -559,4 +620,5 @@ if __name__ == "__main__":
             drone_model=profile.key,
             diag_logs_enabled=bool(args.diag_logs),
             diag_every_env_steps=max(0, int(args.diag_every_env_steps)),
+            ctrl_device=args.ctrl_device,
         )

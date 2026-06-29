@@ -1,6 +1,7 @@
 import numpy as np
 from ray.rllib.algorithms.callbacks import DefaultCallbacks
 import time
+import sys
 
 from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()
@@ -34,6 +35,7 @@ class OrcaMetricsCallback(DefaultCallbacks):
             "total_envs": total_envs,
         })
 
+        iteration = result.get("training_iteration", 0)
         episode_return_mean = result.get('env_runners', {}).get('episode_return_mean', 0)
         episode_len_mean = result.get('env_runners', {}).get('episode_len_mean', 0)
         total_loss = result.get('learners', {}).get('default_policy', {}).get('total_loss', 0)
@@ -62,6 +64,18 @@ class OrcaMetricsCallback(DefaultCallbacks):
         _logger.info(f"lr: {lr}")
         _logger.info(f"diff_num_grad: {diff_num_grad}")
         _logger.info("======================================")
+
+        summary = (
+            f"[Iter {iteration}] "
+            f"return_mean={return_mean:.2f} "
+            f"ep_return={episode_return_mean:.2f} "
+            f"ep_len={episode_len_mean:.0f} "
+            f"steps/s={sampled_steps_per_second} "
+            f"loss={total_loss:.4f} "
+            f"entropy={entropy:.4f} "
+            f"grad_norm={grad_norm:.2f}"
+        )
+        print(summary, flush=True)
 
         self._last_sampled_update_time = time.time()
         self._num_env_steps_sampled_lifetime_pre = num_env_steps_sampled_lifetime

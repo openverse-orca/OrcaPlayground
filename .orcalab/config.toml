@@ -90,3 +90,10 @@ display_name = "run_fluid_sim"
 command = "python"
 args = [ "-m", "examples.fluid.run_fluid_sim",]
 description = "启动流体仿真"
+
+[[external_programs.programs]]
+name = "franka_reach_train"
+display_name = "Franka Reach Training"
+command = "python"
+args = [ "-m", "examples.franka_rl.run_franka_rl", "--config", "examples/franka_rl/configs/reach_tqc_config.yaml", "--train", "--visualize"]
+description = "启动Franka多机械臂Reach任务训练(TQC+HER)"

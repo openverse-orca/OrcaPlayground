@@ -22,12 +22,15 @@ class ForcePositionMode(ICouplingMode):
         self.env = None
         self.orcalink_client = None
         self.loop = None
+        self.macro_step: int = 0
+        self._config: Dict[str, Any] = {}
     
     def initialize(self, config: Dict[str, Any], env, orcalink_client, loop) -> bool:
         """Initialize the mode"""
         self.env = env
         self.orcalink_client = orcalink_client
         self.loop = loop  # 直接使用传入的 loop，不再从 orcalink_client 获取
+        self._config = config or {}
         
         # Initialize modules
         self.force_application_module = ForceApplicationModule(env, orcalink_client, self.loop)
@@ -42,11 +45,17 @@ class ForcePositionMode(ICouplingMode):
         # This method can be used for additional setup if needed
         pass
     
+    def _should_skip_sph_forces(self) -> bool:
+        traj = self._config.get("water_jug_trajectory") or {}
+        return bool(traj.get("enabled")) and bool(traj.get("skip_sph_forces_on_mujoco"))
+
     def step(self) -> bool:
         """Execute one step"""
-        # 1. Subscribe to forces and apply to MuJoCo
-        if self.force_application_module:
-            self.force_application_module.subscribe_and_apply_forces()
+        # 1. Subscribe to forces and apply to MuJoCo（轨迹阶段可配置 skip）
+        if self.force_application_module and not self._should_skip_sph_forces():
+            self.force_application_module.subscribe_and_apply_forces(
+                macro_step=self.macro_step
+            )
         
         # 2. Check flow control
         if self.orcalink_client and hasattr(self.orcalink_client, 'should_pause_this_cycle'):
@@ -55,7 +64,7 @@ class ForcePositionMode(ICouplingMode):
         
         # 3. Publish positions
         if self.position_publish_module:
-            self.position_publish_module.publish_positions()
+            self.position_publish_module.publish_positions(macro_step=self.macro_step)
         
         return True
     

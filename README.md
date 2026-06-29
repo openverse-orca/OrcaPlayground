@@ -52,12 +52,19 @@ OrcaLab 会自动加载工作目录下的 `.orcalab/config.toml` 配置文件。
 #### 步骤 4：在 OrcaLab 中启动示例
 
 1. 在 OrcaLab 界面中选择 **外部程序**（External Programs）
-2. 从列表中选择对应的示例程序：
+2. 从列表中选择对应的示例程序（完整列表见 [.orcalab/config.toml](.orcalab/config.toml)）：
+   - `Empty Loop Simulation` - 空循环仿真
    - `run_character` - 角色仿真
-   - `run_legged_rl_train` - 足式机器人 RL 训练
-   - `run_wheeled_chassis` - 轮式底盘仿真
-   - `run_xbot_orca` - XBot 机器人仿真
-   - `run_sim_loop` - 空循环仿真
+   - `run_legged_rl_train` - 足式机器人 RL 训练（SB3 PPO）
+   - `run_legged_rllib_train` - 足式机器人 RL 训练（RLlib APPO）
+   - `run_wheeled_chassis` - 轮式底盘仿真（差速驱动）
+   - `run_ackerman` - 阿克曼转向底盘仿真
+   - `run_xbot_orca` - XBot 双足机器人仿真
+   - `run_g1` - G1 人形机器人仿真
+   - `zq_sa01` - ZQ SA01 人形仿真
+   - `run_actors` - Actor 场景复制示例
+   - `run_lights` - 灯光场景复制示例
+   - `Franka Reach Training` - Franka 多机械臂 Reach 任务训练（TQC + HER）
    - `run_fluid_sim` - 流体仿真
 
 配置文件位置：`.orcalab/config.toml`
@@ -93,32 +100,52 @@ python examples/fluid/run_fluid_sim.py
 
 ```
 OrcaPlayground/
-├── orca_gym/          # OrcaGym 核心模块
-├── envs/              # 环境定义模块
-├── examples/           # 示例代码目录
-│   ├── character/     # 角色仿真（含 README.md）
-│   ├── legged_gym/    # 足式机器人 RL 训练（含 README.md）
-│   ├── wheeled_chassis/ # 轮式底盘（含 README.md）
-│   ├── xbot/          # XBot 机器人（含 README.md）
-│   ├── fluid/         # 流体仿真（含 README.md）
-│   └── ...            # 更多示例
-├── .orcalab/          # OrcaLab 配置文件
-│   └── config.toml    # 外部程序配置
-└── requirements.txt   # Python 基础依赖
+├── envs/                  # 环境定义模块（参考实现，详见 envs/README.md）
+│   ├── legged_gym/        #   足式机器人（SB3 / RLlib 训练 + 交互仿真）
+│   ├── franka_rl/         #   Franka 多机械臂（SB3 + HER 训练）
+│   ├── manipulation/      #   单/双臂操作环境
+│   ├── drone/             #   无人机推力环境
+│   ├── fluid/             #   SPH 流体耦合仿真
+│   ├── character/         #   人形角色动画
+│   ├── wheeled_chassis/   #   差速 / 阿克曼底盘
+│   ├── g1/  zq_sa01/  xbot_gym/  # 人形 / 四足机器人环境
+│   └── common/            #   场景模型扫描等公共工具
+├── examples/              # 示例代码目录
+│   ├── character/         # 角色仿真（含 README.md）
+│   ├── legged_gym/        # 足式机器人 RL 训练 + 交互仿真（含 README.md）
+│   ├── wheeled_chassis/   # 轮式底盘：差速 + 阿克曼（含 README.md）
+│   ├── xbot/              # XBot 双足机器人（含 README.md）
+│   ├── d12/               # D12 双臂机器人（demo 脚本轨迹 + act ACT 策略，含 README.md）
+│   ├── franka_rl/         # Franka 多机械臂 RL（SB3 + HER，含 README.md）
+│   ├── ant_rl/            # Ant 机器人 RL（Ray RLlib APPO 多环境并行，含 README.md）
+│   ├── drone_driver/      # 无人机推力驱动仿真（含 README.md）
+│   ├── zq_sa01/           # ZQ SA01 人形（含 README.md）
+│   ├── g1/                # G1 人形（含 README.md）
+│   ├── orca_locomotion/   # OrcaLocomotion：Go2 / G1 策略回放（含 README.md）
+│   ├── replicator/        # 场景复制：Actor / Light（含 README.md）
+│   └── fluid/             # 流体仿真（含 README.md）
+├── .orcalab/              # OrcaLab 配置文件
+│   └── config.toml        # 外部程序配置
+└── requirements.txt       # Python 基础依赖
 ```
 
 ## 📚 示例说明
 
 所有示例的详细使用说明请查看各目录下的 `README.md`：
 
-- **角色仿真** - [`examples/character/README.md`](examples/character/README.md)
-- **足式机器人 RL 训练** - [`examples/legged_gym/README.md`](examples/legged_gym/README.md)
-- **轮式底盘** - [`examples/wheeled_chassis/README.md`](examples/wheeled_chassis/README.md)
-- **XBot 机器人** - [`examples/xbot/README.md`](examples/xbot/README.md)
-- **ZQ SA01 人形** - [`examples/zq_sa01/README.md`](examples/zq_sa01/README.md)
-- **G1 人形** - [`examples/g1/README.md`](examples/g1/README.md)
-- **场景复制** - [`examples/replicator/README.md`](examples/replicator/README.md)
-- **流体仿真** - [`examples/fluid/README.md`](examples/fluid/README.md)
+- **角色仿真** - [`examples/character/README.md`](examples/character/README.md)：Remy 角色键盘 / 路径点控制
+- **足式机器人 RL 训练** - [`examples/legged_gym/README.md`](examples/legged_gym/README.md)：SB3 PPO + RLlib APPO，支持 Lite3 / Go2 / G1 等
+- **轮式底盘** - [`examples/wheeled_chassis/README.md`](examples/wheeled_chassis/README.md)：差速驱动 + 阿克曼转向
+- **XBot 机器人** - [`examples/xbot/README.md`](examples/xbot/README.md)：基于 humanoid-gym 预训练模型的双足行走
+- **D12 双臂机器人** - [`examples/d12/README.md`](examples/d12/README.md)：脚本轨迹回放（[demo](examples/d12/demo/README.md)）+ ACT 策略推理（[act](examples/d12/act/README.md)）
+- **Franka 多机械臂 RL** - [`examples/franka_rl/README.md`](examples/franka_rl/README.md)：SB3 + HER，多臂并行训练 + 局部坐标隔离
+- **Ant RL** - [`examples/ant_rl/README.md`](examples/ant_rl/README.md)：Ray RLlib APPO 多环境并行训练（单机 / 集群）
+- **无人机推力驱动仿真** - [`examples/drone_driver/README.md`](examples/drone_driver/README.md)：CTBR 控制器 + 多机型 profile，键盘 / 手柄操控
+- **ZQ SA01 人形** - [`examples/zq_sa01/README.md`](examples/zq_sa01/README.md)：Isaac Gym PPO 模型移植
+- **G1 人形** - [`examples/g1/README.md`](examples/g1/README.md)：ASAP 策略移植，自由行走 + 键盘控制 + Mimic 动作
+- **OrcaLocomotion** - [`examples/orca_locomotion/README.md`](examples/orca_locomotion/README.md)：PyPI 包回放 Go2 / G1 运动控制策略
+- **场景复制** - [`examples/replicator/README.md`](examples/replicator/README.md)：Actor 与 Light 批量生成
+- **流体仿真** - [`examples/fluid/README.md`](examples/fluid/README.md)：SPH 流体与 MuJoCo 刚体耦合
 
 > **⚠️ 重要提示：资产准备**
 > 
@@ -145,8 +172,11 @@ OrcaPlayground 依赖 **OrcaPlaygroundAssets** 资产库中的资源。若您需
 6. **观察程序输出**：请点击左下角**终端按钮**查看启动日志、扫描结果和错误原因。
 
 各示例的具体拖入说明见对应 README：
-- XBot：[examples/xbot/README.md](examples/xbot/README.md#-手动拖入资产进行调试)
+- 足式机器人：[examples/legged_gym/README.md](examples/legged_gym/README.md#-手动拖入资产进行调试)
 - 轮式底盘：[examples/wheeled_chassis/README.md](examples/wheeled_chassis/README.md#-手动拖入资产进行调试)
+- XBot：[examples/xbot/README.md](examples/xbot/README.md#-手动拖入资产进行调试)
+- Franka 多机械臂：[examples/franka_rl/README.md](examples/franka_rl/README.md#-手动拖入资产进行调试)
+- 无人机：[examples/drone_driver/README.md](examples/drone_driver/README.md#-手动拖入资产进行调试)
 - ZQ SA01：[examples/zq_sa01/README.md](examples/zq_sa01/README.md#-手动拖入资产进行调试)
 - G1：[examples/g1/README.md](examples/g1/README.md#-手动拖入资产进行调试)
 
@@ -154,42 +184,49 @@ OrcaPlayground 依赖 **OrcaPlaygroundAssets** 资产库中的资源。若您需
 
 ### 基础依赖（必需）
 
+先按 [快速开始](#-快速开始) 安装 `orca-lab`（OrcaLab / OrcaGym 基础运行时），再安装本仓库基础依赖：
+
 ```bash
 pip install -r requirements.txt
 ```
 
-主要依赖：
-- `orca-lab` - OrcaLab / OrcaGym 基础运行时
+`requirements.txt` 只保留大多数示例都会用到的最小运行时：
 - `pyyaml>=6.0` - 通用 YAML 配置解析
+- `pygame` - 键盘 / 手柄输入
+- `numba` - 数值计算加速
 
 ### 示例额外依赖（按需安装）
 
 安装基础依赖后，再根据你要运行的示例追加安装：
 
-简单示例 `character`、`wheeled_chassis`、`replicator`、`drone_driver` 安装根目录 `requirements.txt` 即可。
+简单示例 `character`、`wheeled_chassis`、`replicator`、`drone_driver` 安装根目录 `requirements.txt` 即可。`orca_locomotion` 需额外通过 PyPI 安装 `orca-locomotion` 包（详见其 README）。
 
-如果你是以源码方式开发，也可以直接用 `extras_require`：
+如果你是以源码方式开发，也可以直接用 `extras_require`（`setup.py` 会自动发现各示例目录下的 `requirements.txt` 作为 extras）：
 
 ```bash
 # 基础可编辑安装
 pip install -e .
 
 # 安装单个样例的额外依赖
-pip install -e ".[legged_gym]"
-pip install -e ".[g1]"
-pip install -e ".[xbot]"
-pip install -e ".[zq_sa01]"
-pip install -e ".[so101]"
-pip install -e ".[fluid]"
+pip install -e ".[franka_rl]"    # SB3 + HER 强化学习（Franka Panda）
+pip install -e ".[ant_rl]"       # Ray RLlib APPO 强化学习（Ant）
+pip install -e ".[legged_gym]"   # SB3 + RLlib 足式机器人训练
+pip install -e ".[g1]"           # G1 人形机器人
+pip install -e ".[xbot]"         # XBot 机器人
+pip install -e ".[zq_sa01]"      # ZQ-SA01 人形机器人
+pip install -e ".[d12]"          # D12 双臂机器人（scipy）
+pip install -e ".[fluid]"        # 流体仿真（orca-sph）
 
 # 一次安装所有样例依赖
 pip install -e ".[all]"
 ```
 
+> **注意**：`franka_rl`、`ant_rl`、`legged_gym`、`xbot` 依赖 PyTorch，但各示例 `requirements.txt` 中的 `torch` 均已注释，需根据 NVIDIA 驱动版本手动安装对应的 CUDA 版本（详见各示例的 `requirements.txt` 顶部说明）。
+
 ### 运行要求
 
 1. **OrcaStudio**：确保 OrcaStudio 正在运行（默认地址：`localhost:50051`）
-2. **Python 版本**：Python >= 3.9
+2. **Python 版本**：Python >= 3.10（见 `setup.py` 的 `python_requires`）
 3. **场景配置**：运行前请先把对应 actor 手动拖入布局；详细说明见上方 [手动拖动资产（运行前必做）](#-手动拖动资产运行前必做)
 
 ## 🔧 OrcaLab 配置
@@ -200,12 +237,21 @@ OrcaLab 配置文件位于 `.orcalab/config.toml`，OrcaLab 启动时会自动�
 
 ### 已配置的外部程序
 
+完整配置见 [.orcalab/config.toml](.orcalab/config.toml)，当前已配置的程序：
+
 - `run_sim_loop` - 空循环仿真
 - `character` - 角色仿真
-- `legged_train` - 足式机器人训练
-- `wheeled_chassis` - 轮式底盘仿真
+- `legged_train` - 足式机器人训练（SB3 PPO）
+- `legged_rllib_train` - 足式机器人训练（RLlib APPO）
+- `wheeled_chassis` - 轮式底盘仿真（差速驱动）
+- `anker_chassis` - 阿克曼转向底盘仿真
 - `xbot_orca` - XBot 仿真
-- `run_fluid_sim` - 流体仿真
+- `g1` - G1 人形仿真
+- `zq_sa01` - ZQ SA01 人形仿真
+- `run_actors` - Actor 场景复制
+- `run_lights` - 灯光场景复制
+- `franka_reach_train` - Franka 多机械臂 Reach 任务训练（TQC + HER）
+- `fluid_sim` - 流体仿真
 
 ### 添加新程序
 
