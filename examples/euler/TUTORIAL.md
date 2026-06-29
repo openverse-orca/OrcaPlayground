@@ -310,7 +310,7 @@ reward = -(theta² + 0.1 * theta_dot² + 0.001 * action²)
 | `--learning-rate` | `3e-4` | 学习率 |
 | `--n-steps` | `2048` | PPO 每次更新的步数 |
 | `--batch-size` | `64` | minibatch 大小 |
-| `--device` | `cpu` | PyTorch 设备（MLP 策略推荐 `cpu`） |
+| `--device` | `cuda` | PyTorch 设备（默认 GPU 训练，CPU 训练 MLP 较慢） |
 
 **评估参数：**
 
@@ -400,13 +400,13 @@ model = PPO.load("examples/euler/03_rl_ppo/models/ppo_pendulum.zip")
 
 **原因**：SB3 检测到 GPU 可用，默认用 GPU，但对 MLP 策略推荐 CPU（[issue #1245](https://github.com/DLR-RM/stable-baselines3/issues/1245)）。
 
-**解决**：脚本已默认 `--device cpu`，警告应消失。如需用 GPU（例如 CNN 策略），加 `--device cuda`。
+**说明**：项目统一采用 GPU 训练（`--device cuda`，默认值），实测 CPU 训练 MLP 较慢。此警告可忽略，不影响训练正确性。
 
 ### Q3：训练时出现 `Error 304: OS call failed`
 
 **原因**：在 TRAE sandbox 内运行，CUDA 驱动因 capabilities 限制无法初始化。
 
-**解决**：PPO 用 CPU 即可（`--device cpu`，默认值），不影响训练。如需 GPU，在 sandbox 外的终端直接运行。
+**解决**：GPU 训练需 TRAE 命令白名单旁路 sandbox（详见 AGENTS.md 规则 3），或使用 `--device cpu` 退化到 CPU 训练。
 
 ### Q4：第 2 课在线模式连接 OrcaStudio 失败
 
