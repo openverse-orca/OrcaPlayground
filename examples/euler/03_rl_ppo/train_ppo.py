@@ -43,17 +43,13 @@ import grpc
 import numpy as np
 
 CURRENT_FILE_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(CURRENT_FILE_DIR)))
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
 
-from stable_baselines3 import PPO
-from stable_baselines3.common.callbacks import BaseCallback
-from stable_baselines3.common.evaluation import evaluate_policy
-from stable_baselines3.common.monitor import Monitor
-
-from envs.euler.simple_env import SimpleEulerEnv
-from orca_gym.log.orca_log import get_orca_logger
+from orca_gym.log.orca_log import get_orca_logger  # noqa: E402
+from simple_env import SimpleEulerEnv  # noqa: E402
+from stable_baselines3 import PPO  # noqa: E402
+from stable_baselines3.common.callbacks import BaseCallback  # noqa: E402
+from stable_baselines3.common.evaluation import evaluate_policy  # noqa: E402
+from stable_baselines3.common.monitor import Monitor  # noqa: E402
 
 _logger = get_orca_logger()
 

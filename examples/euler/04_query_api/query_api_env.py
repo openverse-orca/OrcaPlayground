@@ -24,13 +24,12 @@
 from __future__ import annotations
 
 import numpy as np
-
-from envs.euler.g1_base_env import (
+from g1_base_env import (
     G1_ACTUATOR_SUFFIXES,
     G1_ROT_JOINT_SUFFIXES,
     G1BaseEnv,
 )
-from envs.euler.online_verifier import OnlineVerifier
+from online_verifier import OnlineVerifier
 
 # step 0 验证初始直立，step 50 验证瘫倒（零控下力控 motor 无法保持站立）
 _COLLAPSE_CHECK_STEP = 50

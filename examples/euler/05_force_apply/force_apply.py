@@ -46,22 +46,16 @@ R 类 API 在真实仿真中运行正确。脚本通过 G1BaseEnv.run_lesson 框
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 
-CURRENT_FILE_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(CURRENT_FILE_DIR)))
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
-
-from envs.euler.g1_base_env import (  # noqa: E402
+from force_apply_env import ForceApplyEnv
+from g1_base_env import (
     G1_FRAME_SKIP,
     G1_MODEL_XML,
     G1_ORCAGYM_ADDR,
     G1_TIME_STEP,
 )
-from envs.euler.force_apply_env import ForceApplyEnv  # noqa: E402
-from envs.euler.online_verifier import OnlineVerifier  # noqa: E402
+from online_verifier import OnlineVerifier
 
 
 def parse_args() -> argparse.Namespace:

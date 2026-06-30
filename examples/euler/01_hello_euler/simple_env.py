@@ -22,10 +22,11 @@ from typing import Any
 
 import numpy as np
 from gymnasium import spaces
-
 from orca_gym.environment.euler.orca_gym_euler_env import OrcaGymEulerEnv
 
-_SCENE_XML = os.path.join(os.path.dirname(__file__), "scenes", "simple_pendulum.xml")
+# example 在 examples/euler/0X_xxx/，__file__ 上溯 4 层到项目根
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+_SCENE_XML = os.path.join(_PROJECT_ROOT, "assets", "scenes", "simple_pendulum.xml")
 
 
 class SimpleEulerEnv(OrcaGymEulerEnv):

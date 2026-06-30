@@ -28,13 +28,61 @@ from typing import Any
 import numpy as np
 import onnxruntime
 import yaml
-
-from envs.euler.g1_base_env import (
+from g1_base_env import (
     G1_CONFIG_YAML,
     G1_LOCO_ONNX,
     G1_ROT_JOINT_SUFFIXES,
 )
-from envs.g1.utils.history_handler import HistoryHandler
+
+
+class HistoryHandler:
+    """历史观测滚动缓冲（内联自 envs/g1/utils/history_handler.py）。
+
+    仅 g1_locomotion 使用，依赖 numpy + orca_gym.log，无需独立模块。
+    """
+
+    def __init__(self, history_config, obs_dims):
+        import numpy as np
+        from orca_gym.log.orca_log import get_orca_logger
+
+        self._np = np
+        self._logger = get_orca_logger()
+        self.obs_dims = obs_dims
+        self.history = {}
+
+        self.buffer_config = {}
+        for obs_key, obs_num in history_config.items():
+            if obs_key in self.buffer_config:
+                self.buffer_config[obs_key] = max(self.buffer_config[obs_key], obs_num)
+            else:
+                self.buffer_config[obs_key] = obs_num
+
+        for key in self.buffer_config.keys():
+            self._logger.info(f"Key: {key}, Value: {self.buffer_config[key]}")
+            self.history[key] = np.zeros((1, self.buffer_config[key], obs_dims[key]))
+
+        self._logger.info("History Handler Initialized")
+        for key, value in self.buffer_config.items():
+            self._logger.info(f"Key: {key}, Value: {value}")
+
+    def reset(self, reset_ids):
+        if len(reset_ids) == 0:
+            return
+        assert set(self.buffer_config.keys()) == set(self.history.keys()), (
+            f"History keys mismatch\n{self.buffer_config.keys()}\n{self.history.keys()}"
+        )
+        for key in self.history.keys():
+            self.history[key][reset_ids] *= 0.0
+
+    def add(self, key: str, value):
+        assert key in self.history.keys(), f"Key {key} not found in history"
+        val = self.history[key][:]
+        self.history[key][:, 1:] = val[:, :-1]
+        self.history[key][:, 0] = value[:]
+
+    def query(self, key: str):
+        assert key in self.history.keys(), f"Key {key} not found in history"
+        return self.history[key][:]
 
 
 def _quat_rotate_inverse(q: np.ndarray, v: np.ndarray) -> np.ndarray:

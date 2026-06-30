@@ -27,17 +27,19 @@ import time
 from typing import Any
 
 import numpy as np
+from online_verifier import OnlineVerifier
 from orca_gym.environment.euler.orca_gym_euler_env import OrcaGymEulerEnv
-
-from envs.common.model_scanner import (
+from scene_scanner import (
     build_suffix_template,
     require_complete_matches,
     scan_scene_for_template,
 )
-from envs.euler.online_verifier import OnlineVerifier
 
-# --- G1 资源路径 ---
-_ROBOTS_DIR = os.path.join(os.path.dirname(__file__), "robots")
+# --- G1 资源路径（指向项目根 assets/g1/）---
+# example 在 examples/euler/0X_xxx/，__file__ 上溯 4 层到项目根
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+_ASSETS_DIR = os.path.join(_PROJECT_ROOT, "assets")
+_ROBOTS_DIR = os.path.join(_ASSETS_DIR, "g1")
 G1_MODEL_XML = os.path.join(_ROBOTS_DIR, "g1_29dof_camera.xml")
 G1_CONFIG_YAML = os.path.join(_ROBOTS_DIR, "config", "g1_29dof_hist.yaml")
 G1_LOCO_ONNX = os.path.join(_ROBOTS_DIR, "models", "dec_loco", "model_6600.onnx")

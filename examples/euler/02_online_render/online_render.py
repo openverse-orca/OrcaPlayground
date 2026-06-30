@@ -36,19 +36,12 @@
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 import time
 
 import numpy as np
-
-CURRENT_FILE_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(CURRENT_FILE_DIR)))
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
-
-from envs.euler.simple_env import SimpleEulerEnv
 from orca_gym.log.orca_log import get_orca_logger
+from simple_env import SimpleEulerEnv
 
 _logger = get_orca_logger()
 

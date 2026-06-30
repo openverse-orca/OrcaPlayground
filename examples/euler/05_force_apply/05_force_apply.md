@@ -219,9 +219,9 @@ python examples/euler/05_force_apply/force_apply.py --addr 192.168.1.100:50051
 
 **解决**：参考 [00_setup.md](../00_setup.md) 第 6 节连通性排查。
 
-### Q6：`ModuleNotFoundError: No module named 'envs'`
+### Q6：`ModuleNotFoundError: No module named 'g1_base_env'`
 
-**原因**：未从 OrcaPlayground 根目录运行，或未激活 `orca` 环境。
+**原因**：未激活 `orca` 环境，或脚本目录不在 `sys.path`。
 
 **解决**：
 
@@ -230,3 +230,8 @@ cd /path/to/OrcaPlayground
 conda activate orca
 python examples/euler/05_force_apply/force_apply.py
 ```
+
+> 本目录自包含，运行时 Python 自动将脚本所在目录加入 `sys.path[0]`，
+> 同目录 `from g1_base_env import ...` 可直接生效，无需额外 `PYTHONPATH`。
+> 资产路径指向项目根 `assets/g1/`（`g1_29dof_camera.xml`/`config/g1_29dof_hist.yaml`/
+> `models/dec_loco/model_6600.onnx`）。

@@ -52,6 +52,29 @@
 
 ---
 
+## 2.5 目录结构（自包含）
+
+本目录不依赖 `envs/` 共享目录，所有 `.py` 文件均在本地，资产集中在项目根 `assets/`：
+
+```
+examples/euler/04_query_api/
+├── 04_query_api.md          ← 本教程
+├── query_api.py             ← 脚本入口
+├── query_api_env.py         ← QueryApiEnv（G1BaseEnv 子类）
+├── g1_base_env.py           ← G1BaseEnv 基类（资产路径指向 assets/g1/）
+├── scene_scanner.py         ← 场景扫描探针（OrcaGymEulerEnv，非 Local）
+└── online_verifier.py       ← 在线判定器
+```
+
+**资产路径**：`g1_base_env.py` 顶部通过 `__file__` 上溯 4 层定位项目根，
+指向 `assets/g1/g1_29dof_camera.xml`、`assets/g1/config/g1_29dof_hist.yaml`、
+`assets/g1/models/dec_loco/model_6600.onnx`。
+
+**依赖**：仅 `orca_gym.environment.euler.*` + `orca_gym.log`（通用基础设施），
+零 Local 体系引用。
+
+---
+
 ## 3. 操作步骤（5 步手工验证流程）
 
 ### 步骤 1（人工）：启动 OrcaStudio 并加载 G1 关卡
@@ -182,9 +205,9 @@ python examples/euler/04_query_api/query_api.py --addr 192.168.1.100:50051
 
 **解决**：参考 [00_setup.md](../00_setup.md) 第 6 节连通性排查。
 
-### Q5：`ModuleNotFoundError: No module named 'envs'`
+### Q5：`ModuleNotFoundError: No module named 'g1_base_env'`
 
-**原因**：未从 OrcaPlayground 根目录运行，或未激活 `orca` 环境。
+**原因**：未激活 `orca` 环境，或脚本目录不在 `sys.path`。
 
 **解决**：
 
@@ -193,3 +216,6 @@ cd /path/to/OrcaPlayground
 conda activate orca
 python examples/euler/04_query_api/query_api.py
 ```
+
+> 本目录自包含，`query_api.py` 运行时 Python 自动将脚本所在目录加入
+> `sys.path[0]`，同目录 `from g1_base_env import ...` 可直接生效，无需额外 `PYTHONPATH`。

@@ -29,10 +29,10 @@ from __future__ import annotations
 import glob
 import os
 import time
-import numpy as np
 
-from envs.euler.g1_base_env import G1BaseEnv, OnlineVerifier
-from envs.euler.g1_locomotion import G1Locomotion
+import numpy as np
+from g1_base_env import G1BaseEnv, OnlineVerifier
+from g1_locomotion import G1Locomotion
 
 # 视频输出目录与截帧目录（after_loop 复用）
 _VIDEO_DIR = "/tmp/g1_walk_video"

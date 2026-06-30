@@ -31,9 +31,8 @@
 from __future__ import annotations
 
 import numpy as np
-
-from envs.euler.g1_base_env import G1_ROT_JOINT_SUFFIXES, G1BaseEnv
-from envs.euler.online_verifier import OnlineVerifier
+from g1_base_env import G1_ROT_JOINT_SUFFIXES, G1BaseEnv
+from online_verifier import OnlineVerifier
 
 # IK 参数：阻尼最小二乘 + 步长，经探测在 G1 多 body 场景下 80 次迭代收敛（err < 0.02）
 _IK_DAMPING = 0.05

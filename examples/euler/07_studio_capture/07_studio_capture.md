@@ -41,10 +41,10 @@
 本课依赖 G1 行走策略 ONNX 文件，已随仓库提供：
 
 ```
-OrcaPlayground/envs/euler/robots/models/dec_loco/model_6600.onnx
+OrcaPlayground/assets/g1/models/dec_loco/model_6600.onnx
 ```
 
-配置文件：`OrcaPlayground/envs/euler/robots/config/g1_29dof_hist.yaml`
+配置文件：`OrcaPlayground/assets/g1/config/g1_29dof_hist.yaml`
 
 ---
 
@@ -191,7 +191,7 @@ python examples/euler/07_studio_capture/studio_capture.py --addr 192.168.1.100:5
 
 ### 6.1 G1Locomotion 行走控制
 
-`G1Locomotion`（`envs/euler/g1_locomotion.py`）封装 `model_6600.onnx` 推理：
+`G1Locomotion`（本目录内 `g1_locomotion.py`，含内联 `HistoryHandler`）封装 `model_6600.onnx` 推理：
 
 1. **状态读取**（公共 API）：`env.data.qpos[3:7]`（基座四元数）、`env.data.qvel[3:6]`
    （基座角速度）、`env.query_joint_qpos` / `env.query_joint_qvel`（29 关节状态）
