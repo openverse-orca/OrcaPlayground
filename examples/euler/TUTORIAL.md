@@ -25,6 +25,24 @@ python examples/euler/02_online_render/online_render.py
 python examples/euler/03_rl_ppo/train_ppo.py --total-timesteps 100000
 ```
 
+### 阶段四：在线端到端验证（Lesson 4–8，需 OrcaStudio + G1 关卡）
+
+阶段四使用 G1 人形机器人在 OrcaStudio 中进行在线验证。每个课程遵循 **5 步手工验证流程**：
+
+1. **（人工）** 启动 OrcaStudio，加载含 1 个 G1 机器人的关卡，点击运行
+2. **（人工）** 运行 `examples/euler/0X_*/` 下对应的课程脚本
+3. **（自动）** 脚本驱动 `G1BaseEnv` 子类完成功能（状态查询 / 外力 / 雅可比 / 视频录制 / 行走）
+4. **（人工）** 根据教程指导，观察 Studio 视口，确认画面符合预期
+5. **（自动）** 脚本通过 `OnlineVerifier` 检查输出（API 读取数据、保存文件等），输出判定报告
+
+```bash
+# 环境搭建见 00_setup.md
+# 示例：第 4 课（需先启动 OrcaStudio + G1 关卡）
+python examples/euler/04_query_api/query_api.py
+```
+
+> 阶段四环境搭建详见 [00_setup.md](00_setup.md)。
+
 ---
 
 ## 目录结构
@@ -41,14 +59,25 @@ examples/euler/
 ├── 03_rl_ppo/
 │   ├── train_ppo.py                # 第 3 课：SB3 PPO 强化学习（P3B）
 │   └── models/                     # 训练产物（.gitignore）
-├── 04_query_api/                   # 第 4 课：状态查询 API（P4，待开发）
-├── 05_force_apply/                 # 第 5 课：外力应用与约束（P4，待开发）
-└── 06_solver_coupling/             # 第 6 课：Euler 求解器耦合（后续 phase，预留）
+├── 04_query_api/                   # 第 4 课：状态查询 API（P4 在线验证）
+├── 05_force_apply/                 # 第 5 课：外力应用与约束（P4 在线验证）
+├── 06_jacobian/                    # 第 6 课：雅可比 IK 与 mocap（P4 在线验证）
+├── 07_studio_capture/              # 第 7 课：视频录制与截图（P4 在线验证）
+├── 08_body_manipulation/           # 第 8 课：体操作与 equality（P4 在线验证）
+├── 00_setup.md                     # 阶段四环境搭建教程
+└── 04_query_api.md ... 08_body_manipulation.md  # 各课程教程
 
 envs/euler/                         # 课程使用的 Env 子类
 ├── simple_env.py                   # SimpleEulerEnv（单铰链倒立摆，Gymnasium API）
-└── scenes/
-    └── simple_pendulum.xml         # MuJoCo 场景（摆杆 + motor）
+├── scenes/
+│   └── simple_pendulum.xml         # MuJoCo 场景（摆杆 + motor）
+├── g1_base_env.py                  # G1BaseEnv：阶段四 G1 在线验证基类（run_lesson 框架）
+├── g1_locomotion.py                # G1Locomotion：ONNX 行走策略封装（Lesson 7/8 复用）
+├── online_verifier.py              # OnlineVerifier：在线数值判定 + 人工观察收集
+└── robots/                         # G1 模型资源（XML/ONNX/YAML）
+    ├── g1_29dof_camera.xml
+    ├── config/g1_29dof_hist.yaml
+    └── models/dec_loco/model_6600.onnx
 ```
 
 ---
@@ -60,9 +89,13 @@ envs/euler/                         # 课程使用的 Env 子类
 | 1 | P3 | Hello Euler | `OrcaGymEulerEnv` 基本用法、离线模式、模型加载、步进、状态访问 | ✅ 已实现 | 否 |
 | 2 | P3A | 在线渲染与交互 | gRPC 在线模式、render 循环、sync/异步渲染、override_ctrls、Studio UI 交互 | ✅ 已实现 | 是 |
 | 3 | P3B | SB3 PPO 强化学习 | Gymnasium API 契约、SB3 PPO、奖励函数设计、Box 观测、episode 截断 | ✅ 已实现 | 否（离线训练） |
-| 4 | P4 | 状态查询 API | `query_joint_*`、`query_site_*`、`query_sensor_data`、`query_contact_*` | ⏳ 待开发 | 否 |
-| 5 | P4 | 外力应用与约束 | `apply_body_force`、`clear_*_force`、`update_equality_constraints`、`set_*` | ⏳ 待开发 | 否 |
-| 6 | 后续 phase | Euler 求解器耦合 | 与 Euler 求解器的深度耦合（具体内容待设计） | 🔒 预留 | — |
+| 4 | P4 | 状态查询 API | `query_joint_*`、`query_site_*`、`query_sensor_data`、`query_contact_*` | ⏳ 待开发 | 是 |
+| 5 | P4 | 外力应用与约束 | `apply_body_force`、`clear_*_force`、`update_equality_constraints`、`set_*` | ⏳ 待开发 | 是 |
+| 6 | P4 | 雅可比 IK 与 mocap | `mj_jacBody`、`mj_jacSite`、`set_mocap_pos_and_quat`、`anchor_actor` | ⏳ 待开发 | 是 |
+| 7 | P4 | 视频录制与截图 | `begin_save_video`、`stop_save_video`、`get_frame_png`、ONNX 行走 | ⏳ 待开发 | 是 |
+| 8 | P4 | 体操作与 equality | `update_equality_constraints`、`modify_equality_objects`、mocap 拖拽 + 行走 | ⏳ 待开发 | 是 |
+
+> **阶段四（Lesson 4–8）** 为在线端到端验证，需要 OrcaStudio + G1 关卡。环境搭建见 [00_setup.md](00_setup.md)。
 
 ---
 
@@ -333,30 +366,38 @@ model = PPO.load("examples/euler/03_rl_ppo/models/ppo_pendulum.zip")
 
 ## 第 4 课：状态查询 API（待开发）
 
-**阶段**：P4 — API 完备化
+**阶段**：P4 — 在线端到端验证（G1 人形机器人）
 
-**预期文件**：`04_query_api/query_api.py`
+**文件**：`04_query_api/query_api.py`
+
+**运行**：
+
+```bash
+# 1. 先启动 OrcaStudio 并加载含 1 个 G1 的关卡，点击运行
+# 2. 运行脚本
+python examples/euler/04_query_api/query_api.py
+```
 
 **将验证的概念**：
 
 | 概念 | 方法 |
 |------|------|
 | 关节状态查询 | `query_joint_qpos` / `query_joint_qvel` / `query_joint_qacc` |
-| Site 查询 | `query_site_pos_and_quat` / `query_site_pos_and_mat` / `query_site_size` |
+| Body 位姿 | `get_body_xpos_xmat_xquat` |
 | 传感器查询 | `query_sensor_data` |
 | 执行器力矩 | `query_actuator_torques` |
-| 接触查询 | `query_contact_simple` / `query_contact_force` |
-| Body 位姿 | `get_body_xpos_xmat_xquat` |
+| 接触查询 | `query_contact_simple` |
+| 质量查询 | `body_subtree_mass` |
 
-> 本课将在 P4 阶段开发完成后补充完整内容。
+> 详细教程见 [04_query_api.md](04_query_api.md)。
 
 ---
 
 ## 第 5 课：外力应用与约束（待开发）
 
-**阶段**：P4 — API 完备化
+**阶段**：P4 — 在线端到端验证
 
-**预期文件**：`05_force_apply/force_apply.py`
+**文件**：`05_force_apply/force_apply.py`
 
 **将验证的概念**：
 
@@ -364,26 +405,65 @@ model = PPO.load("examples/euler/03_rl_ppo/models/ppo_pendulum.zip")
 |------|------|
 | 施加外力 | `apply_body_force(body_name, force, torque)` |
 | 清除外力 | `clear_body_force` / `clear_all_forces` |
-| 约束更新 | `update_equality_constraints` |
-| 状态设置 | `set_joint_qpos` / `set_joint_qvel` / `set_mocap_pos_and_quat` |
-| 通过 Site 施力 | `mj_apply_force_at_site` |
+| 摩擦设置 | `set_geom_friction` |
+| 状态设置 | `set_joint_qpos` / `set_joint_qvel` |
 
-> 本课将在 P4 阶段开发完成后补充完整内容。
+> 详细教程见 [05_force_apply.md](05_force_apply.md)。
 
 ---
 
-## 第 6 课：Euler 求解器耦合（预留，后续 phase）
+## 第 6 课：雅可比 IK 与 mocap（待开发）
 
-**阶段**：后续 phase（不在 Phase 1 范围内）
+**阶段**：P4 — 在线端到端验证
 
-**预期文件**：`06_solver_coupling/`（待设计）
+**文件**：`06_jacobian/jacobian_ik.py`
 
-**预留说明**：
+**将验证的概念**：
 
-本课将演示 OrcaGymEulerEnv 与 Euler 求解器的深度耦合能力。具体内容（API、场景、验证点）
-将在后续 phase 的设计文档中确定，届时补充完整教程。
+| 概念 | 方法 |
+|------|------|
+| 雅可比矩阵 | `mj_jacBody` / `mj_jacSite` |
+| Site 查询 | `query_site_xvalp_xvalr` |
+| Mocap 控制 | `set_mocap_pos_and_quat` |
+| 锚点操作 | `anchor_actor` / `release_body_anchored` |
 
-> 本课为预留章节，当前不提供示例代码。
+> 详细教程见 [06_jacobian.md](06_jacobian.md)。
+
+---
+
+## 第 7 课：视频录制与截图（待开发）
+
+**阶段**：P4 — 在线端到端验证
+
+**文件**：`07_studio_capture/studio_capture.py`
+
+**将验证的概念**：
+
+| 概念 | 方法 |
+|------|------|
+| 视频录制 | `begin_save_video` / `stop_save_video` |
+| 截图 | `get_frame_png` |
+| ONNX 行走 | `G1Locomotion.compute_action` |
+
+> 详细教程见 [07_studio_capture.md](07_studio_capture.md)。
+
+---
+
+## 第 8 课：体操作与 equality（待开发）
+
+**阶段**：P4 — 在线端到端验证
+
+**文件**：`08_body_manipulation/body_manipulation.py`
+
+**将验证的概念**：
+
+| 概念 | 方法 |
+|------|------|
+| 约束更新 | `update_equality_constraints` / `modify_equality_objects` |
+| Mocap 拖拽 | `set_mocap_pos_and_quat` + weld 约束驱动 box |
+| ONNX 行走 | `G1Locomotion.compute_action` |
+
+> 详细教程见 [08_body_manipulation.md](08_body_manipulation.md)。
 
 ---
 
