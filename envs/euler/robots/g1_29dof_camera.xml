@@ -389,13 +389,13 @@
     <!-- 测试用 box：含 free joint，可被 mocap 通过 equality 驱动 -->
     <body name="manipulation_box" pos="0.5 0 0.3">
       <joint name="manipulation_box_joint" type="free" />
-      <geom name="manipulation_box_geom" type="box" size="0.05 0.05 0.05"
+      <geom name="manipulation_box_geom" type="box" size="0.05 0.05 0.05" group="3" contype="0" conaffinity="0"
         rgba="0.8 0.4 0.2 1" mass="0.5" />
     </body>
 
     <!-- 测试用 mocap body：空（无动力学），通过 equality 与 box 绑定 -->
     <body name="ActorManipulator_Anchor" pos="0.5 0 0.3" mocap="true">
-      <geom name="ActorManipulator_Anchor_geom" type="sphere" size="0.02"
+      <geom name="ActorManipulator_Anchor_geom" type="sphere" size="0.02" group="3" 
         rgba="0.2 0.8 0.2 0.5" contype="0" conaffinity="0" />
     </body>
   </worldbody>

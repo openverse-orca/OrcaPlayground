@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import os
+import time
 from typing import Any
 
 import numpy as np
@@ -245,7 +246,12 @@ class G1BaseEnv(OrcaGymEulerEnv):
 
     # --- run_lesson 统一运行框架（§3.1）---
 
-    def run_lesson(self, num_steps: int, verifier: OnlineVerifier) -> dict[str, Any]:
+    def run_lesson(
+        self,
+        num_steps: int,
+        verifier: OnlineVerifier,
+        real_time: bool = True,
+    ) -> dict[str, Any]:
         """统一运行入口：子类通过重写钩子方法插入验证逻辑。
 
         流程:
@@ -257,6 +263,7 @@ class G1BaseEnv(OrcaGymEulerEnv):
                 c. verify_step(step, verifier)  # 数值判定
                 d. observe_step(step, verifier)  # 人工观察提示
                 e. render()
+                f. real_time 限速（RTF=1.0，按墙钟对齐 frame_skip*time_step）
             4. after_loop（循环后收尾）
             5. verify_final(verifier)  # 最终判定
             6. verifier.report()  # 输出报告
@@ -264,6 +271,9 @@ class G1BaseEnv(OrcaGymEulerEnv):
         Args:
             num_steps: 控制周期数（每个周期 frame_skip 个物理步）。
             verifier: 在线判定器实例。
+            real_time: 是否按墙钟限速到 RTF=1.0（每个控制周期对齐
+                ``frame_skip * time_step`` 真实秒）。默认 True，Lesson 4–8
+                在线验证需 RTF=1.0 以便人工观察视口动作。
 
         Returns:
             判定报告字典。
@@ -278,12 +288,23 @@ class G1BaseEnv(OrcaGymEulerEnv):
         # 循环前钩子（Lesson 7 用于 begin_save_video）
         self.before_loop(verifier)
 
+        # RTF=1.0 限速：每个控制周期目标墙钟时长 = frame_skip * time_step
+        cycle_target = self.frame_skip * self._time_step
+        loop_start = time.perf_counter() if real_time else 0.0
+
         for step in range(num_steps):
             ctrl = self.compute_ctrl(step)
             self.do_simulation(ctrl, self.frame_skip)
             self.verify_step(step, verifier)
             self.observe_step(step, verifier)
             self.render()
+
+            # 墙钟对齐：若本周期提前完成，睡眠剩余时间以维持 RTF=1.0
+            if real_time:
+                deadline = loop_start + (step + 1) * cycle_target
+                remaining = deadline - time.perf_counter()
+                if remaining > 0:
+                    time.sleep(remaining)
 
         # 循环后钩子（Lesson 7 用于 stop_save_video + mp4 检查）
         self.after_loop(verifier)
