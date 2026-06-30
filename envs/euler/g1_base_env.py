@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import time
 from typing import Any
 
@@ -288,11 +289,13 @@ class G1BaseEnv(OrcaGymEulerEnv):
         # 循环前钩子（Lesson 7 用于 begin_save_video）
         self.before_loop(verifier)
 
-        # RTF=1.0 限速：每个控制周期目标墙钟时长 = frame_skip * time_step
+        # RTF=1.0 限速：每个控制周期目标墙钟时长 = frame_skip * time_step。
+        # 采用每周期独立计时（而非绝对 deadline）：暂停只会拉长当前周期，
+        # 恢复后后续周期仍按 RTF=1.0 对齐，避免暂停后全速追赶破坏实时性。
         cycle_target = self.frame_skip * self._time_step
-        loop_start = time.perf_counter() if real_time else 0.0
 
         for step in range(num_steps):
+            cycle_start = time.perf_counter() if real_time else 0.0
             ctrl = self.compute_ctrl(step)
             self.do_simulation(ctrl, self.frame_skip)
             self.verify_step(step, verifier)
@@ -301,8 +304,7 @@ class G1BaseEnv(OrcaGymEulerEnv):
 
             # 墙钟对齐：若本周期提前完成，睡眠剩余时间以维持 RTF=1.0
             if real_time:
-                deadline = loop_start + (step + 1) * cycle_target
-                remaining = deadline - time.perf_counter()
+                remaining = cycle_target - (time.perf_counter() - cycle_start)
                 if remaining > 0:
                     time.sleep(remaining)
 
@@ -313,6 +315,60 @@ class G1BaseEnv(OrcaGymEulerEnv):
         self.verify_final(verifier)
 
         return verifier.report()
+
+    # --- 人工观察暂停（子类在 verify_step/observe_step 中调用）---
+
+    def wait_for_keypress(self, prompt: str, key: str = " ") -> None:
+        """暂停循环，等待用户在终端按键恢复（用于人工观察视口状态）。
+
+        在 run_lesson 循环的 verify_step/observe_step 中调用，阻塞直到用户
+        按下指定键（默认空格）。配合每周期独立计时的 RTF 限速，暂停只会拉长
+        当前周期，恢复后后续周期仍按 RTF=1.0 对齐，不会全速追赶。
+
+        暂停期间以 ~30fps 轮询调用 render()，确保视口持续刷新到最新仿真状态
+        （render 自身有 30fps 节流，物理仿真 1000Hz 远快于渲染，IK 修改 qpos 后
+        需主动 render 才能提交到 Studio 视口，否则画面停留在旧帧）。
+
+        Args:
+            prompt: 显示给用户的提示文本。
+            key: 触发恢复的按键（默认空格 ``" "``）；同时接受 Enter。
+        """
+        print(f"  [PAUSE] {prompt}（按 Space 键继续）")
+        sys.stdout.flush()
+        # 非交互终端（stdin 非 tty，如管道/重定向/无输入）：input 回退或跳过
+        if not sys.stdin.isatty():
+            try:
+                input()
+            except EOFError:
+                return
+            return
+        # 交互终端：raw 模式 + select 非阻塞轮询，边等按键边 render 刷新视口
+        import select
+        import termios
+        import tty
+
+        render_interval = 1.0 / 30.0  # 30fps，与 render() 自身节流一致
+        last_render = 0.0
+        fd = sys.stdin.fileno()
+        old = termios.tcgetattr(fd)
+        try:
+            tty.setraw(fd)
+            while True:
+                # 以 render_interval 为超时轮询 stdin，超时则 render
+                rlist, _, _ = select.select([fd], [], [], render_interval)
+                if rlist:
+                    ch = os.read(fd, 1).decode(errors="ignore")
+                    if ch in (key, "\r", "\n"):
+                        break
+                # 暂停期间持续 render，确保视口刷新到 IK 后的最新姿态
+                now = time.perf_counter()
+                if now - last_render >= render_interval:
+                    last_render = now
+                    self.render()
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old)
+        sys.stdout.write("\r\n")
+        sys.stdout.flush()
 
     # --- 钩子方法（子类重写）---
 
