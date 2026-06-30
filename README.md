@@ -229,7 +229,7 @@ pip install -e ".[fluid]"        # 流体仿真（orca-sph）
 pip install -e ".[all]"
 ```
 
-> **注意**：`franka_rl`、`ant_rl`、`legged_gym`、`xbot` 依赖 PyTorch，但各示例 `requirements.txt` 中的 `torch` 均已注释，需根据 NVIDIA 驱动版本手动安装对应的 CUDA 版本（详见各示例的 `requirements.txt` 顶部说明）。
+> **注意**：`franka_rl`、`ant_rl`、`legged_gym`、`xbot` 依赖 PyTorch，但各示例 `requirements.txt` 中的 `torch` 均已注释，需根据 NVIDIA 驱动版本手动安装对应的 CUDA 版本。请访问 [PyTorch 官网](https://pytorch.org/get-started/locally/) 选择安装命令，或查看各示例 `requirements.txt` 顶部的已验证配置。
 
 ### 运行要求
 
