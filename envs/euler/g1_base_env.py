@@ -213,6 +213,11 @@ class G1BaseEnv(OrcaGymEulerEnv):
             model_xml_path = G1_MODEL_XML
         if agent_names is None:
             agent_names = ["g1"]
+        # agent_name 前缀默认值（离线模式使用；在线模式由 initialize_simulation
+        # 通过场景扫描覆盖为实际前缀，如 "g1_29dof_old_usda"）。
+        # 必须在 super().__init__() 之前赋值，且此处不可在 super() 之后重新赋值，
+        # 否则会覆盖 initialize_simulation 解析的结果。
+        self.agent_name: str = agent_names[0]
         super().__init__(
             frame_skip=frame_skip,
             orcagym_addr=orcagym_addr,
@@ -222,9 +227,6 @@ class G1BaseEnv(OrcaGymEulerEnv):
             skip_grpc_load=skip_grpc_load,
             **kwargs,
         )
-        # agent_name 前缀（场景扫描结果，用于拼接完整关节/body 名称）
-        # 离线模式直接用 agent_names[0]；在线模式在 initialize_simulation 中解析
-        self.agent_name: str = agent_names[0]
 
     # --- 场景扫描（在线模式自动解析 agent_name）---
 
@@ -327,13 +329,34 @@ class G1BaseEnv(OrcaGymEulerEnv):
         """运行结束后最终判定（子类重写）。"""
         return None
 
-    # --- Gymnasium 接口（子类按需实现，run_lesson 框架不依赖）---
+    # --- Gymnasium 接口（run_lesson 框架通过 reset() 间接调用 reset_model/_get_obs，
+    #     此处提供最小默认实现：G1 保持初始 keyframe 姿态，不做随机化。
+    #     RL 子类（如需训练）可重写为随机化初始状态 + Box 观测。）---
 
     def step(self, action):
-        raise NotImplementedError("G1BaseEnv 使用 run_lesson 框架，step 由子类按需实现")
+        """Gymnasium step（run_lesson 框架不调用，RL 子类按需重写）。"""
+        raise NotImplementedError("G1BaseEnv 使用 run_lesson 框架，step 由 RL 子类按需实现")
 
-    def reset_model(self):
-        raise NotImplementedError("reset_model 由子类按需实现")
+    def reset_model(self) -> tuple[dict, dict]:
+        """重置模型状态：G1 保持初始 keyframe 姿态（不随机化）。
 
-    def _get_obs(self):
-        raise NotImplementedError("_get_obs 由子类按需实现")
+        run_lesson 框架在 reset() 中调用本方法。Lesson 4–8 不需要随机化，
+        G1 直接使用 XML keyframe 定义的站立姿态。RL 子类可重写为随机化初始状态。
+        """
+        # reset_simulation 已将 MjData 重置到初始 keyframe，此处仅需同步视图并返回观测
+        self._sync_view()
+        return self._get_obs(), {}
+
+    def _get_obs(self) -> dict:
+        """返回最小观测字典（run_lesson 框架不使用，仅为 Gymnasium API 兼容）。
+
+        包含 G1 基础状态：pelvis 位姿、关节 qpos/qvel。RL 子类可重写为 Box 观测。
+        """
+        agent = self.agent_name
+        pelvis = self.get_body_xpos_xmat_xquat([f"{agent}_pelvis"])[f"{agent}_pelvis"]
+        joint_names = [f"{agent}_{s}" for s in G1_ROT_JOINT_SUFFIXES]
+        return {
+            "pelvis_xpos": np.asarray(pelvis["xpos"], dtype=np.float64),
+            "joint_qpos": self.query_joint_qpos(joint_names),
+            "joint_qvel": self.query_joint_qvel(joint_names),
+        }
