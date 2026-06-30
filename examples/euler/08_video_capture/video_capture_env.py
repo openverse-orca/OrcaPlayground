@@ -1,8 +1,11 @@
-"""StudioCaptureEnv — Lesson 7：Studio 视频录制与截帧验证（G1 行走录制）。
+"""VideoCaptureEnv — Lesson 8：Studio 视频录制与截帧验证（G1 行走录制）。
 
 在阶段四在线模式下，连接 OrcaStudio 加载 G1 关卡，验证 Studio 视频/帧/时间戳
 采集 API 在 G1 行走过程中运行正确。脚本通过 G1BaseEnv.run_lesson 框架步进 500 帧，
-在 G1Locomotion ONNX 策略驱动行走的同时录制视频、截帧、查询时间戳。
+在 G1Locomotion ONNX 策略 + PD 控制器驱动行走的同时录制视频、截帧、查询时间戳。
+
+> **前置依赖**：本课依赖 Lesson 7 行走控制已验证（复用 `g1_locomotion.py` 驱动行走）。
+> 若 Lesson 7 行走不稳定，本课视频中 G1 也会出现瘫倒/乱踹，应先修复 Lesson 7。
 
 验证 API（Studio 交互层）:
     - begin_save_video / stop_save_video（视频录制）
@@ -10,7 +13,7 @@
     - get_frame_png（PNG 截帧）
     - get_camera_time_stamp（相机时间戳）
 
-验证点（5 项数值判定 + 2 项人工观察）:
+验证点（5 项数值判定 + 1 项人工观察）:
     before_loop:
     1. camera_enabled: get_current_frame() >= 0（摄像头使能）
     verify_step（每 50 步）:
@@ -19,9 +22,15 @@
     3. png_file_generated: get_frame_png 生成 PNG 文件（size > 100）
     4. timestamp_returned: get_camera_time_stamp 返回 camera_head 键
     5. mp4_file_generated: stop_save_video 后 mp4 文件生成
-    - g1_walking / walking_stable: Studio 视口观察 G1 行走（人工）
+    - g1_walking_in_video: 录制视频中 G1 行走画面正常（依赖 Lesson 7 行走已跑通）
 
-参见 docs/design/development/orca_gym_euler_phase4_online_validation_development.md §4.3.4
+行走控制链路（复用 Lesson 7 的 g1_locomotion.py）:
+    ONNX 策略输出位置目标 q_target (29,)
+    → PD 控制器: tau = Kp*(q_target - q) + Kd*(0 - qd)
+    → clip 到 motor_effort_limit
+    → 传给 motor 执行器（G1 执行器是力矩控制）
+
+参见 docs/design/development/orca_gym_euler_phase4_directory_restructure.md §3.7
 """
 
 from __future__ import annotations
@@ -39,12 +48,13 @@ _VIDEO_DIR = "/tmp/g1_walk_video"
 _FRAME_DIR = "/tmp/g1_frames"
 
 
-class StudioCaptureEnv(G1BaseEnv):
-    """Lesson 7 Env 子类：G1 行走 + Studio 视频采集验证。
+class VideoCaptureEnv(G1BaseEnv):
+    """Lesson 8 Env 子类：G1 行走 + Studio 视频采集验证。
 
     重写钩子:
-        - initialize_simulation: 创建 G1Locomotion 实例
-        - compute_ctrl: 调用 G1Locomotion.compute_action 返回 ONNX 策略输出
+        - initialize_simulation: 创建 G1Locomotion 实例（含 PD 控制器）
+        - compute_ctrl: 调用 G1Locomotion.compute_q_target 返回位置目标（29 维）
+        - do_simulation: 闭环 PD 步进（每物理步重读 obs 重算 tau，与原版一致）
         - before_loop: 摄像头使能检查 + begin_save_video
         - verify_step: 每 50 步检查帧索引递增
         - observe_step: 行走观察提示
@@ -52,14 +62,44 @@ class StudioCaptureEnv(G1BaseEnv):
     """
 
     def initialize_simulation(self):
-        """初始化仿真 + 创建 G1Locomotion 行走策略封装。"""
+        """初始化仿真 + 创建 G1Locomotion 行走策略封装（含 PD 控制器）。"""
         super().initialize_simulation()
         self.locomotion = G1Locomotion(agent_name=self.agent_name)
         self._prev_frame: int = 0
+        # q_target 缓存（compute_ctrl 写入，do_simulation 读取）
+        self._q_target: np.ndarray = np.zeros(self.model.nu, dtype=np.float64)
 
     def compute_ctrl(self, step: int) -> np.ndarray:
-        """ONNX 策略推理 → 控制输入（q_target，29 维）。"""
-        return self.locomotion.compute_action(self)
+        """ONNX 策略推理 → 位置目标 q_target（29 维，rad）。
+
+        本方法只做 ONNX 推理生成 q_target，不做 PD 转力矩。
+        PD 转力矩在 do_simulation 中每物理步闭环重算（与原版 g1_env.py
+        每 mj_step 重读 obs 重算 PD 一致），避免开环累积误差导致失稳。
+
+        Returns:
+            q_target (29,): 关节位置目标（rad）。
+        """
+        q_target = self.locomotion.compute_q_target(self)
+        self._q_target = q_target
+        return q_target
+
+    def do_simulation(self, ctrl: np.ndarray, n_frames: int) -> None:
+        """闭环 PD 步进：每物理步重读 obs 重算 tau（与原版 g1_env.py 一致）。
+
+        原版 g1_env.step 在 frame_skip 循环内每步重读 qpos/qvel 重算 PD 力矩，
+        否则单次 tau 跑 20 步会因开环累积误差导致 G1 失稳侧翻。
+        本方法复刻该闭环结构。视口同步由 run_lesson 循环中的 render() 负责。
+
+        Args:
+            ctrl: 此处为 q_target（29,）（由 compute_ctrl 返回），不是力矩。
+            n_frames: 物理步数（frame_skip=20）。
+        """
+        q_target = ctrl  # compute_ctrl 返回的是 q_target，不是 tau
+        for _ in range(n_frames):
+            dof_pos, dof_vel = self.locomotion.read_joint_state(self)
+            tau = self.locomotion.compute_tau(q_target, dof_pos, dof_vel)
+            self.set_ctrl(tau)
+            self.mj_step(1)
 
     def before_loop(self, verifier: OnlineVerifier) -> None:
         """循环前：摄像头使能检查 + 开始录制。"""
@@ -101,11 +141,14 @@ class StudioCaptureEnv(G1BaseEnv):
     def observe_step(self, step: int, verifier: OnlineVerifier) -> None:
         """循环中：阶段性人工观察提示。"""
         if step == 0:
-            verifier.observe("g1_walking", "Studio 视口：G1 应在策略控制下行走")
+            verifier.observe(
+                "g1_walking_in_video",
+                "Studio 视口：G1 应在策略控制下行走（录制中）",
+            )
         elif step == 250:
             verifier.observe(
-                "walking_stable",
-                "Studio 视口：G1 行走应稳定，录制中段画面正常",
+                "walking_stable_in_video",
+                "Studio 视口：录制中段画面应正常（依赖 Lesson 7 行走已跑通）",
             )
 
     def after_loop(self, verifier: OnlineVerifier) -> None:

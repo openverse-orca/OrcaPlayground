@@ -4,7 +4,11 @@
 1. 从 env.data / env.query_* 公共 API 读取 G1 状态（base 位姿、角速度、关节角度/速度）
 2. 组装策略观测（匹配 decoupled_locomotion_stand_height 的观测布局）
 3. ONNX 推理 → lower-body action (12,)
-4. 后处理：scaled = action * 0.25 → concat(ref_upper) → + default_dof_angles → clip
+4. 后处理：scaled = action * 0.25 → concat(ref_upper) → + default_dof_angles → clip → q_target
+5. PD 控制器：tau = Kp*(q_target - q) + Kd*(0 - qd) → clip 到力矩限位 → 返回 tau
+
+G1 执行器是 motor（力矩控制，ctrlrange 为 N·m），策略输出位置目标 q_target，
+需经 PD 转力矩后传给 ctrl（与 envs/g1/g1_env.py 的 PD 实现一致）。
 
 内部状态：history handler（滚动缓冲）、phase time、速度指令、last_policy_action。
 
@@ -96,13 +100,18 @@ def _quat_rotate_inverse(q: np.ndarray, v: np.ndarray) -> np.ndarray:
 
 
 class G1Locomotion:
-    """G1 行走策略封装：ONNX 推理 + 观测组装 + 动作后处理。
+    """G1 行走策略封装：ONNX 推理 + 观测组装 + 动作后处理 + PD 控制器。
 
-    使用方式:
+    使用方式（闭环 PD，与原版 g1_env.py 每 mj_step 重算 PD 一致）:
         loco = G1Locomotion(agent_name="g1")
         loco.reset()
-        ctrl = loco.compute_action(env)  # 返回 (29,) q_target
-        env.do_simulation(ctrl, frame_skip)
+        q_target = loco.compute_q_target(env)  # 返回 (29,) 位置目标
+        # 在 do_simulation 循环内每物理步重算 tau
+        for _ in range(frame_skip):
+            dof_pos, dof_vel = loco.read_joint_state(env)
+            tau = loco.compute_tau(q_target, dof_pos, dof_vel)
+            env.set_ctrl(tau)
+            env.mj_step(1)
     """
 
     # 下半身关节数（12 = 29 - 17）
@@ -162,6 +171,14 @@ class G1Locomotion:
             self.config["motor_pos_upper_limit_list"], dtype=np.float64
         )
 
+        # PD 控制增益 + 力矩限位（位置目标 q_target → 力矩 tau 的转换参数）
+        # G1 执行器是 motor（力矩控制），策略输出位置目标，需经 PD 转力矩后传给 ctrl
+        self.joint_kp = np.array(self.config["JOINT_KP"], dtype=np.float64)  # (29,)
+        self.joint_kd = np.array(self.config["JOINT_KD"], dtype=np.float64)  # (29,)
+        self.motor_effort_limit = np.array(
+            self.config["motor_effort_limit_list"], dtype=np.float64
+        )  # (29,)
+
         # 观测缩放
         self.obs_scales = self.config["obs_scales"]
 
@@ -195,7 +212,9 @@ class G1Locomotion:
         # 指令：线速度 (2,)、角速度 (1,)、站立开关 (1,)、基准高度 (1,)
         self.lin_vel_command = np.array([[0.0, 0.0]], dtype=np.float64)
         self.ang_vel_command = np.array([[0.0]], dtype=np.float64)
-        self.stand_command = np.array([[1]], dtype=np.float64)  # 1=站立/行走
+        # stand_command=0 启动（与原版一致）：策略输出站立姿态，phase_time 不前进。
+        # 需切换到行走时调用 set_stand_command(1)，phase_time 才随时间推进。
+        self.stand_command = np.array([[0]], dtype=np.float64)
         self.base_height_command = np.array(
             [[self.DEFAULT_BASE_HEIGHT]], dtype=np.float64
         )
@@ -208,13 +227,17 @@ class G1Locomotion:
         lin_vel: tuple[float, float] | None = None,
         ang_vel: float | None = None,
         base_height: float | None = None,
+        stand: int | None = None,
     ) -> None:
-        """设置速度/高度指令（行走时调用）。
+        """设置速度/高度/站立指令。
 
         Args:
-            lin_vel: (forward, lateral) 线速度指令，None 不变。
-            ang_vel: 偏航角速度指令，None 不变。
-            base_height: 基准高度指令，None 不变。
+            lin_vel: (forward, lateral) 线速度指令（m/s），None 不变。
+                forward>0 前进、lateral>0 左移（按原版约定）。
+            ang_vel: 偏航角速度指令（rad/s），>0 左转，None 不变。
+            base_height: 基准高度指令（m），None 不变。
+            stand: 站立开关，0=站立（相位固定不迈步），1=行走（相位随时间推进迈步），
+                None 不变。
         """
         if lin_vel is not None:
             self.lin_vel_command[0] = lin_vel
@@ -222,9 +245,11 @@ class G1Locomotion:
             self.ang_vel_command[0, 0] = ang_vel
         if base_height is not None:
             self.base_height_command[0, 0] = base_height
+        if stand is not None:
+            self.stand_command[0, 0] = stand
 
-    def compute_action(self, env: Any) -> np.ndarray:
-        """从 env 读取状态，运行 ONNX 推理，返回 q_target (29,)。
+    def compute_q_target(self, env: Any) -> np.ndarray:
+        """从 env 读取状态，运行 ONNX 推理，返回位置目标 q_target (29,)。
 
         状态读取（公共 API）:
         - env.data.qpos[3:7]: free joint 基座四元数 [w,x,y,z]
@@ -232,15 +257,30 @@ class G1Locomotion:
         - env.query_joint_qpos(joint_names): 29 关节角度
         - env.query_joint_qvel(joint_names): 29 关节速度
 
+        输出后处理:
+        - ONNX 输出 lower-body action (12) → 缩放 + 拼接 ref_upper + default → q_target (29,)
+
+        注意:
+        - 本方法只做 ONNX 推理和位置目标生成，不做 PD 转力矩。
+        - PD 转力矩由 compute_tau 单独完成，支持每物理步闭环重算
+          （与原版 g1_env.py 每 mj_step 重读 obs 重算 PD 一致）。
+
         Args:
             env: OrcaGymEulerEnv 实例（G1BaseEnv 子类）。
 
         Returns:
-            q_target (29,): 目标关节角度（已 clip 到限位）。
+            q_target (29,): 关节位置目标（rad），供 PD 控制器使用。
         """
         # 1. 读取状态
-        base_quat = env.data.qpos[3:7].reshape(1, -1)  # (1, 4) [w,x,y,z]
-        base_ang_vel = env.data.qvel[3:6].reshape(1, -1)  # (1, 3)
+        # 基座姿态/角速度：通过 free joint 名字查询（场景含 box free joint，
+        # 不能硬编码 qpos[3:7]/qvel[3:6]，否则会读到 box 的姿态）。
+        # free joint qpos=[px,py,pz,qw,qx,qy,qz]（7），qvel=[vx,vy,vz,wx,wy,wz]（6）。
+        # 与原版 g1_env.py imu_quat/imu_gyro 来源一致。
+        base_joint_name = f"{self.agent_name}_floating_base_joint"
+        base_qpos = env.query_joint_qpos([base_joint_name])
+        base_qvel = env.query_joint_qvel([base_joint_name])
+        base_quat = base_qpos[base_joint_name][3:7].reshape(1, -1)  # (1, 4) [w,x,y,z]
+        base_ang_vel = base_qvel[base_joint_name][3:6].reshape(1, -1)  # (1, 3) 世界系角速度
 
         joint_qpos = env.query_joint_qpos(self.joint_names)
         joint_qvel = env.query_joint_qvel(self.joint_names)
@@ -276,9 +316,53 @@ class G1Locomotion:
 
         return q_target
 
+    def compute_tau(self, q_target: np.ndarray, dof_pos: np.ndarray, dof_vel: np.ndarray) -> np.ndarray:
+        """PD 控制器：位置目标 q_target → 力矩 tau（可重复调用，支持闭环 PD）。
+
+        G1 执行器是 motor（力矩控制），策略输出位置目标，需经 PD 转力矩后传给 ctrl。
+        tau = Kp * (q_target - q) + Kd * (0 - qd)
+        （前馈力矩 tau_ff=0，目标速度 dq_target=0，与 envs/g1/g1_env.py 一致）
+
+        Args:
+            q_target (29,): 关节位置目标（rad）。
+            dof_pos (29,): 当前关节角度（rad）。
+            dof_vel (29,): 当前关节角速度（rad/s）。
+
+        Returns:
+            tau (29,): 关节力矩（N·m，已 clip 到 motor_effort_limit）。
+        """
+        tau = self.joint_kp * (q_target - dof_pos) - self.joint_kd * dof_vel
+        tau = np.clip(tau, -self.motor_effort_limit, self.motor_effort_limit)
+        return tau
+
+    def read_joint_state(self, env: Any) -> tuple[np.ndarray, np.ndarray]:
+        """读取 29 关节角度和角速度（供闭环 PD 每物理步调用）。
+
+        Args:
+            env: OrcaGymEulerEnv 实例。
+
+        Returns:
+            (dof_pos (29,), dof_vel (29,))。
+        """
+        joint_qpos = env.query_joint_qpos(self.joint_names)
+        joint_qvel = env.query_joint_qvel(self.joint_names)
+        # query_joint_qpos 返回 dict[name -> 1D 数组]（hinge 为 (1,)），
+        # 需取 [0] 转标量后再组装，否则 np.array 会得到 (29,1) 导致广播错误。
+        dof_pos = np.array(
+            [joint_qpos[name][0] for name in self.joint_names], dtype=np.float64
+        )
+        dof_vel = np.array(
+            [joint_qvel[name][0] for name in self.joint_names], dtype=np.float64
+        )
+        return dof_pos, dof_vel
+
     def _get_phase_time(self) -> np.ndarray:
-        """计算当前步态相位时间 [0, 1)。"""
-        elapsed = time.time() - self._start_time
+        """计算当前步态相位时间 [0, 1)。
+
+        与原版一致：phase = (time*stand_command) % gait_period / gait_period。
+        stand_command=0 时 phase=0（站立模式，不迈步）；stand_command=1 时随时间推进。
+        """
+        elapsed = (time.time() - self._start_time) * self.stand_command[0, 0]
         phase = (elapsed % self.gait_period) / self.gait_period
         return np.array([[phase]], dtype=np.float64)
 

@@ -1,8 +1,11 @@
-"""第 7 课：Studio 视频录制与截帧 — G1 行走录制在线验证
+"""第 8 课：Studio 视频录制与截帧 — G1 行走录制在线验证
 
-在阶段四在线模式下，连接 OrcaStudio 加载 G1 关卡，在 G1Locomotion ONNX 策略
-驱动行走的同时，验证 Studio 视频/帧/时间戳采集 API 运行正确。脚本通过
-G1BaseEnv.run_lesson 框架步进 500 帧（10 秒仿真），录制完整行走过程。
+在阶段四在线模式下，连接 OrcaStudio 加载 G1 关卡，在 G1Locomotion ONNX 策略 + PD 控制器
+驱动行走的同时，验证 Studio 视频/帧/时间戳采集 API 运行正确。脚本通过 G1BaseEnv.run_lesson
+框架步进 500 帧（10 秒仿真），录制完整行走过程。
+
+> **前置依赖**：本课依赖 Lesson 7 行走控制已验证（复用 `g1_locomotion.py` 驱动行走）。
+> 若 Lesson 7 行走不稳定，本课视频中 G1 也会出现瘫倒/乱踹，应先修复 Lesson 7。
 
 验证 API（Studio 交互层）:
     - begin_save_video / stop_save_video（视频录制）
@@ -13,12 +16,12 @@ G1BaseEnv.run_lesson 框架步进 500 帧（10 秒仿真），录制完整行走
 用法:
     # 1. 先启动 OrcaStudio 并加载含 1 个 G1 的关卡，点击运行
     # 2. 运行脚本
-    python examples/euler/07_studio_capture/studio_capture.py
+    python examples/euler/08_video_capture/video_capture.py
 
     # 指定 Studio 地址
-    python examples/euler/07_studio_capture/studio_capture.py --addr 192.168.1.100:50051
+    python examples/euler/08_video_capture/video_capture.py --addr 192.168.1.100:50051
 
-验证点（5 项数值判定 + 2 项人工观察）:
+验证点（5 项数值判定 + 1 项人工观察）:
     before_loop:
     1. camera_enabled: 摄像头使能（frame_idx >= 0）
     verify_step（每 50 步）:
@@ -27,9 +30,9 @@ G1BaseEnv.run_lesson 框架步进 500 帧（10 秒仿真），录制完整行走
     3. png_file_generated: PNG 截帧文件生成（size > 100）
     4. timestamp_returned: 时间戳查询返回 camera_head 键
     5. mp4_file_generated: 录制完成后 mp4 文件生成
-    - g1_walking / walking_stable: Studio 视口观察 G1 行走（人工）
+    - g1_walking_in_video: 录制视频中 G1 行走画面正常（依赖 Lesson 7 行走已跑通）
 
-参见 docs/design/development/orca_gym_euler_phase4_online_validation_development.md §4.3.4
+参见 docs/design/development/orca_gym_euler_phase4_directory_restructure.md §3.7
 """
 
 from __future__ import annotations
@@ -44,12 +47,12 @@ from g1_base_env import (
     G1_TIME_STEP,
 )
 from online_verifier import OnlineVerifier
-from studio_capture_env import StudioCaptureEnv
+from video_capture_env import VideoCaptureEnv
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Lesson 7: G1 行走录制与 Studio 采集在线验证"
+        description="Lesson 8: G1 行走录制与 Studio 视频采集验证"
     )
     parser.add_argument(
         "--addr",
@@ -68,7 +71,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    env = StudioCaptureEnv(
+    env = VideoCaptureEnv(
         frame_skip=G1_FRAME_SKIP,
         orcagym_addr=args.addr,
         agent_names=["g1"],  # 在线模式由场景扫描覆盖为实际 agent_name
@@ -76,7 +79,7 @@ def main() -> None:
         model_xml_path=G1_MODEL_XML,
     )
 
-    verifier = OnlineVerifier("Lesson 7: 视频录制")
+    verifier = OnlineVerifier("Lesson 8: 视频录制")
     try:
         report = env.run_lesson(num_steps=args.num_steps, verifier=verifier)
     finally:
