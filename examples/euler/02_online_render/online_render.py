@@ -54,7 +54,7 @@ def _log(msg: str) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="第 2 课：在线渲染与交互")
     parser.add_argument("--addr", default="localhost:50051", help="OrcaStudio gRPC 地址")
-    parser.add_argument("--steps", type=int, default=50000, help="仿真步数")
+    parser.add_argument("--steps", type=int, default=1000, help="仿真步数")
     parser.add_argument("--time-step", type=float, default=0.002, help="物理时间步长")
     parser.add_argument("--frame-skip", type=int, default=5, help="frame_skip")
     parser.add_argument(
