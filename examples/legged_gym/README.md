@@ -46,7 +46,7 @@ pip install -r requirements.txt
 pip install -r examples/legged_gym/requirements.txt
 ```
 
-> ⚠️ **`requirements.txt` 中已注释掉 `torch`，需要手动安装**。因为 `pip install torch` 默认安装 CUDA 12.8 版本，如果你的 NVIDIA 驱动较旧会报错 `RuntimeError: The NVIDIA driver on your system is too old`。请根据下方的驱动兼容表选择正确的安装命令。
+> ⚠️ **`requirements.txt` 中已注释掉 `torch`，需要手动安装**。因为 `pip install torch` 默认安装最新版本，其 CUDA 版本可能不兼容你的 NVIDIA 驱动，导致报错 `RuntimeError: The NVIDIA driver on your system is too old`。请根据下方的说明选择正确的安装命令。
 
 ### NVIDIA 驱动与 PyTorch 兼容性
 
@@ -59,13 +59,7 @@ nvidia-smi | head -3
 
 然后根据驱动版本选择对应的 PyTorch 安装命令：
 
-| NVIDIA 驱动版本 | 支持的最高 CUDA | PyTorch 安装命令 |
-|---|---|---|
-| ≥ 570 | 12.8+ | `pip install torch>=2.7.0` |
-| ≥ 560 | 12.6+ | `pip install torch>=2.7.0 --index-url https://download.pytorch.org/whl/cu126` |
-| ≥ 550 | 12.4+ | `pip install "torch>=2.6.0,<2.7" --index-url https://download.pytorch.org/whl/cu124` |
-| ≥ 530 | 12.1+ | `pip install "torch>=2.3.0,<2.5" --index-url https://download.pytorch.org/whl/cu121` |
-| ≥ 520 | 11.8+ | `pip install "torch>=2.3.0,<2.5" --index-url https://download.pytorch.org/whl/cu118` |
+**推荐方式**：访问 [PyTorch 官网安装页面](https://pytorch.org/get-started/locally/)，选择你的 CUDA 版本获取最新兼容的安装命令。
 
 > 💡 **原则**：驱动版本决定了你能使用的最高 CUDA 版本。高版本驱动向下兼容低版本 CUDA，但低版本驱动无法运行高版本 CUDA。安装 PyTorch 时选择的 CUDA 版本不能超过驱动支持的最高 CUDA 版本。
 
@@ -75,7 +69,7 @@ nvidia-smi | head -3
 python -c "import torch; print(f'PyTorch {torch.__version__}, CUDA {torch.version.cuda}, GPU available: {torch.cuda.is_available()}')"
 ```
 
-如果 `GPU available: False`，说明 PyTorch 编译的 CUDA 版本高于驱动支持的最高版本，请按上表重新安装匹配的版本。
+如果 `GPU available: False`，说明 PyTorch 编译的 CUDA 版本高于驱动支持的最高版本，请访问 [PyTorch 官网](https://pytorch.org/get-started/locally/) 重新选择匹配的安装命令。
 
 如需使用 RLlib APPO 分布式训练，额外安装：
 
@@ -583,14 +577,14 @@ envs/legged_gym/                       # 环境核心代码（两条链路共享
 
 ### Q: 报错 `RuntimeError: The NVIDIA driver on your system is too old` 怎么办？
 
-这是 PyTorch 编译的 CUDA 版本高于你的 NVIDIA 驱动支持的版本导致的。例如驱动版本 550（支持 CUDA 12.4），但 `pip install torch` 默认安装了 CUDA 12.8 版本。
+这是 PyTorch 编译的 CUDA 版本高于你的 NVIDIA 驱动支持的版本导致的。例如驱动版本 550（支持 CUDA 12.4），但 `pip install torch` 默认安装了更高 CUDA 版本。
 
 解决方法：
 
 1. 查看驱动版本：`nvidia-smi | head -3`
-2. 根据上方的 **NVIDIA 驱动与 PyTorch 兼容性** 表格，选择匹配的安装命令重新安装 PyTorch
+2. 访问 [PyTorch 官网安装页面](https://pytorch.org/get-started/locally/)，选择与你的 CUDA 版本匹配的安装命令
 3. 卸载旧版本：`pip uninstall torch`
-4. 按表格安装对应版本，例如驱动 550：`pip install "torch>=2.6.0,<2.7" --index-url https://download.pytorch.org/whl/cu124`
+4. 按官网指引安装对应版本
 5. 验证：`python -c "import torch; print(torch.cuda.is_available())"` 应输出 `True`
 
 ### Q: SB3 和 RLlib 可以共存吗？

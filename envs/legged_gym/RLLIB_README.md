@@ -73,7 +73,8 @@ pip install -e ".[legged_gym]"
 
 
 # 安装 RLlib（会将 gymnasium 升级到 1.2.2，API 完全兼容，可安全忽略警告）
-pip install "ray[rllib]>=2.54.0" "torch>=2.3.0"
+# 注意：torch 需先根据 NVIDIA 驱动版本手动安装，详见 requirements.txt 顶部说明
+pip install "ray[rllib]>=2.54.0"
 ```
 
 ### 4. ONNX 推理依赖（可选）
