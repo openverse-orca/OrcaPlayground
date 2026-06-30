@@ -14,11 +14,11 @@ OrcaGym 示例代码仓库，已集成 OrcaLab 支持。
 pip install orca-lab
 ```
 
-#### 步骤 2：激活 OrcaLab 的 conda 环境并安装基础依赖
+#### 步骤 2：激活 orca conda 环境并安装基础依赖
 
 ```bash
-# 激活 OrcaLab 的 conda 环境（根据你的环境名称调整）
-conda activate orcalab  # 或你的 OrcaLab 环境名称
+# 激活 orca 环境（本项目推荐的环境名称）
+conda activate orca
 
 # 进入项目目录
 cd /path/to/OrcaPlayground
