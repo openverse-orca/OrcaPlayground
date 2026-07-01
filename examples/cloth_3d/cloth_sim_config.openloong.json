@@ -75,5 +75,23 @@
   "cloth_robot": {
     "gripper_keyframes_json": "cloth_robot_gripper_keyframes.json",
     "comment": "手工编辑双掌关键帧；也可用环境变量 CLOTH_ROBOT_KEYFRAMES_JSON 覆盖"
+  },
+  "grip_bind": {
+    "left": {
+      "palm_legacy": "gripper_l_palm",
+      "palm_suffix": "zbll_base_link",
+      "finger1_legacy": "gripper_l_finger1",
+      "finger1_suffix": "l_left_follower",
+      "finger2_legacy": "gripper_l_finger2",
+      "finger2_suffix": "l_right_follower"
+    },
+    "right": {
+      "palm_legacy": "gripper_r_palm",
+      "palm_suffix": "zbr_base_link",
+      "finger1_legacy": "gripper_r_finger1",
+      "finger1_suffix": "r_left_follower",
+      "finger2_legacy": "gripper_r_finger2",
+      "finger2_suffix": "r_right_follower"
+    }
   }
 }

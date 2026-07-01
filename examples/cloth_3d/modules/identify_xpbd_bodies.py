@@ -142,3 +142,74 @@ def filter_body_names(
             continue
         out.append(name)
     return out
+
+
+def merge_body_discovery(
+    config: dict[str, Any],
+    model: mujoco.MjModel,
+    data: mujoco.MjData | None = None,
+) -> dict[str, Any]:
+    """
+    将 MJCF 扫描得到的刚体写入 ``rigid_body_map``（scan-first）。
+
+    ``body_track_scan_only=true`` 时仅认 ``_XPBD_TRACK_GEOM``；
+    否则叠加 geom 后缀 / 子串白名单与 track 扫描结果。
+  ``orcagym_rigid_body_map`` 行用于覆盖 ``orcalink_publish`` / ``follow_mode``。
+    """
+    import copy
+
+    _ = data
+    out = copy.deepcopy(config)
+    auto = out.get("xpbd_auto_discover") or {}
+    if not auto.get("bodies", True):
+        return out
+
+    default_mode = str(auto.get("default_follow_mode", "kinematic"))
+    bodies: list[str] = []
+
+    if auto.get("body_track_scan_only"):
+        bodies = identify_xpbd_bodies(model)
+    else:
+        bodies.extend(identify_xpbd_bodies(model))
+        geom_suffixes = list(auto.get("body_include_geom_suffixes") or [])
+        substrings = list(auto.get("body_include_substrings") or [])
+        if geom_suffixes:
+            bodies.extend(resolve_bodies_by_geom_suffixes(model, geom_suffixes))
+        if substrings:
+            bodies.extend(resolve_bodies_by_name_substrings(model, substrings))
+        bodies = sorted(set(bodies))
+
+    rows = bodies_to_rigid_body_map(bodies, default_follow_mode=default_mode)
+    override_key = str((out.get("orcagym") or {}).get("rigid_body_map_key", "orcagym_rigid_body_map"))
+    overrides = {
+        str(r.get("mjc_body_name", "")): r
+        for r in (out.get(override_key) or out.get("orcagym_rigid_body_map") or [])
+        if r.get("mjc_body_name")
+    }
+    for row in rows:
+        ov = overrides.get(row["mjc_body_name"])
+        if not ov:
+            continue
+        if "orcalink_publish" in ov:
+            row["orcalink_publish"] = ov["orcalink_publish"]
+        if "follow_mode" in ov:
+            row["follow_mode"] = ov["follow_mode"]
+
+    present = {r["mjc_body_name"] for r in rows}
+    for name, ov in overrides.items():
+        if name in present:
+            continue
+        if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, name) < 0:
+            continue
+        rows.append(
+            {
+                "logical_name": str(ov.get("logical_name", name)),
+                "mjc_body_name": name,
+                "follow_mode": str(ov.get("follow_mode", default_mode)),
+                "orcalink_publish": bool(ov.get("orcalink_publish", True)),
+                "discovered": False,
+            }
+        )
+
+    out["rigid_body_map"] = rows
+    return out
