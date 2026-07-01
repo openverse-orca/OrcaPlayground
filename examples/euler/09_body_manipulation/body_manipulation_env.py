@@ -239,6 +239,14 @@ class BodyManipulationEnv(G1BaseEnv):
             self.update_anchor_equality_constraints(pelvis_name, anchor_type="weld")
             self._anchored_actor = pelvis_name
             self._anchor_type = "weld"
+            # 绑定后立即将 mocap 对齐到 pelvis 当前位姿（避免下一帧拉扯）
+            self.set_mocap_pos_and_quat({
+                self._mocap_body_name: {
+                    "pos": start_pos.tolist(),
+                    "quat": start_pose["xquat"].tolist(),
+                }
+            })
+            self.mj_forward()
             # 4. 绑定后停止行走（stand=0），机器人跟随 mocap
             self.locomotion.set_commands(stand=0, lin_vel=(0.0, 0.0), ang_vel=0.0)
             verifier.observe(
@@ -251,8 +259,13 @@ class BodyManipulationEnv(G1BaseEnv):
 
         for step in range(_PHASE_STEPS):
             cycle_start = time.perf_counter()
-            ctrl = self.compute_ctrl(step)
-            self.do_simulation(ctrl, self.frame_skip)
+            if bound and delta is not None:
+                # 绑定阶段：零力矩，让 WELD 约束无对抗地拖动机器人
+                ctrl = np.zeros(self.model.nu)
+                self.do_simulation(ctrl, self.frame_skip)
+            else:
+                ctrl = self.compute_ctrl(step)
+                self.do_simulation(ctrl, self.frame_skip)
 
             if bound and delta is not None:
                 # 周期性移动 mocap：线性插值，3 秒内移动 delta
@@ -264,6 +277,13 @@ class BodyManipulationEnv(G1BaseEnv):
                         "quat": [1, 0, 0, 0],
                     }
                 })
+                # [DIAG] 每 50 步打印 mocap 与 pelvis 实际位置
+                if step % 50 == 0 or step == _PHASE_STEPS - 1:
+                    mocap_pose = self.get_body_xpos_xmat_xquat([self._mocap_body_name])[self._mocap_body_name]
+                    pelvis_pose = self.get_body_xpos_xmat_xquat([pelvis_name])[pelvis_name]
+                    print(f"[DIAG] step={step} target={target_pos.tolist()} "
+                          f"mocap={mocap_pose['xpos'].tolist()} "
+                          f"pelvis={pelvis_pose['xpos'].tolist()}")
 
             self.render()
             # RTF=1.0 限速

@@ -394,8 +394,13 @@
     </body>
 
     <!-- 测试用 mocap body：空（无动力学），通过 equality 与 box 绑定。
-         命名为 TestMocapAnchor 以避免与 Studio 关卡自带的 ActorManipulator 重名。 -->
-    <body name="TestMocapAnchor" pos="0.5 0 0.3" mocap="true" />
+         命名为 TestMocapAnchor 以避免与 Studio 关卡自带的 ActorManipulator 重名。
+         geom 用作坐标轴可视化（group=1 显示），不参与碰撞。 -->
+    <body name="TestMocapAnchor" pos="0.5 0 0.3" mocap="true">
+      <geom conaffinity="0" contype="0" pos="0.3 0 0" rgba="0.7 0 0 0.5" size="0.3 0.005 0.005" type="box" group="1" />
+      <geom conaffinity="0" contype="0" pos="0 0.3 0" rgba="0 0.7 0 0.5" size="0.005 0.3 0.005" type="box" group="1" />
+      <geom conaffinity="0" contype="0" pos="0 0 0.3" rgba="0 0 0.7 0.5" size="0.005 0.005 0.3" type="box" group="1" />
+    </body>
   </worldbody>
 
   <!-- 测试用等式约束：weld 绑定 mocap anchor 与 box，可通过 modify_equality_objects 重新绑定到 G1 body -->
