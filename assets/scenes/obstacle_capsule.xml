@@ -1,0 +1,11 @@
+<!-- 基础障碍几何体：胶囊（static，无 joint，有碰撞）。
+     基础尺寸：半径 0.15m，半长 0.35m（总高约 0.8m），spawn 时通过 scale 缩放。
+     颜色通过 OrcaGymScene.set_material_info 在 spawn 后覆盖。
+     用于 Lesson 8 场景布景，为摄像头视频提供丰富的视觉内容。 -->
+<mujoco model="obstacle_capsule">
+  <worldbody>
+    <body name="obstacle_capsule" pos="0 0 0">
+      <geom name="capsule_geom" type="capsule" size="0.15 0.35" rgba="0.2 0.6 0.8 1"/>
+    </body>
+  </worldbody>
+</mujoco>

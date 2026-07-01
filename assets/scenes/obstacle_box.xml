@@ -1,0 +1,11 @@
+<!-- 基础障碍几何体：立方体（static，无 joint，有碰撞）。
+     基础尺寸 0.5m 立方体（size 为半尺寸），spawn 时通过 scale 缩放。
+     颜色通过 OrcaGymScene.set_material_info 在 spawn 后覆盖。
+     用于 Lesson 8 场景布景，为摄像头视频提供丰富的视觉内容。 -->
+<mujoco model="obstacle_box">
+  <worldbody>
+    <body name="obstacle_box" pos="0 0 0">
+      <geom name="box_geom" type="box" size="0.25 0.25 0.25" rgba="0.8 0.4 0.2 1"/>
+    </body>
+  </worldbody>
+</mujoco>
