@@ -211,7 +211,7 @@ class ForceApplyEnv(G1BaseEnv):
         self, step: int, verifier: OnlineVerifier, agent: str
     ) -> None:
         """step 70：set_mocap_pos_and_quat 写入后回读一致。"""
-        anchor = f"{agent}_ActorManipulator_Anchor"
+        anchor = f"{agent}_TestMocapAnchor"
         self.set_mocap_pos_and_quat(
             {anchor: {"pos": _MOCAP_TARGET_POS, "quat": _MOCAP_TARGET_QUAT}}
         )

@@ -41,7 +41,7 @@ envs/euler/robots/
 | 元素 | 名称 | 用途 |
 |------|------|------|
 | 摄像头传感器 | `camera_head`（`user="7070 7071"`） | Lesson 7 视频录制（color port 7070, depth port 7071） |
-| Mocap body | `ActorManipulator_Anchor` | Lesson 6/8 mocap 拖拽锚点 |
+| Mocap body | `TestMocapAnchor` | Lesson 6/8 mocap 拖拽锚点 |
 | 测试 box | `manipulation_box` | Lesson 8 体操作目标物体 |
 | Weld 约束 | `anchor_box_weld` | Lesson 8 锚点-box 焊接约束 |
 
@@ -77,7 +77,7 @@ python -c "import mujoco; m = mujoco.MjModel.from_xml_path('envs/euler/robots/g1
 3. 确认场景中**恰好 1 台** G1（阶段四要求单机器人场景）
 4. 点击「运行」按钮，启动仿真
 
-> **Lesson 6/8 额外要求**：场景需包含 mocap body `ActorManipulator_Anchor`、测试 box `manipulation_box`、weld 约束 `anchor_box_weld`。这些元素已内置在 `g1_29dof_camera.xml` 中，若使用 Studio 自带的 G1 资产，需确认这些元素已加载。
+> **Lesson 6/8 额外要求**：场景需包含 mocap body `TestMocapAnchor`、测试 box `manipulation_box`、weld 约束 `anchor_box_weld`。这些元素已内置在 `g1_29dof_camera.xml` 中，若使用 Studio 自带的 G1 资产，需确认这些元素已加载。
 
 ---
 

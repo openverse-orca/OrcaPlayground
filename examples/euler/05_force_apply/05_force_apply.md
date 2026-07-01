@@ -46,10 +46,10 @@
 > 零控下腰部关节松弛，torso 施力难以经由松弛关节传递到 pelvis，直接对 pelvis 施力
 > 可靠验证 API 并产生可见的整机抬起效果。
 
-> **mocap 驱动说明**：场景含 `ActorManipulator_Anchor`（mocap body）与 `manipulation_box`，
+> **mocap 驱动说明**：场景含 `TestMocapAnchor`（mocap body）与 `manipulation_box`，
 > 二者经 `anchor_box_weld` 等约束连接。`set_mocap_pos_and_quat` 写入 mocap 位姿后，
 > weld 约束驱动 box 跟随到目标位置。mocap/box 名称由场景扫描解析的 `agent_name` 前缀
-> （如 `g1_29dof_camera_usda`）+ 下划线拼接（如 `g1_29dof_camera_usda_ActorManipulator_Anchor`）。
+> （如 `g1_29dof_camera_usda`）+ 下划线拼接（如 `g1_29dof_camera_usda_TestMocapAnchor`）。
 
 ---
 
@@ -59,7 +59,7 @@
 - ✅ 步骤 1（Lesson 4 状态查询）已完成
 - ✅ conda `orca` 环境可用
 - ✅ OrcaStudio 已启动，并加载含 1 个 G1 机器人的关卡
-- ✅ 场景已导入 `g1_29dof_camera.xml`（含 `ActorManipulator_Anchor` mocap body、
+- ✅ 场景已导入 `g1_29dof_camera.xml`（含 `TestMocapAnchor` mocap body、
   `manipulation_box` 及 `anchor_box_weld` 等约束）
 - ✅ Studio 中已点击「运行」启动仿真
 
@@ -73,7 +73,7 @@
 
 1. 打开 OrcaStudio
 2. 资产搜索 `g1`，拖入 1 台 G1 人形机器人（导入 `g1_29dof_camera.xml`）
-3. 确认场景含 `manipulation_box` 与 `ActorManipulator_Anchor`
+3. 确认场景含 `manipulation_box` 与 `TestMocapAnchor`
 4. 点击「运行」启动仿真
 
 ### 步骤 2（人工）：运行课程脚本
@@ -192,7 +192,7 @@ python examples/euler/05_force_apply/force_apply.py --addr 192.168.1.100:50051
 
 **解决**：
 1. 确认场景已导入 `g1_29dof_camera.xml`（含 `anchor_box_weld` 约束）
-2. 确认 mocap body 名称为 `f"{agent}_ActorManipulator_Anchor"`（带 agent 前缀）
+2. 确认 mocap body 名称为 `f"{agent}_TestMocapAnchor"`（带 agent 前缀）
 3. 确认 box 名称为 `f"{agent}_manipulation_box"`
 4. 检查 weld 约束在 Studio 中是否 active
 
