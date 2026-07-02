@@ -11,10 +11,10 @@
     4: 取消绑定，机器人继续自主向前移动 3 秒
     5: 结束退出示例程序
 
-验证 API（体操作层，公共 API）:
-    - anchor_actor / release_body_anchored：程序化锚定/释放 G1 pelvis
-    - set_mocap_pos_and_quat：驱动 mocap body
-    - anchored_actor：查询当前锚定的 actor（判断绑定状态）
+验证 API（体操作层，公共原语，消费者自管编排）:
+    - equality_find_slot_by_body / equality_constraint：定位槽位 + 保存快照
+    - equality_update：写入/恢复约束（绑定/释放均走此原语）
+    - set_mocap_pos_and_quat：对齐 mocap 位姿 + 周期性驱动 mocap body
     - get_body_xpos_xmat_xquat：读取位姿
 
 > **前置依赖**：本课依赖 Lesson 7 行走控制已验证（复用 ``g1_locomotion.py`` 驱动行走）。
@@ -71,6 +71,9 @@ class BodyManipulationEnv(G1BaseEnv):
         # 交互循环计数（用于判定项命名，确保多次循环判定名唯一）
         self._cycle_count = 0
         self._check_count = 0
+        # 程序化绑定状态（自管快照，不污染 UI 抓取的 _anchor_* 字段）
+        self._bound_slot: int | None = None
+        self._original_eq_snapshot: dict | None = None
 
     def _resolve_body_by_suffix(self, suffix: str) -> str:
         """通过后缀扫描场景 body 名表，返回完整名（含命名空间前缀）。
@@ -198,6 +201,83 @@ class BodyManipulationEnv(G1BaseEnv):
         )
         return verifier.report()
 
+    def _bind_mocap_to_pelvis(self, pelvis_name: str) -> None:
+        """程序化绑定：把自备 mocap 绑定到 pelvis（仿照 _anchor_actor 编排模式）。
+
+        使用公共无状态原语组合，业务状态自管（_bound_slot / _original_eq_snapshot）。
+        不依赖已删除的 equality_bind_mocap，不触碰 UI 抓取的 _anchor_* 字段。
+
+        编排:
+            1. 幂等保护：已绑定时不重复绑定，避免覆盖快照（§4.5 bug 修正）
+            2. equality_find_slot_by_body 查找含 mocap 的槽位
+            3. equality_constraint 保存原始约束快照（释放时恢复）
+            4. set_mocap_pos_and_quat 对齐 mocap 位姿到 pelvis（避免下一帧拉扯）
+            5. equality_update 写入 weld 约束（内部 mj_forward）
+
+        Args:
+            pelvis_name: pelvis 完整名（含 agent 前缀，如 "g1_pelvis"）。
+        """
+        import mujoco
+
+        # 幂等保护：已绑定时不重复绑定，避免覆盖快照
+        if self._bound_slot is not None:
+            return
+
+        mocap_name = self._mocap_body_name
+        # 1. 查找含自备 mocap 的槽位（公共原语）
+        slot = self.equality_find_slot_by_body(mocap_name)
+        if slot == -1:
+            raise ValueError(
+                f"模型中无含 {mocap_name} 的 equality 槽位，"
+                f"请检查关卡 XML"
+            )
+        # 2. 保存原始约束快照（消费者自管业务状态）
+        self._original_eq_snapshot = self.equality_constraint(slot)
+        self._bound_slot = slot
+        # 3. 对齐 mocap 位姿到 pelvis 当前位姿（避免下一帧拉扯）
+        mocap_id = self.model.body_name2id(mocap_name)
+        pelvis_pose = self.get_body_xpos_xmat_xquat([pelvis_name])[pelvis_name]
+        self.set_mocap_pos_and_quat({
+            mocap_name: {
+                "pos": pelvis_pose["xpos"],
+                "quat": pelvis_pose["xquat"],
+            }
+        })
+        # 4. 确定改 obj1 还是 obj2（mocap 一端保持，另一端改为 pelvis）
+        if self._original_eq_snapshot["obj1_id"] == mocap_id:
+            new_obj1_name = mocap_name
+            new_obj2_name = pelvis_name
+        else:
+            new_obj1_name = pelvis_name
+            new_obj2_name = mocap_name
+        # 5. 写入约束（公共原语，内部 mj_forward）
+        self.equality_update(
+            slot,
+            eq_type=mujoco.mjtEq.mjEQ_WELD,
+            obj1_name=new_obj1_name,
+            obj2_name=new_obj2_name,
+        )
+
+    def _release_mocap(self) -> None:
+        """程序化释放：从快照恢复原始约束（仿照 _release_body_anchored 编排模式）。
+
+        不依赖已删除的 equality_release，不穿墙 self._gym.update_equality_constraints。
+        用 equality_update 从快照恢复原始约束（id→name 反查），内部 mj_forward。
+        未绑定时 no-op。
+        """
+        if self._bound_slot is None or self._original_eq_snapshot is None:
+            return
+        # 用快照恢复原始约束（公共原语，内部 mj_forward）
+        self.equality_update(
+            self._bound_slot,
+            eq_type=self._original_eq_snapshot["type"],
+            obj1_name=self.model.body_id2name(self._original_eq_snapshot["obj1_id"]),
+            obj2_name=self.model.body_id2name(self._original_eq_snapshot["obj2_id"]),
+            data=self._original_eq_snapshot["data"],
+        )
+        self._bound_slot = None
+        self._original_eq_snapshot = None
+
     def _run_phase(
         self,
         verifier: OnlineVerifier,
@@ -219,35 +299,13 @@ class BodyManipulationEnv(G1BaseEnv):
         pelvis_name = f"{agent}_pelvis"
 
         if bound:
-            # 程序化绑定 pelvis（weld）：使用 G1 预制的 TestMocapAnchor + anchor_box_weld，
-            # 不走 anchor_actor（那是 Studio UI 系统自带 ActorManipulator 的入口）。
-            # 通过 _anchor_mocap_name 缓存指定程序化 mocap body，
-            # update_anchor_equality_constraints 会据此匹配 anchor_box_weld 槽位。
-            # 1. 记录起始位姿（用于周期性移动插值与位移校验）
+            # 记录起始位姿（用于周期性移动插值与位移校验）
             start_pose = self.get_body_xpos_xmat_xquat([pelvis_name])[pelvis_name]
             start_pos = start_pose["xpos"].copy()
-            # 2. 设置 mocap 到 pelvis 当前位姿（避免绑定瞬间跳变）
-            self.set_mocap_pos_and_quat({
-                self._mocap_body_name: {
-                    "pos": start_pos.tolist(),
-                    "quat": start_pose["xquat"].tolist(),
-                }
-            })
-            # 3. 建立 weld 约束（TestMocapAnchor ↔ pelvis）
-            #    _anchor_mocap_name 指定程序化 mocap body，供 release_body_anchored 释放
-            self._anchor_mocap_name = self._mocap_body_name
-            self.update_anchor_equality_constraints(pelvis_name, anchor_type="weld")
-            self._anchored_actor = pelvis_name
-            self._anchor_type = "weld"
-            # 绑定后立即将 mocap 对齐到 pelvis 当前位姿（避免下一帧拉扯）
-            self.set_mocap_pos_and_quat({
-                self._mocap_body_name: {
-                    "pos": start_pos.tolist(),
-                    "quat": start_pose["xquat"].tolist(),
-                }
-            })
-            self.mj_forward()
-            # 4. 绑定后停止行走（stand=0），机器人跟随 mocap
+            # 程序化绑定 pelvis（weld）：消费者自管编排，使用公共原语
+            # （仿照 _anchor_actor 编排模式，不走已删除的 equality_bind_mocap）
+            self._bind_mocap_to_pelvis(pelvis_name)
+            # 绑定后停止行走（stand=0），机器人跟随 mocap
             self.locomotion.set_commands(stand=0, lin_vel=(0.0, 0.0), ang_vel=0.0)
             verifier.observe(
                 f"{phase_name}_start",
@@ -277,13 +335,6 @@ class BodyManipulationEnv(G1BaseEnv):
                         "quat": [1, 0, 0, 0],
                     }
                 })
-                # [DIAG] 每 50 步打印 mocap 与 pelvis 实际位置
-                if step % 50 == 0 or step == _PHASE_STEPS - 1:
-                    mocap_pose = self.get_body_xpos_xmat_xquat([self._mocap_body_name])[self._mocap_body_name]
-                    pelvis_pose = self.get_body_xpos_xmat_xquat([pelvis_name])[pelvis_name]
-                    print(f"[DIAG] step={step} target={target_pos.tolist()} "
-                          f"mocap={mocap_pose['xpos'].tolist()} "
-                          f"pelvis={pelvis_pose['xpos'].tolist()}")
 
             self.render()
             # RTF=1.0 限速
@@ -319,9 +370,14 @@ class BodyManipulationEnv(G1BaseEnv):
         )
 
     def _ensure_released(self, verifier: OnlineVerifier) -> None:
-        """确保已释放绑定（若当前已绑定则释放）。"""
-        if self.anchored_actor is not None:
-            self.release_body_anchored()
+        """确保已释放绑定（若当前已绑定则释放）。
+
+        使用 _release_mocap 从快照恢复原始约束（公共原语 equality_update），
+        不依赖已删除的 equality_release，不触碰 UI 抓取的 _anchor_* 字段。
+        """
+        was_bound = self._bound_slot is not None
+        self._release_mocap()
+        if was_bound:
             verifier.observe(
                 "release_anchor",
                 "Studio 视口：释放绑定，G1 恢复物理仿真与行走",
