@@ -22,7 +22,7 @@ python examples/euler/02_online_render/online_render.py
 # 第 3 课：SB3 PPO 训练（离线，约 2-3 分钟）
 python examples/euler/03_rl_ppo/train_ppo.py --total-timesteps 100000
 
-# 第 4-8 课：在线端到端验证（需 OrcaStudio + G1 关卡）
+# 第 4-9 课：在线端到端验证（需 OrcaStudio + G1 关卡）
 python examples/euler/04_query_api/query_api.py
 ```
 
@@ -37,15 +37,16 @@ examples/euler/
 ├── TUTORIAL.md                     ← 你正在阅读的总纲
 ├── requirements.txt                # 课程依赖
 ├── .gitignore                      # 忽略训练产物
-├── 00_setup.md                     # 阶段四（Lesson 4-8）环境搭建
+├── 00_setup.md                     # 阶段四（Lesson 4-9）环境搭建
 ├── 01_hello_euler/                 # 第 1 课（P3 离线联调）
 ├── 02_online_render/               # 第 2 课（P3A 在线渲染）
 ├── 03_rl_ppo/                      # 第 3 课（P3B SB3 PPO）
 ├── 04_query_api/                   # 第 4 课（P4 状态查询 API）
 ├── 05_force_apply/                 # 第 5 课（P4 外力应用与约束）
 ├── 06_jacobian/                    # 第 6 课（P4 雅可比 IK 与 mocap）
-├── 07_studio_capture/              # 第 7 课（P4 视频录制与截图）
-└── 08_body_manipulation/           # 第 8 课（P4 体操作与 equality）
+├── 07_locomotion/                  # 第 7 课（P4 G1 行走控制链路）
+├── 08_video_capture/               # 第 8 课（P4 Studio 视频录制与截帧）
+└── 09_body_manipulation/           # 第 9 课（P4 体操作与 equality）
 
 assets/                             # 全局资产（迁移后集中管理）
 ├── g1/                             # G1 人形机器人资源
@@ -75,7 +76,7 @@ assets/                             # 全局资产（迁移后集中管理）
 | 2 | P3A | 在线渲染与交互 | gRPC 在线模式、render 循环、sync/异步渲染、RTF、override_ctrls | ✅ | 是 | [02_online_render.md](02_online_render/02_online_render.md) |
 | 3 | P3B | SB3 PPO 强化学习 | Gymnasium API 契约、SB3 PPO、奖励函数设计、Box 观测、episode 截断 | ✅ | 否（离线训练） | [03_rl_ppo.md](03_rl_ppo/03_rl_ppo.md) |
 
-### 阶段四：在线端到端验证（Lesson 4-8，需 OrcaStudio + G1 关卡）
+### 阶段四：在线端到端验证（Lesson 4-9，需 OrcaStudio + G1 关卡）
 
 阶段四使用 G1 人形机器人在 OrcaStudio 中进行在线验证。每个课程遵循 **5 步手工验证流程**：
 
@@ -90,8 +91,9 @@ assets/                             # 全局资产（迁移后集中管理）
 | 4 | P4 | 状态查询 API | `query_joint_*`、`query_site_*`、`query_sensor_data`、`query_contact_*` | ✅ | [04_query_api.md](04_query_api/04_query_api.md) |
 | 5 | P4 | 外力应用与约束 | `apply_body_force`、`clear_*_force`、`update_equality_constraints`、`set_*` | ✅ | [05_force_apply.md](05_force_apply/05_force_apply.md) |
 | 6 | P4 | 雅可比 IK 与 mocap | `mj_jacBody`、`mj_jacSite`、`set_mocap_pos_and_quat`、`anchor_actor` | ✅ | [06_jacobian.md](06_jacobian/06_jacobian.md) |
-| 7 | P4 | 视频录制与截图 | `begin_save_video`、`stop_save_video`、`get_frame_png`、ONNX 行走 | ✅ | [07_studio_capture.md](07_studio_capture/07_studio_capture.md) |
-| 8 | P4 | 体操作与 equality | `update_equality_constraints`、`modify_equality_objects`、mocap 拖拽 + 行走 | ⏳ 待开发 | [08_body_manipulation.md](08_body_manipulation/08_body_manipulation.md) |
+| 7 | P4 | G1 行走控制链路 | ONNX 推理、PD 控制器、行走稳定性、力矩触限 | ✅ | [07_locomotion.md](07_locomotion/07_locomotion.md) |
+| 8 | P4 | Studio 视频录制与截帧 | `get_current_frame`、`get_next_frame`、`get_frame_png`、视频录制 | ✅ | [08_video_capture.md](08_video_capture/08_video_capture.md) |
+| 9 | P4 | 体操作与 equality | `equality_find_slot_by_body`、`equality_constraint`、`equality_update`、mocap 拖拽 + 行走 | ✅ | [09_body_manipulation.md](09_body_manipulation/09_body_manipulation.md) |
 
 > 阶段四环境搭建详见 [00_setup.md](00_setup.md)。
 
@@ -179,30 +181,43 @@ Studio 未启动时自动退化离线。
 
 ---
 
-### 第 7 课：视频录制与截图 — ONNX 行走策略 + 影像采集
+### 第 7 课：G1 行走控制链路 — ONNX 推理 + PD 控制器 + 稳定性验证
 
-验证视频录制（`begin_save_video` / `stop_save_video`）、截图（`get_frame_png`），
-并结合 `G1Locomotion`（ONNX 行走策略）驱动 G1 行走，录制行走视频。
+验证 G1 行走控制链路（ONNX 推理 → PD 控制器 → motor 力矩 → 行走稳定性），
+聚焦行走控制本身，不耦合视频采集（视频采集见 Lesson 8）。
 
-- **运行**：`python examples/euler/07_studio_capture/studio_capture.py`
+- **运行**：`python examples/euler/07_locomotion/locomotion.py`
 - **需要 OrcaStudio**：是（加载 G1 关卡）
-- **预计时长**：约 10 秒（录制 5 秒视频 + 截图）
+- **预计时长**：< 1 分钟
 
-📖 详细教程见 [07_studio_capture/07_studio_capture.md](07_studio_capture/07_studio_capture.md)
+📖 详细教程见 [07_locomotion/07_locomotion.md](07_locomotion/07_locomotion.md)
 
 ---
 
-### 第 8 课：体操作与 equality — Mocap 拖拽 + 行走（待开发）
+### 第 8 课：Studio 视频录制与截帧 — G1 行走录制在线验证
 
-验证 equality 约束更新（`update_equality_constraints` / `modify_equality_objects`），
-通过 mocap 拖拽 weld 约束驱动 box，并结合 ONNX 行走策略。
+验证 Studio 视频/帧/时间戳采集 API（`get_current_frame` / `get_next_frame` /
+`get_frame_png`），复用 Lesson 7 的行走控制链路驱动 G1 行走并录制。
 
-- **运行**：`python examples/euler/08_body_manipulation/body_manipulation.py`
+- **运行**：`python examples/euler/08_video_capture/video_capture.py`
 - **需要 OrcaStudio**：是（加载 G1 关卡）
-- **预计时长**：约 15 秒
-- **状态**：⏳ 待开发
+- **预计时长**：约 10 秒（录制 5 秒视频 + 截图）
 
-📖 详细教程见 [08_body_manipulation/08_body_manipulation.md](08_body_manipulation/08_body_manipulation.md)
+📖 详细教程见 [08_video_capture/08_video_capture.md](08_video_capture/08_video_capture.md)
+
+---
+
+### 第 9 课：体操作与交互式驱动 — 锚定/mocap 驱动/equality
+
+交互式菜单驱动模式验证 Studio 体操作 API 与 MuJoCo equality 约束。使用公共无状态
+原语（`equality_find_slot_by_body` / `equality_constraint` / `equality_update`）自管
+编排绑定/释放，通过 mocap 拖拽 weld 约束驱动 G1 pelvis，并结合 ONNX 行走策略。
+
+- **运行**：`python examples/euler/09_body_manipulation/body_manipulation.py`
+- **需要 OrcaStudio**：是（加载 G1 关卡）
+- **预计时长**：交互式，取决于用户输入
+
+📖 详细教程见 [09_body_manipulation/09_body_manipulation.md](09_body_manipulation/09_body_manipulation.md)
 
 ---
 
@@ -221,7 +236,7 @@ pip install -r examples/euler/requirements.txt
 |------|------|
 | OrcaGym | 已安装（`orca_gym` 包可在 Python 中 import） |
 | MuJoCo | OrcaGym 自带的 `mujoco` 包 |
-| OrcaStudio | **第 2 课、第 4-8 课需要**，需启动 gRPC 服务（默认 `localhost:50051`） |
+| OrcaStudio | **第 2 课、第 4-9 课需要**，需启动 gRPC 服务（默认 `localhost:50051`） |
 | stable-baselines3 | **仅第 3 课需要**，`requirements.txt` 已包含 |
 
 ### 3. 验证安装
@@ -274,5 +289,5 @@ python -c "import stable_baselines3; print('sb3:', stable_baselines3.__version__
 
 **解决**：本目录已自包含，运行时 Python 自动将脚本所在目录加入 `sys.path[0]`，
 同目录 `from simple_env import ...`（第 1-3 课）或 `from g1_base_env import ...`
-（第 4-8 课）可直接生效，无需额外 `PYTHONPATH`。若仍报此错，请确认使用的是迁移后
+（第 4-9 课）可直接生效，无需额外 `PYTHONPATH`。若仍报此错，请确认使用的是迁移后
 的脚本（位于 `examples/euler/0X_*/`），而非旧的 `envs/euler/` 路径。

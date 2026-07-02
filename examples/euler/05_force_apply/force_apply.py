@@ -11,7 +11,7 @@ R 类 API 在真实仿真中运行正确。脚本通过 G1BaseEnv.run_lesson 框
     - set_mocap_pos_and_quat（mocap 位姿写入，经 weld 约束驱动 manipulation_box）
 
 前置条件:
-    场景需导入 g1_29dof_camera.xml（含 ActorManipulator_Anchor mocap body、
+    场景需导入 g1_29dof_camera.xml（含 TestMocapAnchor mocap body、
     manipulation_box 及 anchor_box_weld 等约束）。
 
 用法:

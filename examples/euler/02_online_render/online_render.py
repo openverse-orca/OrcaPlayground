@@ -54,7 +54,8 @@ def _log(msg: str) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="第 2 课：在线渲染与交互")
     parser.add_argument("--addr", default="localhost:50051", help="OrcaStudio gRPC 地址")
-    parser.add_argument("--steps", type=int, default=1000, help="仿真步数")
+    parser.add_argument("--episode", type=int, default=200, help="单个 episode 的仿真步数")
+    parser.add_argument("--loops", type=int, default=1, help="执行的 episode 数量")
     parser.add_argument("--time-step", type=float, default=0.002, help="物理时间步长")
     parser.add_argument("--frame-skip", type=int, default=5, help="frame_skip")
     parser.add_argument(
@@ -73,7 +74,7 @@ def main() -> int:
     _log("=" * 60)
     _log("第 2 课：在线渲染与交互 — 连接 OrcaStudio")
     _log(f"  模式: 在线 gRPC（addr={args.addr}）")
-    _log(f"  步数: {args.steps}")
+    _log(f"  episode 数: {args.loops}，每个 episode 步数: {args.episode}（总步数={args.loops * args.episode}）")
     _log(f"  sync_render: {args.sync_render}（{'同步：每步渲染' if args.sync_render else '异步：按 fps 节流'}）")
     rtf_mode = args.rtf > 0
     _log(f"  RTF: {args.rtf if rtf_mode else '快进'}（{'按真实时间同步' if rtf_mode else '不 sleep，仿真尽量快'}）")
@@ -96,41 +97,52 @@ def main() -> int:
     _log("      → 此时 Studio 视口应显示摆杆初始状态（竖直向上）")
 
     # 3. 步进 + 渲染循环
-    _log("[3/4] 开始步进渲染循环（可在 Studio UI 手动控制执行器 / 拖拽物体）")
-    total_reward = 0.0
+    _log(
+        f"[3/4] 开始步进渲染循环（共 {args.loops} 个 episode，每个 {args.episode} 步，"
+        f"可在 Studio UI 手动控制执行器 / 拖拽物体）"
+    )
     step_dt = env.dt  # time_step * frame_skip，一个 env.step 对应的仿真时间
-    wall_start = time.perf_counter() if rtf_mode else 0.0
-    for step in range(args.steps):
-        action = env.action_space.sample()
-        obs, reward, terminated, truncated, info = env.step(action)
-        total_reward += reward
-        # render() 将物理状态同步到 Studio 视口
-        # - sync_render=True：step() 内部已渲染，此处 render() 立即返回
-        # - sync_render=False：render() 按 fps 节流，可能跳过部分帧
-        env.render()
-        # RTF 同步：让仿真时间 ≈ 真实时间，避免快进导致视觉跳跃
-        # 基于累计预期时间 sleep，单步慢不会累积偏移
-        if rtf_mode:
-            expected_wall = (step + 1) * step_dt / args.rtf
-            elapsed = time.perf_counter() - wall_start
-            if elapsed < expected_wall:
-                time.sleep(expected_wall - elapsed)
-        if (step + 1) % 100 == 0:
-            if rtf_mode:
-                elapsed_total = time.perf_counter() - wall_start
-                rtf_actual = (step + 1) * step_dt / max(elapsed_total, 1e-6)
-            else:
-                rtf_actual = float("inf")
-            _log(
-                f"  step {step + 1}/{args.steps}: "
-                f"reward={reward:.4f}, time={info['time']:.4f}, "
-                f"rtf={rtf_actual:.3f}"
-            )
-        if terminated or truncated:
-            _log("  episode 结束，重置")
+    grand_reward = 0.0
+    for ep in range(args.loops):
+        if ep > 0:
             obs, info = env.reset()
+            _log(f"  —— episode {ep + 1}/{args.loops}：reset ——")
+        else:
+            _log(f"  —— episode 1/{args.loops} ——")
+        total_reward = 0.0
+        wall_start = time.perf_counter() if rtf_mode else 0.0
+        for step in range(args.episode):
+            action = env.action_space.sample()
+            obs, reward, terminated, truncated, info = env.step(action)
+            total_reward += reward
+            grand_reward += reward
+            # render() 将物理状态同步到 Studio 视口
+            # - sync_render=True：step() 内部已渲染，此处 render() 立即返回
+            # - sync_render=False：render() 按 fps 节流，可能跳过部分帧
+            env.render()
+            # RTF 同步：让仿真时间 ≈ 真实时间，避免快进导致视觉跳跃
+            # 基于累计预期时间 sleep，单步慢不会累积偏移
+            if rtf_mode:
+                expected_wall = (step + 1) * step_dt / args.rtf
+                elapsed = time.perf_counter() - wall_start
+                if elapsed < expected_wall:
+                    time.sleep(expected_wall - elapsed)
+        # episode 结束统计
+        if rtf_mode:
+            elapsed_total = time.perf_counter() - wall_start
+            rtf_actual = args.episode * step_dt / max(elapsed_total, 1e-6)
+        else:
+            rtf_actual = float("inf")
+        _log(
+            f"  episode {ep + 1}/{args.loops} 完成: "
+            f"reward={total_reward:.4f}, time={info['time']:.4f}, "
+            f"rtf={rtf_actual:.3f}"
+        )
 
-    _log(f"[3/4] 步进完成: 总奖励={total_reward:.4f}")
+    _log(
+        f"[3/4] 步进完成: 总奖励={grand_reward:.4f}"
+        f"（{args.loops} 个 episode × {args.episode} 步）"
+    )
 
     # 4. 清理
     env.close()
