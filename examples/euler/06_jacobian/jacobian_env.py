@@ -7,7 +7,7 @@
 - set_joint_qpos + mj_forward（合规状态写入 + 前向更新）
 - 阻尼最小二乘 IK 迭代收敛
 
-验证逻辑全部在 step 0 集中执行（run_lesson 框架在 verify_step 前已 do_simulation
+验证逻辑全部在 step 0 集中执行（run_lesson 框架在 verify_step 前已 step
 一次，在线模式需经一次步进同步远端数据后 xpos/jacp 才非零）：
 - pelvis 雅可比形状 (3, nv)，nv ≥ 35（G1 自身 6 free + 29 关节）
 - imu site 速度 = jacp_site @ data.qvel（atol=1e-4）

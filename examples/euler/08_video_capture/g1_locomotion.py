@@ -102,16 +102,14 @@ def _quat_rotate_inverse(q: np.ndarray, v: np.ndarray) -> np.ndarray:
 class G1Locomotion:
     """G1 行走策略封装：ONNX 推理 + 观测组装 + 动作后处理 + PD 控制器。
 
-    使用方式（闭环 PD，与原版 g1_env.py 每 mj_step 重算 PD 一致）:
+    使用方式（闭环 PD，由 Env 子类在 _pd_controller hook 中调用，架构 §6.4 S6）:
         loco = G1Locomotion(agent_name="g1")
         loco.reset()
         q_target = loco.compute_q_target(env)  # 返回 (29,) 位置目标
-        # 在 do_simulation 循环内每物理步重算 tau
-        for _ in range(frame_skip):
+        # 在 _pd_controller 中每物理步重算 tau（由父类 step() 的 frame_skip 循环调用）
+        def _pd_controller(self, target):
             dof_pos, dof_vel = loco.read_joint_state(env)
-            tau = loco.compute_tau(q_target, dof_pos, dof_vel)
-            env.set_ctrl(tau)
-            env.mj_step(1)
+            return loco.compute_tau(target, dof_pos, dof_vel)
     """
 
     # 下半身关节数（12 = 29 - 17）

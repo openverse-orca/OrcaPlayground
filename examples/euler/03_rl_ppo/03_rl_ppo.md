@@ -10,12 +10,12 @@
 
 | # | 验证点 | 期望 |
 |---|--------|------|
-| 1 | 训练（离线） | reward 从 -2500 趋近 0（摆杆学会保持直立） |
+| 1 | 训练（离线 VecEnv 并发） | reward 从 -2500 趋近 0（摆杆学会保持直立） |
 | 2 | 评估默认 online | Studio 视口实时显示智能体行为 |
 | 3 | Studio 未启动自动退化 | 离线无头，评估指标正常计算 |
 | 4 | RTF 同步 | 在线渲染时仿真时间 ≈ 真实时间 |
 
-> 训练默认**离线无头**（最高效），评估默认 online（可视化）。
+> 训练默认**离线无头**（SubprocVecEnv 多进程并行仿真，最高效），评估默认 online（单 env 可视化）。
 > 训练产物 `ppo_pendulum.zip` 保存在 `03_rl_ppo/models/`（`.gitignore` 忽略）。
 
 ---
@@ -56,12 +56,19 @@ examples/euler/03_rl_ppo/
 cd /path/to/OrcaPlayground
 conda activate orca
 
-# 离线训练（100k 步，约 2-3 分钟，GPU）
-python examples/euler/03_rl_ppo/train_ppo.py --total-timesteps 100000
+# 默认训练（16 并发 VecEnv，buffer=16×128=2048）
+python examples/euler/03_rl_ppo/train_ppo.py
 
-# 快速验证（20k 步，约 30 秒）
-python examples/euler/03_rl_ppo/train_ppo.py --total-timesteps 20000
+# 快速验证（单 env，20k 步，约 30 秒）
+python examples/euler/03_rl_ppo/train_ppo.py --n-envs 1 --total-timesteps 20000
 ```
+
+> **VecEnv 原理**：`SubprocVecEnv` 为每个 env fork 一个子进程并行仿真，
+> PPO 每次更新从 `n_envs × n_steps` 的 buffer 采样。
+> - `buffer = n_envs × n_steps` 应适中（默认 16×128=2048），过大会导致每次更新
+>   batch 数过多（`buffer / batch_size`），模型吸收不了，样本效率低
+> - `n_envs` 越大单次 rollout 越快，但受 CPU 核数和内存限制（默认 16 通用）
+> - 训练强制离线无头（本地 MuJoCo），评估默认 online
 
 ### 4.2 评估
 
@@ -89,12 +96,14 @@ python examples/euler/03_rl_ppo/train_ppo.py --eval --rtf 0
 ============================================================
 第 3 课：SB3 PPO 训练 — 倒立摆
   模式: 离线
+  并发环境数: 16（VecEnv）
   总步数: 100000
   render_mode: none
   学习率: 0.0003
-  n_steps: 2048
+  n_steps: 128（per env，buffer = n_steps × n_envs = 2048）
+  seed: 0
 ============================================================
-[1/4] 环境创建成功: obs_space=(3,), action_space=(1,)
+[1/4] VecEnv 创建成功: n_envs=16, obs_space=(3,), action_space=(1,)
       device: cuda（GPU 训练，CPU 训练 MLP 较慢）
 [2/4] PPO 模型创建成功
 [3/4] 开始训练...
@@ -138,7 +147,10 @@ python examples/euler/03_rl_ppo/train_ppo.py --eval --rtf 0
 | Box 观测空间 | `[cos(theta), sin(theta), theta_dot]`，避免 2π 周期性问题 |
 | Pendulum-v1 cost 函数 | `reward = -(theta² + 0.1·theta_dot² + 0.001·action²)`，直立时为 0 |
 | episode 截断 | `MAX_EPISODE_STEPS=200`，使 SB3 Monitor 能收集 episode 奖励 |
-| Monitor 包装器 | SB3 工具，收集 episode 奖励供回调使用 |
+| Monitor 包装器 | SB3 工具，收集 episode 奖励供回调使用（单 env）；VecEnv 用 VecMonitor |
+| SubprocVecEnv | SB3 向量化环境，每个 env 在独立子进程并行仿真，多核加速 rollout |
+| VecMonitor | VecEnv 版 Monitor，收集各子进程 episode 奖励 |
+| make_env 工厂 | 返回 thunk（callable），架构 §6.8.1 E2：SubprocVecEnv 要求可序列化的工厂闭包 |
 | MlpPolicy | PPO 的 MLP 策略网络，推荐用 GPU（详见 SB3 issue #1245） |
 
 ### 奖励函数
@@ -176,10 +188,12 @@ reward = -(theta² + 0.1 * theta_dot² + 0.001 * action²)
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `--total-timesteps` | `20000` | 训练总步数 |
+| `--total-timesteps` | `100000` | 训练总步数 |
+| `--n-envs` | `16` | 并发环境数（SubprocVecEnv，1=单 env Monitor） |
+| `--seed` | `0` | 随机种子（每个子 env 用 `seed + rank` 保证可复现） |
 | `--learning-rate` | `3e-4` | 学习率 |
-| `--n-steps` | `2048` | PPO 每次更新的步数 |
-| `--batch-size` | `64` | minibatch 大小 |
+| `--n-steps` | `128` | PPO 每次更新 per env 的步数（buffer = n_steps × n_envs，默认 2048） |
+| `--batch-size` | `64` | minibatch 大小（每次更新 batch 数 = buffer / batch_size = 32） |
 | `--device` | `cuda` | PyTorch 设备（默认 GPU 训练，CPU 训练 MLP 较慢） |
 
 ### 评估参数
@@ -242,3 +256,22 @@ python examples/euler/03_rl_ppo/train_ppo.py --total-timesteps 100000
 
 **说明**：脚本内置 `_probe_studio()` 探测，Studio 不可达时自动退化到离线无头
 评估，指标照常计算。如需可视化，请先启动 Studio 并加载 pendulum 场景。
+
+### Q5：`BrokenPipeError` / 子进程异常退出（n_envs 过大）
+
+**原因**：`n_envs` 超出机器资源（CPU 核数不足、内存不足、文件描述符上限）。
+
+**解决**：
+- 降低 `--n-envs`（如 8/16），匹配机器 CPU 核数
+- 提高 ulimit：`ulimit -n 65535`（文件描述符）
+- 监控内存：每个子进程加载一份 MuJoCo 模型，`n_envs × 模型大小` 需 < 可用内存
+
+### Q6：样本效率低 / 训练只更新 1 次就结束
+
+**原因**：`buffer = n_envs × n_steps` 过大，导致每次更新 batch 数过多
+（`buffer / batch_size`），模型吸收不了；或 buffer > total_timesteps 只做 1 次更新。
+
+**解决**：调小 `--n-steps`，使 `buffer = n_envs × n_steps` 适中
+（建议 1024~4096，batch 数 = buffer / batch_size 在 16~64 之间）。
+
+例：`--n-envs 16 --n-steps 128` → buffer=2048，batch 数=32（合理）。

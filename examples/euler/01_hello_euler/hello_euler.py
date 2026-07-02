@@ -13,7 +13,7 @@
 验证点:
     1. 模型加载（init_simulation）
     2. 状态访问（env.data.qpos / env.data.qvel）
-    3. 步进（do_simulation → mj_step → sync_to_view）
+    3. 步进（step → do_simulation → mj_step → sync_to_view）
     4. 求解器配置（env.sim_config）
     5. reset（reset_model → 恢复初始状态）
 
@@ -59,34 +59,36 @@ def main() -> int:
     )
     _log(f"[1/5] 环境创建成功: nq={env.model.nq}, nv={env.model.nv}, nu={env.model.nu}")
 
-    # 2. 验证状态访问
-    _log(f"[2/5] 状态访问: qpos.shape={env.data.qpos.shape}, time={env.data.time:.4f}")
+    try:
+        # 2. 验证状态访问
+        _log(f"[2/5] 状态访问: qpos.shape={env.data.qpos.shape}, time={env.data.time:.4f}")
 
-    # 3. 验证求解器配置
-    _log(f"[3/5] 求解器配置: timestep={env.sim_config.timestep}, integrator={env.sim_config.integrator}")
+        # 3. 验证求解器配置
+        _log(f"[3/5] 求解器配置: timestep={env.sim_config.timestep}, integrator={env.sim_config.integrator}")
 
-    # 4. reset
-    obs, info = env.reset()
-    _log(f"[4/5] reset 成功: obs.shape={np.asarray(obs).shape}, obs={np.asarray(obs)}")
+        # 4. reset
+        obs, info = env.reset()
+        _log(f"[4/5] reset 成功: obs.shape={np.asarray(obs).shape}, obs={np.asarray(obs)}")
 
-    # 5. 步进循环（随机动作，不做强化学习）
-    total_reward = 0.0
-    for step in range(args.steps):
-        action = env.action_space.sample()
-        obs, reward, terminated, truncated, info = env.step(action)
-        total_reward += reward
-        if (step + 1) % 50 == 0:
-            _log(
-                f"[5/5] step {step + 1}/{args.steps}: "
-                f"obs={np.asarray(obs)}, reward={reward:.4f}, time={info['time']:.4f}"
-            )
-        if terminated or truncated:
-            _log(f"      episode 结束: terminated={terminated}, truncated={truncated}")
-            obs, info = env.reset()
+        # 5. 步进循环（随机动作，不做强化学习）
+        total_reward = 0.0
+        for step in range(args.steps):
+            action = env.action_space.sample()
+            obs, reward, terminated, truncated, info = env.step(action)
+            total_reward += reward
+            if (step + 1) % 50 == 0:
+                _log(
+                    f"[5/5] step {step + 1}/{args.steps}: "
+                    f"obs={np.asarray(obs)}, reward={reward:.4f}, time={info['time']:.4f}"
+                )
+            if terminated or truncated:
+                _log(f"      episode 结束: terminated={terminated}, truncated={truncated}")
+                obs, info = env.reset()
 
-    _log(f"[5/5] 步进完成: 总奖励={total_reward:.4f}（随机动作，无学习意义）")
+        _log(f"[5/5] 步进完成: 总奖励={total_reward:.4f}（随机动作，无学习意义）")
+    finally:
+        env.close()
 
-    env.close()
     _log("=" * 60)
     _log("第 1 课验证通过")
     _log("=" * 60)

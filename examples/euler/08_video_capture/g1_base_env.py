@@ -3,19 +3,21 @@
 为 Lesson 4–8 提供统一的运行框架（run_lesson）与钩子方法：
 - 加载 Euler 专用 G1 模型（g1_29dof_camera.xml）
 - 定义 G1 关节/执行器/传感器后缀常量（供 model_scanner 场景扫描用）
-- run_lesson 框架：reset → before_loop → 循环(compute_ctrl/do_simulation/
+- run_lesson 框架：reset → before_loop → 循环(compute_ctrl/step/
   verify_step/observe_step/render) → after_loop → verify_final → report
 - 子类通过重写钩子方法插入差异化验证逻辑
 
 架构合规:
 - 继承 OrcaGymEulerEnv，不触 _gym/_stub/_channel 等私有属性
 - 状态访问通过 env.data / env.query_* 公共 API
-- 仿真步进通过 env.do_simulation 公共方法
+- 仿真步进通过 env.step 公共方法（架构 §6.4 S5/S6：内部含 PD 闭环）
 - 参见 docs/design/development/orca_gym_euler_phase4_online_validation_development.md §3.1
 
 注意:
-- 本基类不实现 Gymnasium 的 step/reset_model/_get_obs（由各 Lesson 子类按需实现），
-  因为 Lesson 4–8 使用 run_lesson 框架而非 Gymnasium 训练循环。
+- 本基类实现 Gymnasium step 接口（内含 PD 闭环骨架，见架构 §6.4 S6），
+  reset_model/_get_obs 提供最小默认实现。run_lesson 框架通过 step() 步进，
+  保证与 Gymnasium 训练循环语义一致。RL 子类可复写 _pd_controller/
+  _compute_reward/_is_terminated 等 hook 接入策略。
 - agent_name 在线模式通过场景扫描得到；离线模式（skip_grpc_load）使用传入值。
 """
 
@@ -176,7 +178,10 @@ class G1BaseEnv(OrcaGymEulerEnv):
     """G1 Euler 环境基类：提供 run_lesson 统一运行框架与钩子方法。
 
     子类通过重写以下钩子插入差异化逻辑：
-        - compute_ctrl(step) → np.ndarray: 控制输入（Lesson 4/5/6 零控，7/8 ONNX）
+        - compute_ctrl(step) → np.ndarray: 控制输入/动作（Lesson 4/5/6 零控，7/8/9 ONNX q_target）
+        - _pd_controller(target) → np.ndarray: 单步 PD 控制（默认=target；Locomotion 复写为 tau）
+        - _compute_reward(obs, action) → float: 奖励（默认=0.0，RL 子类复写）
+        - _is_terminated(obs) → bool: 终止条件（默认=False，RL 子类复写）
         - before_loop(verifier): 循环前准备（Lesson 7 begin_save_video）
         - verify_step(step, verifier): 每周期数值判定
         - observe_step(step, verifier): 阶段性人工观察提示
@@ -186,10 +191,13 @@ class G1BaseEnv(OrcaGymEulerEnv):
     使用契约:
         读取状态: env.data / env.query_* / env.get_body_xpos_xmat_xquat
         写入状态: env.set_joint_qpos / env.apply_body_force / env.set_mocap_pos_and_quat
-        仿真步进: env.do_simulation(ctrl, n_frames)
+        仿真步进: env.step(action)  # run_lesson 内部调用，含 PD 闭环（架构 §6.4 S6）
     """
 
     metadata = {"render_modes": ["human", "none"], "version": "0.0.1", "render_fps": 30}
+
+    #: Gymnasium step 截断步数上限（RL 子类按需覆写；run_lesson 不依赖此值）
+    MAX_EPISODE_STEPS: int = 10000
 
     def __init__(
         self,
@@ -231,6 +239,8 @@ class G1BaseEnv(OrcaGymEulerEnv):
             skip_grpc_load=skip_grpc_load,
             **kwargs,
         )
+        # Gymnasium step 循环计数（reset_model 中重置）
+        self._step_count: int = 0
 
     # --- 场景扫描（在线模式自动解析 agent_name）---
 
@@ -261,8 +271,8 @@ class G1BaseEnv(OrcaGymEulerEnv):
             1. reset → 打印初始观察提示
             2. before_loop（循环前准备）
             3. 循环 num_steps 次:
-                a. compute_ctrl(step) → ctrl
-                b. do_simulation(ctrl, frame_skip)
+                a. compute_ctrl(step) → action
+                b. step(action)  # 架构 §6.4 S5/S6：内部含 PD 闭环
                 c. verify_step(step, verifier)  # 数值判定
                 d. observe_step(step, verifier)  # 人工观察提示
                 e. render()
@@ -298,8 +308,10 @@ class G1BaseEnv(OrcaGymEulerEnv):
 
         for step in range(num_steps):
             cycle_start = time.perf_counter() if real_time else 0.0
-            ctrl = self.compute_ctrl(step)
-            self.do_simulation(ctrl, self.frame_skip)
+            action = self.compute_ctrl(step)
+            # 走 Gymnasium step 接口（架构 §6.4 S5）：内部含 PD 闭环（§6.4 S6）
+            # run_lesson 忽略 step 返回的五元组，verifier 直接读 env.data 判定
+            self.step(action)
             self.verify_step(step, verifier)
             self.observe_step(step, verifier)
             self.render()
@@ -408,26 +420,51 @@ class G1BaseEnv(OrcaGymEulerEnv):
         """运行结束后最终判定（子类重写）。"""
         return None
 
-    # --- Gymnasium 接口（run_lesson 框架通过 reset() 间接调用 reset_model/_get_obs，
-    #     此处提供最小默认实现：G1 保持初始 keyframe 姿态，不做随机化。
-    #     RL 子类（如需训练）可重写为随机化初始状态 + Box 观测。）---
+    # --- Gymnasium 接口（架构 §6.4 S5/S6：step 是唯一对外步进入口，内含 PD 闭环；
+    #     run_lesson 通过 step() 步进，保证与 Gymnasium 训练循环语义一致。
+    #     reset_model/_get_obs 提供最小默认实现：G1 保持初始 keyframe 姿态。）---
 
-    def step(self, action):
-        """Gymnasium step（run_lesson 框架不调用，RL 子类按需重写）。"""
-        raise NotImplementedError("G1BaseEnv 使用 run_lesson 框架，step 由 RL 子类按需实现")
+    def step(self, action: np.ndarray) -> tuple:
+        """Gymnasium 标准步进接口（含 PD 闭环骨架，架构 §6.4 S6）。
+
+        以 frame_skip=1 多次调用 do_simulation 实现精细 PD 控制：
+        每物理步通过 _pd_controller 重读 obs 重算 tau，避免开环累积误差导致失稳。
+
+        Args:
+            action: 控制输入。零控场景为 0；Locomotion 场景为 q_target（由
+                compute_ctrl 生成，_pd_controller 转为 tau）。
+
+        Returns:
+            Gymnasium 五元组 (obs, reward, terminated, truncated, info)。
+            run_lesson 忽略返回值，verifier 直接读 env.data 判定。
+        """
+        action = np.asarray(action, dtype=np.float32).reshape(self.model.nu)
+        # PD 控制内循环：每物理步重读 obs 重算 ctrl（架构 §6.4 S6）
+        # do_simulation(ctrl, 1) 内部：set_ctrl → mj_step(1) → sync_to_view
+        for _ in range(self.frame_skip):
+            ctrl = self._pd_controller(action)
+            self.do_simulation(ctrl, 1)
+        obs = self._get_obs()
+        reward = self._compute_reward(obs, action)
+        terminated = self._is_terminated(obs)
+        self._step_count += 1
+        truncated = self._step_count >= self.MAX_EPISODE_STEPS
+        info: dict[str, float] = {"time": float(self.data.time)}
+        return obs, reward, terminated, truncated, info
 
     def reset_model(self) -> tuple[dict, dict]:
         """重置模型状态：G1 保持初始 keyframe 姿态（不随机化）。
 
-        run_lesson 框架在 reset() 中调用本方法。Lesson 4–8 不需要随机化，
+        run_lesson 框架在 reset() 中调用本方法。Lesson 4–9 不需要随机化，
         G1 直接使用 XML keyframe 定义的站立姿态。RL 子类可重写为随机化初始状态。
         """
         # reset_simulation 已将 MjData 重置到初始 keyframe，此处仅需同步视图并返回观测
         self._sync_view()
+        self._step_count = 0
         return self._get_obs(), {}
 
     def _get_obs(self) -> dict:
-        """返回最小观测字典（run_lesson 框架不使用，仅为 Gymnasium API 兼容）。
+        """返回最小观测字典（step 与 reset_model 共用）。
 
         包含 G1 基础状态：pelvis 位姿、关节 qpos/qvel。RL 子类可重写为 Box 观测。
         """
@@ -439,3 +476,27 @@ class G1BaseEnv(OrcaGymEulerEnv):
             "joint_qpos": self.query_joint_qpos(joint_names),
             "joint_qvel": self.query_joint_qvel(joint_names),
         }
+
+    # --- step 的 PD 闭环 hook（子类按需复写）---
+
+    def _pd_controller(self, target: np.ndarray) -> np.ndarray:
+        """单步 PD 控制 hook（架构 §6.4 S6）。
+
+        默认实现：直接返回 target 作为 ctrl（适用于零控/直接力矩场景）。
+        Locomotion 场景子类复写为：重读 qpos/qvel → compute_tau(target, ...)。
+
+        Args:
+            target: 控制目标。零控场景为 0；Locomotion 场景为 q_target（位置）。
+
+        Returns:
+            ctrl 数组，形状 (nu,)，传入 do_simulation。
+        """
+        return target
+
+    def _compute_reward(self, obs: dict, action: np.ndarray) -> float:
+        """奖励 hook（默认 0.0，RL 子类复写）。"""
+        return 0.0
+
+    def _is_terminated(self, obs: dict) -> bool:
+        """终止条件 hook（默认 False，RL 子类复写）。"""
+        return False

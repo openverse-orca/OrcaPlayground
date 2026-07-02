@@ -58,6 +58,8 @@ class BodyManipulationEnv(G1BaseEnv):
 
     重写钩子:
         - initialize_simulation: 创建 G1Locomotion + 动态解析 mocap body 名
+        - compute_ctrl: ONNX 推理 → q_target
+        - _pd_controller: 闭环 PD 单步（架构 §6.4 S6）
         - run_interactive: 交互式菜单循环（替代 run_lesson 固定步数循环）
     """
 
@@ -106,14 +108,22 @@ class BodyManipulationEnv(G1BaseEnv):
         self._q_target = q_target
         return q_target
 
-    def do_simulation(self, ctrl: np.ndarray, n_frames: int) -> None:
-        """闭环 PD 步进：每物理步重读 obs 重算 tau。"""
-        q_target = ctrl
-        for _ in range(n_frames):
-            dof_pos, dof_vel = self.locomotion.read_joint_state(self)
-            tau = self.locomotion.compute_tau(q_target, dof_pos, dof_vel)
-            self.set_ctrl(tau)
-            self.mj_step(1)
+    def _pd_controller(self, target: np.ndarray) -> np.ndarray:
+        """闭环 PD 单步 hook（架构 §6.4 S6）：重读 obs 重算 tau。
+
+        由父类 step() 在 frame_skip 循环内每物理步调用一次，
+        返回 tau 后由父类 step() → do_simulation(tau, 1) 执行单步仿真。
+
+        Args:
+            target: q_target（29,）（由 compute_ctrl 返回），位置目标，非力矩。
+
+        Returns:
+            tau (29,): PD 力矩，供 do_simulation(tau, 1) 执行。
+        """
+        q_target = target
+        dof_pos, dof_vel = self.locomotion.read_joint_state(self)
+        tau = self.locomotion.compute_tau(q_target, dof_pos, dof_vel)
+        return tau
 
     # --- 交互式循环（替代 run_lesson）---
 
@@ -319,11 +329,11 @@ class BodyManipulationEnv(G1BaseEnv):
             cycle_start = time.perf_counter()
             if bound and delta is not None:
                 # 绑定阶段：零力矩，让 WELD 约束无对抗地拖动机器人
-                ctrl = np.zeros(self.model.nu)
-                self.do_simulation(ctrl, self.frame_skip)
+                action = np.zeros(self.model.nu)
+                self.step(action)
             else:
-                ctrl = self.compute_ctrl(step)
-                self.do_simulation(ctrl, self.frame_skip)
+                action = self.compute_ctrl(step)
+                self.step(action)
 
             if bound and delta is not None:
                 # 周期性移动 mocap：线性插值，3 秒内移动 delta

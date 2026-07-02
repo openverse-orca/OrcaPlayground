@@ -2,7 +2,7 @@
 
 验证 OrcaGymEuler 体系的端到端 API 契约：
 - 模型加载（离线模式，本地 XML）
-- 步进（do_simulation → mj_step → sync_to_view）
+- 步进（step → do_simulation → mj_step → sync_to_view）
 - 状态访问（env.data.qpos / env.data.qvel）
 - 求解器配置（env.sim_config）
 - 渲染（离线模式跳过 gRPC）

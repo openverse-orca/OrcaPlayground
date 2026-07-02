@@ -91,61 +91,63 @@ def main() -> int:
     )
     _log(f"[1/4] gRPC 连接成功: nq={env.model.nq}, nv={env.model.nv}, nu={env.model.nu}")
 
-    # 2. reset
-    obs, info = env.reset()
-    _log(f"[2/4] reset 成功: obs.shape={np.asarray(obs).shape}")
-    _log("      → 此时 Studio 视口应显示摆杆初始状态（竖直向上）")
+    try:
+        # 2. reset
+        obs, info = env.reset()
+        _log(f"[2/4] reset 成功: obs.shape={np.asarray(obs).shape}")
+        _log("      → 此时 Studio 视口应显示摆杆初始状态（竖直向上）")
 
-    # 3. 步进 + 渲染循环
-    _log(
-        f"[3/4] 开始步进渲染循环（共 {args.loops} 个 episode，每个 {args.episode} 步，"
-        f"可在 Studio UI 手动控制执行器 / 拖拽物体）"
-    )
-    step_dt = env.dt  # time_step * frame_skip，一个 env.step 对应的仿真时间
-    grand_reward = 0.0
-    for ep in range(args.loops):
-        if ep > 0:
-            obs, info = env.reset()
-            _log(f"  —— episode {ep + 1}/{args.loops}：reset ——")
-        else:
-            _log(f"  —— episode 1/{args.loops} ——")
-        total_reward = 0.0
-        wall_start = time.perf_counter() if rtf_mode else 0.0
-        for step in range(args.episode):
-            action = env.action_space.sample()
-            obs, reward, terminated, truncated, info = env.step(action)
-            total_reward += reward
-            grand_reward += reward
-            # render() 将物理状态同步到 Studio 视口
-            # - sync_render=True：step() 内部已渲染，此处 render() 立即返回
-            # - sync_render=False：render() 按 fps 节流，可能跳过部分帧
-            env.render()
-            # RTF 同步：让仿真时间 ≈ 真实时间，避免快进导致视觉跳跃
-            # 基于累计预期时间 sleep，单步慢不会累积偏移
-            if rtf_mode:
-                expected_wall = (step + 1) * step_dt / args.rtf
-                elapsed = time.perf_counter() - wall_start
-                if elapsed < expected_wall:
-                    time.sleep(expected_wall - elapsed)
-        # episode 结束统计
-        if rtf_mode:
-            elapsed_total = time.perf_counter() - wall_start
-            rtf_actual = args.episode * step_dt / max(elapsed_total, 1e-6)
-        else:
-            rtf_actual = float("inf")
+        # 3. 步进 + 渲染循环
         _log(
-            f"  episode {ep + 1}/{args.loops} 完成: "
-            f"reward={total_reward:.4f}, time={info['time']:.4f}, "
-            f"rtf={rtf_actual:.3f}"
+            f"[3/4] 开始步进渲染循环（共 {args.loops} 个 episode，每个 {args.episode} 步，"
+            f"可在 Studio UI 手动控制执行器 / 拖拽物体）"
         )
+        step_dt = env.dt  # time_step * frame_skip，一个 env.step 对应的仿真时间
+        grand_reward = 0.0
+        for ep in range(args.loops):
+            if ep > 0:
+                obs, info = env.reset()
+                _log(f"  —— episode {ep + 1}/{args.loops}：reset ——")
+            else:
+                _log(f"  —— episode 1/{args.loops} ——")
+            total_reward = 0.0
+            wall_start = time.perf_counter() if rtf_mode else 0.0
+            for step in range(args.episode):
+                action = env.action_space.sample()
+                obs, reward, terminated, truncated, info = env.step(action)
+                total_reward += reward
+                grand_reward += reward
+                # render() 将物理状态同步到 Studio 视口
+                # - sync_render=True：step() 内部已渲染，此处 render() 立即返回
+                # - sync_render=False：render() 按 fps 节流，可能跳过部分帧
+                env.render()
+                # RTF 同步：让仿真时间 ≈ 真实时间，避免快进导致视觉跳跃
+                # 基于累计预期时间 sleep，单步慢不会累积偏移
+                if rtf_mode:
+                    expected_wall = (step + 1) * step_dt / args.rtf
+                    elapsed = time.perf_counter() - wall_start
+                    if elapsed < expected_wall:
+                        time.sleep(expected_wall - elapsed)
+            # episode 结束统计
+            if rtf_mode:
+                elapsed_total = time.perf_counter() - wall_start
+                rtf_actual = args.episode * step_dt / max(elapsed_total, 1e-6)
+            else:
+                rtf_actual = float("inf")
+            _log(
+                f"  episode {ep + 1}/{args.loops} 完成: "
+                f"reward={total_reward:.4f}, time={info['time']:.4f}, "
+                f"rtf={rtf_actual:.3f}"
+            )
 
-    _log(
-        f"[3/4] 步进完成: 总奖励={grand_reward:.4f}"
-        f"（{args.loops} 个 episode × {args.episode} 步）"
-    )
+        _log(
+            f"[3/4] 步进完成: 总奖励={grand_reward:.4f}"
+            f"（{args.loops} 个 episode × {args.episode} 步）"
+        )
+    finally:
+        # 4. 清理
+        env.close()
 
-    # 4. 清理
-    env.close()
     _log("[4/4] 环境关闭，gRPC 连接断开")
     _log("=" * 60)
     _log("第 2 课验证通过")

@@ -8,7 +8,7 @@
     - env.data.qpos / env.data.qvel（基座状态读取）
     - env.query_joint_qpos / env.query_joint_qvel（关节状态读取）
     - env.get_body_xpos_xmat_xquat（基座位姿读取，稳定性判定）
-    - env.do_simulation（步进物理）
+    - env.step（步进物理，架构 §6.4 S5/S6：内部含 PD 闭环）
 
 验证点（5 项数值判定 + 2 项人工观察）:
     verify_step（每 50 步）:
@@ -50,7 +50,7 @@ class LocomotionEnv(G1BaseEnv):
     重写钩子:
         - initialize_simulation: 创建 G1Locomotion 实例（含 PD 控制器）
         - compute_ctrl: 调用 G1Locomotion.compute_q_target 返回位置目标（29 维）
-        - do_simulation: 闭环 PD 步进（每物理步重读 obs 重算 tau，与原版一致）
+        - _pd_controller: 闭环 PD 单步（重读 obs 重算 tau，架构 §6.4 S6）
         - before_loop: 行走观察提示 + 初始化力矩触限计数
         - verify_step: 每 50 步检查基座高度/姿态/力矩触限/ONNX 输出有限性
         - observe_step: 行走稳定性观察提示
@@ -65,17 +65,17 @@ class LocomotionEnv(G1BaseEnv):
         self._torque_total_count = 0
         # ONNX 输出有限性统计
         self._policy_action_finite = True
-        # q_target 缓存（compute_ctrl 写入，do_simulation 读取）
+        # q_target 缓存（compute_ctrl 写入，_pd_controller 读取）
         self._q_target: np.ndarray = np.zeros(self.model.nu, dtype=np.float64)
 
     def compute_ctrl(self, step: int) -> np.ndarray:
         """ONNX 策略推理 → 位置目标 q_target（29 维，rad）。
 
         本方法只做 ONNX 推理生成 q_target，不做 PD 转力矩。
-        PD 转力矩在 do_simulation 中每物理步闭环重算（与原版 g1_env.py
+        PD 转力矩在 _pd_controller 中每物理步闭环重算（与原版 g1_env.py
         每 mj_step 重读 obs 重算 PD 一致），避免开环 20 步累积误差导致失稳。
 
-        q_target 存到 self._q_target 供 do_simulation 使用。
+        q_target 存到 self._q_target 供 _pd_controller 使用。
 
         Returns:
             q_target (29,): 关节位置目标（rad）。
@@ -86,32 +86,31 @@ class LocomotionEnv(G1BaseEnv):
         if not np.all(np.isfinite(q_target)):
             self._policy_action_finite = False
 
-        # 存储供 do_simulation 闭环 PD 使用
+        # 存储供 _pd_controller 闭环 PD 使用
         self._q_target = q_target
 
         return q_target
 
-    def do_simulation(self, ctrl: np.ndarray, n_frames: int) -> None:
-        """闭环 PD 步进：每物理步重读 obs 重算 tau（与原版 g1_env.py 一致）。
+    def _pd_controller(self, target: np.ndarray) -> np.ndarray:
+        """闭环 PD 单步 hook（架构 §6.4 S6）：重读 obs 重算 tau。
 
         原版 g1_env.step 在 frame_skip 循环内每步重读 qpos/qvel 重算 PD 力矩，
         否则单次 tau 跑 20 步会因开环累积误差导致 G1 失稳侧翻。
-        本方法复刻该闭环结构。视口同步由 run_lesson 循环中的 render() 负责。
+        本方法由父类 step() 在 frame_skip 循环内每物理步调用一次，
+        返回 tau 后由父类 step() → do_simulation(tau, 1) 执行单步仿真。
 
         Args:
-            ctrl: 此处为 q_target（29,）（由 compute_ctrl 返回），不是力矩。
-            n_frames: 物理步数（frame_skip=20）。
+            target: q_target（29,）（由 compute_ctrl 返回），位置目标，非力矩。
+
+        Returns:
+            tau (29,): PD 力矩，供 do_simulation(tau, 1) 执行。
         """
-        q_target = ctrl  # compute_ctrl 返回的是 q_target，不是 tau
-        tau = None
-        for _ in range(n_frames):
-            dof_pos, dof_vel = self.locomotion.read_joint_state(self)
-            tau = self.locomotion.compute_tau(q_target, dof_pos, dof_vel)
-            self.set_ctrl(tau)
-            self.mj_step(1)
-        # 用最后一帧 tau 统计触限比例（近似原版每步统计）
-        if tau is not None:
-            self._record_torque_stats(tau)
+        q_target = target  # compute_ctrl 返回的是 q_target，不是 tau
+        dof_pos, dof_vel = self.locomotion.read_joint_state(self)
+        tau = self.locomotion.compute_tau(q_target, dof_pos, dof_vel)
+        # 统计触限比例（供 verify_step 判定）
+        self._record_torque_stats(tau)
+        return tau
 
     def _record_torque_stats(self, tau: np.ndarray) -> None:
         """统计力矩触限比例（供 verify_step 判定）。"""

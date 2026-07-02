@@ -49,7 +49,7 @@ class VideoCaptureEnv(G1BaseEnv):
     重写钩子:
         - initialize_simulation: 创建 G1Locomotion 实例
         - compute_ctrl: ONNX 推理 → q_target
-        - do_simulation: 闭环 PD 步进
+        - _pd_controller: 闭环 PD 单步（架构 §6.4 S6）
         - before_loop: 摄像头使能 + 开始录制 + 启动前进
         - verify_step: 每 50 步检查帧索引递增
         - observe_step: 周期截帧 + 阶段动作切换
@@ -69,14 +69,22 @@ class VideoCaptureEnv(G1BaseEnv):
         self._q_target = q_target
         return q_target
 
-    def do_simulation(self, ctrl: np.ndarray, n_frames: int) -> None:
-        """闭环 PD 步进：每物理步重读 obs 重算 tau。"""
-        q_target = ctrl
-        for _ in range(n_frames):
-            dof_pos, dof_vel = self.locomotion.read_joint_state(self)
-            tau = self.locomotion.compute_tau(q_target, dof_pos, dof_vel)
-            self.set_ctrl(tau)
-            self.mj_step(1)
+    def _pd_controller(self, target: np.ndarray) -> np.ndarray:
+        """闭环 PD 单步 hook（架构 §6.4 S6）：重读 obs 重算 tau。
+
+        由父类 step() 在 frame_skip 循环内每物理步调用一次，
+        返回 tau 后由父类 step() → do_simulation(tau, 1) 执行单步仿真。
+
+        Args:
+            target: q_target（29,）（由 compute_ctrl 返回），位置目标，非力矩。
+
+        Returns:
+            tau (29,): PD 力矩，供 do_simulation(tau, 1) 执行。
+        """
+        q_target = target
+        dof_pos, dof_vel = self.locomotion.read_joint_state(self)
+        tau = self.locomotion.compute_tau(q_target, dof_pos, dof_vel)
+        return tau
 
     def before_loop(self, verifier: OnlineVerifier) -> None:
         """循环前：清除残留文件 + 激活摄像头流 + 开始录制 + 使能检查 + 启动前进。

@@ -5,11 +5,11 @@
 默认使用 GPU 训练（--device cuda），需 CUDA 环境。
 
 用法:
-    # 离线训练（默认，无头模式直接加载 mjcf 跑，最高效）
-    python examples/euler/03_rl_ppo/train_ppo.py --total-timesteps 100000
+    # 离线训练（默认 16 并发 VecEnv，buffer=16×128=2048，无头直接加载 mjcf 跑）
+    python examples/euler/03_rl_ppo/train_ppo.py
 
-    # 快速验证（20k 步，约 30 秒）
-    python examples/euler/03_rl_ppo/train_ppo.py --total-timesteps 20000
+    # 快速验证（单 env，20k 步，约 30 秒）
+    python examples/euler/03_rl_ppo/train_ppo.py --n-envs 1 --total-timesteps 20000
 
     # 加载已训练模型并评估（默认 online human，Studio 未启动自动退化离线）
     python examples/euler/03_rl_ppo/train_ppo.py --eval --eval-episodes 5
@@ -50,6 +50,7 @@ from stable_baselines3 import PPO  # noqa: E402
 from stable_baselines3.common.callbacks import BaseCallback  # noqa: E402
 from stable_baselines3.common.evaluation import evaluate_policy  # noqa: E402
 from stable_baselines3.common.monitor import Monitor  # noqa: E402
+from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor  # noqa: E402
 
 _logger = get_orca_logger()
 
@@ -104,59 +105,79 @@ class RewardLoggingCallback(BaseCallback):
         return True
 
 
-def make_env(args) -> SimpleEulerEnv:
-    return SimpleEulerEnv(
-        orcagym_addr=args.addr,
-        time_step=args.time_step,
-        frame_skip=args.frame_skip,
-        skip_grpc_load=not args.no_skip_grpc,
-        render_mode=args.render_mode,
-    )
+def make_env(args, rank: int = 0, seed: int = 0):
+    """返回 env 工厂 thunk（架构 §6.8.1 E2，SubprocVecEnv 要求 callable）。
+
+    调用 thunk 得到新 env 实例：
+        - VecEnv 训练：SubprocVecEnv([make_env(args, rank=i, seed) for i in range(n)])
+        - 单 env 评估：env = make_env(args)()
+    """
+    def _init() -> SimpleEulerEnv:
+        env = SimpleEulerEnv(
+            orcagym_addr=args.addr,
+            time_step=args.time_step,
+            frame_skip=args.frame_skip,
+            skip_grpc_load=not args.no_skip_grpc,
+            render_mode=args.render_mode,
+        )
+        env.reset(seed=seed + rank)
+        return env
+    return _init
 
 
 def train(args) -> None:
     _log("=" * 60)
     _log("第 3 课：SB3 PPO 训练 — 倒立摆")
     _log(f"  模式: {'在线 gRPC' if args.no_skip_grpc else '离线'}")
+    _log(f"  并发环境数: {args.n_envs}（VecEnv）")
     _log(f"  总步数: {args.total_timesteps}")
     _log(f"  render_mode: {args.render_mode}")
     _log(f"  学习率: {args.learning_rate}")
-    _log(f"  n_steps: {args.n_steps}")
+    _log(f"  n_steps: {args.n_steps}（per env，buffer = n_steps × n_envs = {args.n_steps * args.n_envs}）")
+    _log(f"  seed: {args.seed}")
     _log("=" * 60)
 
-    env = make_env(args)
-    env = Monitor(env)
-    _log(f"[1/4] 环境创建成功: obs_space={env.observation_space.shape}, "
-         f"action_space={env.action_space.shape}")
+    if args.n_envs > 1:
+        env = SubprocVecEnv([make_env(args, rank=i, seed=args.seed) for i in range(args.n_envs)])
+        env = VecMonitor(env)
+        _log(f"[1/4] VecEnv 创建成功: n_envs={args.n_envs}, "
+             f"obs_space={env.observation_space.shape}, "
+             f"action_space={env.action_space.shape}")
+    else:
+        env = make_env(args, rank=0, seed=args.seed)()
+        env = Monitor(env)
+        _log(f"[1/4] 单 env 创建成功: obs_space={env.observation_space.shape}, "
+             f"action_space={env.action_space.shape}")
     _log(f"      device: {args.device}（GPU 训练，CPU 训练 MLP 较慢）")
 
-    model = PPO(
-        policy="MlpPolicy",
-        env=env,
-        learning_rate=args.learning_rate,
-        n_steps=args.n_steps,
-        batch_size=args.batch_size,
-        gamma=0.99,
-        gae_lambda=0.95,
-        clip_range=0.2,
-        ent_coef=0.0,
-        vf_coef=0.5,
-        max_grad_norm=0.5,
-        device=args.device,
-        verbose=0,
-    )
-    _log("[2/4] PPO 模型创建成功")
+    try:
+        model = PPO(
+            policy="MlpPolicy",
+            env=env,
+            learning_rate=args.learning_rate,
+            n_steps=args.n_steps,
+            batch_size=args.batch_size,
+            gamma=0.99,
+            gae_lambda=0.95,
+            clip_range=0.2,
+            ent_coef=0.0,
+            vf_coef=0.5,
+            max_grad_norm=0.5,
+            device=args.device,
+            verbose=0,
+        )
+        _log("[2/4] PPO 模型创建成功")
 
-    callback = RewardLoggingCallback(log_interval=args.n_steps)
-    _log("[3/4] 开始训练...")
-    model.learn(total_timesteps=args.total_timesteps, callback=callback)
+        callback = RewardLoggingCallback(log_interval=args.n_steps * args.n_envs)
+        _log("[3/4] 开始训练...")
+        model.learn(total_timesteps=args.total_timesteps, callback=callback)
 
-    os.makedirs(_MODEL_DIR, exist_ok=True)
-    model_path = os.path.join(_MODEL_DIR, "ppo_pendulum.zip")
-    model.save(model_path)
-    _log(f"[4/4] 训练完成，模型已保存: {model_path}")
-
-    env.close()
+        os.makedirs(_MODEL_DIR, exist_ok=True)
+        model_path = os.path.join(_MODEL_DIR, "ppo_pendulum.zip")
+        model.save(model_path)
+        _log(f"[4/4] 训练完成，模型已保存: {model_path}")
+    finally:
+        env.close()
 
 
 def evaluate(args) -> None:
@@ -173,39 +194,41 @@ def evaluate(args) -> None:
     )
     _log("=" * 60)
 
-    env = make_env(args)
+    env = make_env(args, rank=0, seed=args.seed)()
+    step_dt = env.dt  # time_step * frame_skip（Monitor 包装前读取）
+    env = Monitor(env)
     model = PPO.load(args.model_path, env=env)
     _log("[1/3] 模型加载成功")
 
-    mean_reward, std_reward = evaluate_policy(
-        model, env, n_eval_episodes=args.eval_episodes, deterministic=True
-    )
-    _log(f"[2/3] 评估结果: mean_reward={mean_reward:.4f} ± {std_reward:.4f}")
+    try:
+        mean_reward, std_reward = evaluate_policy(
+            model, env, n_eval_episodes=args.eval_episodes, deterministic=True
+        )
+        _log(f"[2/3] 评估结果: mean_reward={mean_reward:.4f} ± {std_reward:.4f}")
 
-    _log("[3/3] 可视化运行...")
-    step_dt = env.dt  # time_step * frame_skip
-    wall_start = time.perf_counter() if rtf_mode else 0.0
-    global_step = 0
-    for ep in range(min(3, args.eval_episodes)):
-        obs, info = env.reset()
-        ep_reward = 0.0
-        for step in range(200):
-            action, _ = model.predict(obs, deterministic=True)
-            obs, reward, terminated, truncated, info = env.step(action)
-            ep_reward += reward
-            env.render()
-            global_step += 1
-            # RTF 同步：让仿真时间 ≈ 真实时间，避免快进导致视觉跳跃
-            if rtf_mode:
-                expected_wall = global_step * step_dt / args.rtf
-                elapsed = time.perf_counter() - wall_start
-                if elapsed < expected_wall:
-                    time.sleep(expected_wall - elapsed)
-            if terminated or truncated:
-                break
-        _log(f"  eval episode {ep + 1}: reward={ep_reward:.4f}, steps={step + 1}")
-
-    env.close()
+        _log("[3/3] 可视化运行...")
+        wall_start = time.perf_counter() if rtf_mode else 0.0
+        global_step = 0
+        for ep in range(min(3, args.eval_episodes)):
+            obs, info = env.reset()
+            ep_reward = 0.0
+            for step in range(200):
+                action, _ = model.predict(obs, deterministic=True)
+                obs, reward, terminated, truncated, info = env.step(action)
+                ep_reward += reward
+                env.render()
+                global_step += 1
+                # RTF 同步：让仿真时间 ≈ 真实时间，避免快进导致视觉跳跃
+                if rtf_mode:
+                    expected_wall = global_step * step_dt / args.rtf
+                    elapsed = time.perf_counter() - wall_start
+                    if elapsed < expected_wall:
+                        time.sleep(expected_wall - elapsed)
+                if terminated or truncated:
+                    break
+            _log(f"  eval episode {ep + 1}: reward={ep_reward:.4f}, steps={step + 1}")
+    finally:
+        env.close()
     _log("评估完成")
 
 
@@ -227,10 +250,22 @@ def main() -> int:
     )
 
     parser.add_argument(
-        "--total-timesteps", type=int, default=20000, help="训练总步数"
+        "--total-timesteps", type=int, default=100000, help="训练总步数"
     )
+    parser.add_argument(
+        "--n-envs",
+        type=int,
+        default=16,
+        help="并发环境数（SubprocVecEnv，1=单 env Monitor）",
+    )
+    parser.add_argument("--seed", type=int, default=0, help="随机种子")
     parser.add_argument("--learning-rate", type=float, default=3e-4, help="学习率")
-    parser.add_argument("--n-steps", type=int, default=2048, help="PPO 每次更新的步数")
+    parser.add_argument(
+        "--n-steps",
+        type=int,
+        default=128,
+        help="PPO 每次更新 per env 的步数（buffer = n_steps × n_envs，默认 16×128=2048）",
+    )
     parser.add_argument("--batch-size", type=int, default=64, help="minibatch 大小")
     parser.add_argument(
         "--device",
