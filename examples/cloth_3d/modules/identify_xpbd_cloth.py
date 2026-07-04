@@ -62,6 +62,33 @@ def _vtk_path_for_body(model: mujoco.MjModel, body_id: int, body_name: str) -> s
     return None
 
 
+_CLOTH_BODY_MARKERS = ("Cloth_Sheet",)
+
+
+def identify_cloth_bodies_by_name(model: mujoco.MjModel) -> list[dict[str, Any]]:
+    """
+    无 ``_XPBD_CLOTHSHEET_*`` site 时，按 body 名含 ``Cloth_Sheet`` 兜底发现布片。
+
+    OrcaLab datalink 关卡可能仅有 PBDRender 实体、未写 XPBD site 标记。
+    """
+    cloths: list[dict[str, Any]] = []
+    for bid in range(model.nbody):
+        bname = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, bid) or ""
+        if not bname or bname == "world":
+            continue
+        if not any(marker in bname for marker in _CLOTH_BODY_MARKERS):
+            continue
+        cloths.append(
+            {
+                "body_name": bname,
+                "discovered": True,
+                "fallback_by_name": True,
+            }
+        )
+        logger.info("identify_cloth_bodies_by_name: body=%s", bname)
+    return cloths
+
+
 def identify_xpbd_cloth(model: mujoco.MjModel) -> list[dict[str, Any]]:
     """
   扫描 MJCF 中所有 ``{body}_XPBD_CLOTHSHEET_BOUNDS`` site，返回布片发现列表。
@@ -93,6 +120,8 @@ def identify_xpbd_cloth(model: mujoco.MjModel) -> list[dict[str, Any]]:
             entry["vtk_asset_path"] = vtk
         cloths.append(entry)
         logger.info("identify_xpbd_cloth: body=%s vtk=%s", body_name, vtk)
+    if not cloths:
+        cloths = identify_cloth_bodies_by_name(model)
     return cloths
 
 

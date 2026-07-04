@@ -5,31 +5,8 @@
     "bodies": true,
     "cloth": true,
     "default_follow_mode": "kinematic",
-    "body_include_geom_suffixes": [
-      "_geom_27",
-      "_geom_35",
-      "_geom_38",
-      "_geom_45",
-      "_geom_47",
-      "_geom_65",
-      "_geom_73",
-      "_geom_76",
-      "_geom_83",
-      "_geom_85"
-    ],
-    "body_include_substrings": [
-      "zbll_base_link",
-      "zbr_base_link",
-      "r_left_spring_link",
-      "r_right_spring_link",
-      "l_left_spring_link",
-      "l_right_spring_link",
-      "r_left_follower",
-      "r_right_follower",
-      "l_left_follower",
-      "l_right_follower",
-      "Cube"
-    ]
+    "body_track_scan_only": true,
+    "comment_body_track": "仅 _XPBD_TRACK_GEOM；G1/openloong 通用，勿写死子串白名单"
   },
   "particle_render": {
     "grpc_address": "localhost:50261"

@@ -415,14 +415,20 @@ def _resolve_mjcf_from_session(session: dict[str, Any]) -> Path:
 
 
 def _body_xpos(data: mujoco.MjData, model: mujoco.MjModel, name: str) -> np.ndarray:
-    bid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, name)
+    from modules.mjcf_body_resolve import resolve_mjcf_body_name  # noqa: WPS433
+
+    resolved = resolve_mjcf_body_name(model, name) or name
+    bid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, resolved)
     if bid < 0:
         raise KeyError(f"body not in MJCF: {name}")
     return np.array(data.xpos[bid], dtype=np.float64)
 
 
 def _site_xpos(data: mujoco.MjData, model: mujoco.MjModel, name: str) -> np.ndarray:
-    sid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, name)
+    from modules.mjcf_body_resolve import resolve_mjcf_site_name  # noqa: WPS433
+
+    resolved = resolve_mjcf_site_name(model, name) or name
+    sid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, resolved)
     if sid < 0:
         raise KeyError(f"site not in MJCF: {name}")
     return np.array(data.site_xpos[sid], dtype=np.float64)
@@ -516,8 +522,30 @@ def load_scene_layout_from_session(
     mujoco.mj_resetData(model, data)
     mujoco.mj_forward(model, data)
 
-    left_palm = f"{prefix}_zbll_base_link"
-    right_palm = f"{prefix}_zbr_base_link"
+    try:
+        from envs.cloth.mjcf_tele_layout import scan_tele_layout_from_session  # noqa: WPS433
+
+        tele = scan_tele_layout_from_session(session)
+        prefix = tele.mjc_agent_prefix or prefix
+        left_palm = f"{prefix}_{tele.left_palm_body}" if prefix else tele.left_palm_body
+        right_palm = f"{prefix}_{tele.right_palm_body}" if prefix else tele.right_palm_body
+        base_link = f"{prefix}_{tele.base_body}" if prefix else tele.base_body
+        left_ee = f"{prefix}_{tele.left_ee_site}" if prefix else tele.left_ee_site
+        right_ee = f"{prefix}_{tele.right_ee_site}" if prefix else tele.right_ee_site
+    except (ImportError, RuntimeError, KeyError, ValueError):
+        left_palm = f"{prefix}_zbll_base_link"
+        right_palm = f"{prefix}_zbr_base_link"
+        base_link = f"{prefix}_base_link"
+        left_ee = "ee_center_site"
+        right_ee = "ee_center_site_r"
+        for site in (left_ee, right_ee):
+            if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, site) < 0:
+                alt = f"{prefix}_{site}"
+                if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, alt) >= 0:
+                    if site == left_ee:
+                        left_ee = alt
+                    else:
+                        right_ee = alt
     raw_left_palm: tuple[float, float, float] | None = None
     raw_right_palm: tuple[float, float, float] | None = None
     tele_applied = False
@@ -540,20 +568,12 @@ def load_scene_layout_from_session(
     cyup = tuple(float(x) for x in cloth["center_yup"])
     cloth_body = str(cloth["body_name"])
 
-    base_link = f"{prefix}_base_link"
-    left_ee = "ee_center_site"
-    right_ee = "ee_center_site_r"
-    for site in (left_ee, right_ee):
-        if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, site) < 0:
-            alt = f"{prefix}_{site}"
-            if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, alt) >= 0:
-                if site == left_ee:
-                    left_ee = alt
-                else:
-                    right_ee = alt
+    from modules.mjcf_body_resolve import resolve_mjcf_body_name  # noqa: WPS433
 
+    resolved_base = resolve_mjcf_body_name(model, base_link) or base_link
+    base_bid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, resolved_base)
     base_pos = _body_xpos(data, model, base_link)
-    base_quat = np.array(data.xquat[mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, base_link)])
+    base_quat = np.array(data.xquat[base_bid])
 
     left_ee_B = _world_to_base_B(_site_xpos(data, model, left_ee), base_pos, base_quat)
     right_ee_B = _world_to_base_B(_site_xpos(data, model, right_ee), base_pos, base_quat)
