@@ -1,3 +1,3 @@
 # cloth_3d phase1（MuJoCo 本地 viewer / S0 验收）
 # 安装：conda activate orcapc && pip install -r requirements.txt
-mujoco>=3.2,<4
+mujoco==3.7.0
