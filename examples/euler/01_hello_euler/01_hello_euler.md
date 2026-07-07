@@ -1,7 +1,7 @@
 # 第 1 课：Hello Euler — 第一个 OrcaGymEulerEnv 程序
 
 > 阶段三（P3）端到端联调第一课。本课用随机动作驱动单铰链倒立摆，验证
-> `OrcaGymEulerEnv` 体系的端到端 API 契约，聚焦**离线模式**（不需要 OrcaStudio）。
+> `OrcaGymEulerEnv` 体系的端到端 API 契约，聚焦**离线模式**（不需要 OrcaStudio/OrcaLab）。
 
 ---
 
@@ -26,7 +26,7 @@
 
 - ✅ conda `orca` 环境可用
 - ✅ `orca_gym` 包已安装
-- ✅ **不需要** OrcaStudio（离线模式）
+- ✅ **不需要** OrcaStudio/OrcaLab（离线模式）
 
 ---
 
@@ -66,7 +66,7 @@ python examples/euler/01_hello_euler/hello_euler.py --steps 500
 ```
 ============================================================
 第 1 课：Hello Euler — 第一个 OrcaGymEulerEnv 程序
-  模式: 离线（不需要 OrcaStudio）
+  模式: 离线（不需要 OrcaStudio/OrcaLab）
   步数: 200
 ============================================================
 [1/5] 环境创建成功: nq=1, nv=1, nu=1
@@ -94,7 +94,7 @@ python examples/euler/01_hello_euler/hello_euler.py --steps 500
 | 概念 | 说明 |
 |------|------|
 | `OrcaGymEulerEnv` | OrcaGym Euler 体系的环境基类，符合 Gymnasium API |
-| 离线模式 | `skip_grpc_load=True`，本地 MuJoCo 仿真，不需要 OrcaStudio |
+| 离线模式 | `skip_grpc_load=True`，本地 MuJoCo 仿真，不需要 OrcaStudio/OrcaLab |
 | `env.data` | `OrcaGymDataView`，访问 `qpos`/`qvel`/`time` 等物理状态 |
 | `env.sim_config` | `SimConfig`，求解器配置（timestep、integrator 等） |
 | `do_simulation` | 基类步进方法：`set_ctrl` → `mj_step` × frame_skip → `sync_to_view` |

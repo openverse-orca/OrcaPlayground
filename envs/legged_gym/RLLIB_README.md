@@ -104,7 +104,7 @@ python -c "from envs.legged_gym.legged_config import LeggedRobotConfig; print(f'
 
 ```yaml
 framework: "rllib"
-orcagym_addresses: ["localhost:50051"]   # OrcaStudio 地址
+orcagym_addresses: ["localhost:50051"]   # OrcaStudio/OrcaLab 地址
 agent_name: "Lite3"                      # 机器人型号
 task: "flat_terrain"                     # 任务类型
 env_name: "LeggedGym"                    # 环境名称
@@ -153,7 +153,7 @@ training:
 
 **模式 2：动态发现模式**（`use_robot_locator: true`）
 
-- 运行时扫描 OrcaStudio 场景中的关节/驱动器后缀
+- 运行时扫描 OrcaStudio/OrcaLab 场景中的关节/驱动器后缀
 - 自动匹配机器人实例，无需手动指定数量
 - 适用于多型号混合场景
 
@@ -172,7 +172,7 @@ python envs/legged_gym/scripts/run_legged_rllib_rl.py \
     --config envs/legged_gym/configs/rllib_appo_cluster_config.yaml \
     --train --visualize
 
-# 指定远程 OrcaStudio
+# 指定远程 OrcaStudio/OrcaLab
 python envs/legged_gym/scripts/run_legged_rllib_rl.py \
     --config envs/legged_gym/configs/rllib_appo_cluster_config.yaml \
     --train --remote 192.168.1.100:50051
@@ -202,9 +202,9 @@ python envs/legged_gym/scripts/convert_rllib_to_onnx.py \
 
 ### 场景准备
 
-训练前需要先在 OrcaStudio 中准备好场景：
+训练前需要先在 OrcaStudio/OrcaLab 中准备好场景：
 
-1. 打开 OrcaStudio / OrcaLab
+1. 打开 OrcaStudio/OrcaLab
 2. 从资产面板拖入目标机器人（如 Lite3）
 3. 拖入地形资产
 4. 启动训练脚本
@@ -242,7 +242,7 @@ run_legged_rllib_rl.py          # 入口：解析配置、初始化 Ray
 
 ### Q: 如何使用动态发现模式？
 
-1. 在 OrcaStudio 中拖入机器人
+1. 在 OrcaStudio/OrcaLab 中拖入机器人
 2. 配置 `use_robot_locator: true`
 3. 设置 `robot_model_name` 为目标型号（如 `Lite3`）
 4. 脚本会自动扫描场景并匹配

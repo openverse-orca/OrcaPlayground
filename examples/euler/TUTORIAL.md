@@ -13,16 +13,16 @@
 cd /path/to/OrcaPlayground
 conda activate orca
 
-# 第 1 课：Hello Euler（离线，不需要 OrcaStudio）
+# 第 1 课：Hello Euler（离线，不需要 OrcaStudio/OrcaLab）
 python examples/euler/01_hello_euler/hello_euler.py
 
-# 第 2 课：在线渲染（需要先启动 OrcaStudio）
+# 第 2 课：在线渲染（需要先启动 OrcaStudio/OrcaLab）
 python examples/euler/02_online_render/online_render.py
 
 # 第 3 课：SB3 PPO 训练（离线，约 2-3 分钟）
 python examples/euler/03_rl_ppo/train_ppo.py --total-timesteps 100000
 
-# 第 4-9 课：在线端到端验证（需 OrcaStudio + G1 关卡）
+# 第 4-9 课：在线端到端验证（需 OrcaStudio/OrcaLab + G1 关卡）
 python examples/euler/04_query_api/query_api.py
 ```
 
@@ -70,17 +70,17 @@ assets/                             # 全局资产（迁移后集中管理）
 
 ### 阶段三：离线/在线联调（Lesson 1-3）
 
-| 课 | 阶段 | 主题 | 新概念 | 状态 | OrcaStudio | 教程 |
+| 课 | 阶段 | 主题 | 新概念 | 状态 | OrcaStudio/OrcaLab | 教程 |
 |----|------|------|--------|------|-----------|------|
 | 1 | P3 | Hello Euler | `OrcaGymEulerEnv` 基本用法、离线模式、模型加载、步进、状态访问 | ✅ | 否 | [01_hello_euler.md](01_hello_euler/01_hello_euler.md) |
 | 2 | P3A | 在线渲染与交互 | gRPC 在线模式、render 循环、sync/异步渲染、RTF、override_ctrls | ✅ | 是 | [02_online_render.md](02_online_render/02_online_render.md) |
 | 3 | P3B | SB3 PPO 强化学习 | Gymnasium API 契约、SB3 PPO、奖励函数设计、Box 观测、episode 截断 | ✅ | 否（离线训练） | [03_rl_ppo.md](03_rl_ppo/03_rl_ppo.md) |
 
-### 阶段四：在线端到端验证（Lesson 4-9，需 OrcaStudio + G1 关卡）
+### 阶段四：在线端到端验证（Lesson 4-9，需 OrcaStudio/OrcaLab + G1 关卡）
 
-阶段四使用 G1 人形机器人在 OrcaStudio 中进行在线验证。每个课程遵循 **5 步手工验证流程**：
+阶段四使用 G1 人形机器人在 OrcaStudio/OrcaLab 中进行在线验证。每个课程遵循 **5 步手工验证流程**：
 
-1. **（人工）** 启动 OrcaStudio，加载含 1 个 G1 机器人的关卡，点击运行
+1. **（人工）** 启动 OrcaStudio/OrcaLab，加载含 1 个 G1 机器人的关卡，点击运行
 2. **（人工）** 运行 `examples/euler/0X_*/` 下对应的课程脚本
 3. **（自动）** 脚本驱动 `G1BaseEnv` 子类完成功能
 4. **（人工）** 根据教程指导，观察 Studio 视口，确认画面符合预期
@@ -104,23 +104,23 @@ assets/                             # 全局资产（迁移后集中管理）
 ### 第 1 课：Hello Euler — 第一个 OrcaGymEulerEnv 程序
 
 用随机动作驱动单铰链倒立摆，验证 `OrcaGymEulerEnv` 体系的端到端 API 契约（模型加载、
-状态访问、求解器配置、reset、步进）。聚焦**离线模式**，不需要 OrcaStudio。
+状态访问、求解器配置、reset、步进）。聚焦**离线模式**，不需要 OrcaStudio/OrcaLab。
 
 - **运行**：`python examples/euler/01_hello_euler/hello_euler.py`
-- **需要 OrcaStudio**：否
+- **需要 OrcaStudio/OrcaLab**：否
 - **预计时长**：< 10 秒
 
 📖 详细教程见 [01_hello_euler/01_hello_euler.md](01_hello_euler/01_hello_euler.md)
 
 ---
 
-### 第 2 课：在线渲染与交互 — 连接 OrcaStudio
+### 第 2 课：在线渲染与交互 — 连接 OrcaStudio/OrcaLab
 
-在第 1 课基础上启用 gRPC 在线模式，连接 OrcaStudio 实时渲染。聚焦在线模式特有能力：
+在第 1 课基础上启用 gRPC 在线模式，连接 OrcaStudio/OrcaLab 实时渲染。聚焦在线模式特有能力：
 渲染循环、同步/异步渲染、RTF 实时同步、Studio UI 交互（override_ctrls / 拖拽物体）。
 
 - **运行**：`python examples/euler/02_online_render/online_render.py`
-- **需要 OrcaStudio**：是（加载 pendulum 场景）
+- **需要 OrcaStudio/OrcaLab**：是（加载 pendulum 场景）
 - **预计时长**：持续运行直至 Ctrl+C
 
 📖 详细教程见 [02_online_render/02_online_render.md](02_online_render/02_online_render.md)
@@ -134,7 +134,7 @@ Gymnasium API 契约的兼容性。训练默认离线无头（最高效），评
 Studio 未启动时自动退化离线。
 
 - **运行**：`python examples/euler/03_rl_ppo/train_ppo.py --total-timesteps 100000`
-- **需要 OrcaStudio**：否（训练离线，评估可选 online）
+- **需要 OrcaStudio/OrcaLab**：否（训练离线，评估可选 online）
 - **预计时长**：100k 步约 2-3 分钟（GPU）
 
 📖 详细教程见 [03_rl_ppo/03_rl_ppo.md](03_rl_ppo/03_rl_ppo.md)
@@ -147,7 +147,7 @@ Studio 未启动时自动退化离线。
 传感器、执行器力矩、接触、质量。通过 `OnlineVerifier` 自动判定数值合理性。
 
 - **运行**：`python examples/euler/04_query_api/query_api.py`
-- **需要 OrcaStudio**：是（加载 G1 关卡）
+- **需要 OrcaStudio/OrcaLab**：是（加载 G1 关卡）
 - **预计时长**：< 1 分钟
 
 📖 详细教程见 [04_query_api/04_query_api.md](04_query_api/04_query_api.md)
@@ -160,7 +160,7 @@ Studio 未启动时自动退化离线。
 状态写入（`set_joint_qpos` / `set_joint_qvel`）。通过对照实验验证外力效果。
 
 - **运行**：`python examples/euler/05_force_apply/force_apply.py`
-- **需要 OrcaStudio**：是（加载 G1 关卡）
+- **需要 OrcaStudio/OrcaLab**：是（加载 G1 关卡）
 - **预计时长**：< 1 分钟
 
 📖 详细教程见 [05_force_apply/05_force_apply.md](05_force_apply/05_force_apply.md)
@@ -174,7 +174,7 @@ Studio 未启动时自动退化离线。
 追踪目标轨迹。
 
 - **运行**：`python examples/euler/06_jacobian/jacobian_ik.py`
-- **需要 OrcaStudio**：是（加载 G1 关卡）
+- **需要 OrcaStudio/OrcaLab**：是（加载 G1 关卡）
 - **预计时长**：< 1 分钟
 
 📖 详细教程见 [06_jacobian/06_jacobian.md](06_jacobian/06_jacobian.md)
@@ -187,7 +187,7 @@ Studio 未启动时自动退化离线。
 聚焦行走控制本身，不耦合视频采集（视频采集见 Lesson 8）。
 
 - **运行**：`python examples/euler/07_locomotion/locomotion.py`
-- **需要 OrcaStudio**：是（加载 G1 关卡）
+- **需要 OrcaStudio/OrcaLab**：是（加载 G1 关卡）
 - **预计时长**：< 1 分钟
 
 📖 详细教程见 [07_locomotion/07_locomotion.md](07_locomotion/07_locomotion.md)
@@ -200,7 +200,7 @@ Studio 未启动时自动退化离线。
 `get_frame_png`），复用 Lesson 7 的行走控制链路驱动 G1 行走并录制。
 
 - **运行**：`python examples/euler/08_video_capture/video_capture.py`
-- **需要 OrcaStudio**：是（加载 G1 关卡）
+- **需要 OrcaStudio/OrcaLab**：是（加载 G1 关卡）
 - **预计时长**：约 10 秒（录制 5 秒视频 + 截图）
 
 📖 详细教程见 [08_video_capture/08_video_capture.md](08_video_capture/08_video_capture.md)
@@ -214,7 +214,7 @@ Studio 未启动时自动退化离线。
 编排绑定/释放，通过 mocap 拖拽 weld 约束驱动 G1 pelvis，并结合 ONNX 行走策略。
 
 - **运行**：`python examples/euler/09_body_manipulation/body_manipulation.py`
-- **需要 OrcaStudio**：是（加载 G1 关卡）
+- **需要 OrcaStudio/OrcaLab**：是（加载 G1 关卡）
 - **预计时长**：交互式，取决于用户输入
 
 📖 详细教程见 [09_body_manipulation/09_body_manipulation.md](09_body_manipulation/09_body_manipulation.md)
@@ -236,7 +236,7 @@ pip install -r examples/euler/requirements.txt
 |------|------|
 | OrcaGym | 已安装（`orca_gym` 包可在 Python 中 import） |
 | MuJoCo | OrcaGym 自带的 `mujoco` 包 |
-| OrcaStudio | **第 2 课、第 4-9 课需要**，需启动 gRPC 服务（默认 `localhost:50051`） |
+| OrcaStudio/OrcaLab | **第 2 课、第 4-9 课需要**，需启动 gRPC 服务（默认 `localhost:50051`） |
 | stable-baselines3 | **仅第 3 课需要**，`requirements.txt` 已包含 |
 
 ### 3. 验证安装
@@ -275,10 +275,10 @@ python -c "import stable_baselines3; print('sb3:', stable_baselines3.__version__
 **解决**：GPU 训练需 TRAE 命令白名单旁路 sandbox（详见 AGENTS.md 规则 3），或使用
 `--device cpu` 退化到 CPU 训练。
 
-### Q4：第 2 课在线模式连接 OrcaStudio 失败
+### Q4：第 2 课在线模式连接 OrcaStudio/OrcaLab 失败
 
 **排查**：
-1. 确认 OrcaStudio 已启动并监听 `localhost:50051`
+1. 确认 OrcaStudio/OrcaLab 已启动并监听 `localhost:50051`
 2. 确认场景中已加载 pendulum 模型
 3. 确认 `--addr` 参数正确
 4. 第 2 课默认在线模式（`skip_grpc_load=False`），无需额外参数

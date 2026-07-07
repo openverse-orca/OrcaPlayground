@@ -1,7 +1,7 @@
 # 阶段四环境搭建教程
 
 本教程指导你搭建 OrcaGym Euler 阶段四在线验证所需的运行环境。
-阶段四（Lesson 4–8）使用 G1 人形机器人在 OrcaStudio 中进行在线端到端验证。
+阶段四（Lesson 4–8）使用 G1 人形机器人在 OrcaStudio/OrcaLab 中进行在线端到端验证。
 
 > 阶段四总体设计见 [orca_gym_euler_phase4_online_validation_development.md](../../../OrcaGym/docs/design/development/orca_gym_euler_phase4_online_validation_development.md)。
 
@@ -12,8 +12,8 @@
 | 依赖 | 说明 | 验证命令 |
 |------|------|---------|
 | conda `orca` 环境 | OrcaGym 推荐环境，已安装全部依赖 | `conda activate orca && python -c "import orca_gym"` |
-| OrcaStudio | 阶段四在线验证的仿真前端，提供 gRPC 服务 + 视口渲染 | 启动后监听 `127.0.0.1:50051` |
-| G1 机器人资产 | OrcaStudio 中可搜索到的 G1 人形机器人 | 资产搜索框输入 `g1` |
+| OrcaStudio/OrcaLab | 阶段四在线验证的仿真前端，提供 gRPC 服务 + 视口渲染 | 启动后监听 `127.0.0.1:50051` |
+| G1 机器人资产 | OrcaStudio/OrcaLab 中可搜索到的 G1 人形机器人 | 资产搜索框输入 `g1` |
 | `onnxruntime` | Lesson 7/8 的 ONNX 行走策略推理依赖 | `python -c "import onnxruntime"` |
 
 > **注意**：阶段四使用 conda `orca` 环境（非 OrcaFlow_Flow）。所有脚本均在 `orca` 环境下运行。
@@ -63,11 +63,11 @@ python -c "import mujoco; m = mujoco.MjModel.from_xml_path('envs/euler/robots/g1
 
 ---
 
-## 3. OrcaStudio 启动与关卡加载
+## 3. OrcaStudio/OrcaLab 启动与关卡加载
 
-### 3.1 启动 OrcaStudio
+### 3.1 启动 OrcaStudio/OrcaLab
 
-1. 打开 OrcaStudio 应用
+1. 打开 OrcaStudio/OrcaLab 应用
 2. 确认 gRPC 服务已启动（默认监听 `127.0.0.1:50051`）
 
 ### 3.2 加载 G1 关卡
@@ -83,7 +83,7 @@ python -c "import mujoco; m = mujoco.MjModel.from_xml_path('envs/euler/robots/g1
 
 ## 4. 首次连通性测试
 
-确认 OrcaStudio 已启动并加载 G1 关卡后，运行以下测试验证环境就绪：
+确认 OrcaStudio/OrcaLab 已启动并加载 G1 关卡后，运行以下测试验证环境就绪：
 
 ```bash
 cd /path/to/OrcaPlayground
@@ -152,10 +152,10 @@ print('G1Locomotion 验证通过')
 
 ### Q1：连通性测试报 `grpc.RpcError: failed to connect to all addresses`
 
-**原因**：OrcaStudio 未启动或 gRPC 地址不对。
+**原因**：OrcaStudio/OrcaLab 未启动或 gRPC 地址不对。
 
 **解决**：
-1. 确认 OrcaStudio 已启动
+1. 确认 OrcaStudio/OrcaLab 已启动
 2. 确认监听地址为 `127.0.0.1:50051`（默认）
 3. 若端口不同，在脚本中通过 `orcagym_addr` 参数指定
 

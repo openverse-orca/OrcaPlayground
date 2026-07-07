@@ -20,7 +20,7 @@
 
 ## 🔧 手动拖入资产进行调试
 
-为了增添多场景物理交互，请先在 OrcaStudio / OrcaLab 的布局中手动拖入对应 actor，再启动脚本。推荐操作如下：
+为了增添多场景物理交互，请先在 OrcaStudio/OrcaLab 的布局中手动拖入对应 actor，再启动脚本。推荐操作如下：
 
 1. 在资产面板里搜索中文名称，例如Lite3或对应型号。
 2. 将 actor 拖入布局，并先摆好初始位置、朝向和与地形/障碍物的相对关系。
@@ -221,7 +221,7 @@ python examples/legged_gym/run_legged_rl.py \
     --config examples/legged_gym/configs/rllib_appo_config.yaml \
     --train --visualize
 
-# 指定远程 OrcaStudio
+# 指定远程 OrcaStudio/OrcaLab
 python examples/legged_gym/run_legged_rl.py \
     --config examples/legged_gym/configs/rllib_appo_config.yaml \
     --train --remote 192.168.1.100:50051
@@ -269,7 +269,7 @@ training:
 
 **模式 1：扫描模式**（`use_robot_locator: false`，默认）
 
-- 启动时扫描 OrcaStudio 场景中已拖入的机器人
+- 启动时扫描 OrcaStudio/OrcaLab 场景中已拖入的机器人
 - 自动获取机器人名称和数量，覆盖配置中的 `agents_per_env`
 - 适用于大多数场景，与 SB3 操作方式一致
 
@@ -557,7 +557,7 @@ envs/legged_gym/                       # 环境核心代码（两条链路共享
 - `--test`：测试模式
 - `--play`：交互式运行模式
 - `--ckpt`：模型检查点路径（测试/运行模式必需）
-- `--remote`：OrcaStudio 远程地址（可选，默认：localhost:50051）
+- `--remote`：OrcaStudio/OrcaLab 远程地址（可选，默认：localhost:50051）
 - `--visualize`：可视化训练过程（可选）
 
 ## 💻 Windows 与 Linux 差异说明（简述）
@@ -601,7 +601,7 @@ envs/legged_gym/                       # 环境核心代码（两条链路共享
 
 ### Q: 如何使用动态发现模式？
 
-1. 在 OrcaStudio 中拖入机器人
+1. 在 OrcaStudio/OrcaLab 中拖入机器人
 2. 配置 `use_robot_locator: true`
 3. 设置 `robot_model_name` 为目标型号（如 `Lite3`）
 4. 脚本会自动扫描场景并匹配

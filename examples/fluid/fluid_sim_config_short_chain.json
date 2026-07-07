@@ -1,5 +1,5 @@
 {
-  "description": "MuJoCo↔OrcaLink↔SPH 短链（无 OrcaStudio 50051）；场景固定在 SPH_bug/scene_3chain",
+  "description": "MuJoCo↔OrcaLink↔SPH 短链（无 OrcaStudio/OrcaLab 50051）；场景固定在 SPH_bug/scene_3chain",
   "build_mode": "release",
   "build_mode_comment": "debug=启用 debug.force_position_trace 采集；release=强制关闭 CP/子步 CSV（见 fluid_sim_config_short_chain.release.json）",
   "scene_3chain_dir": "/home/hjadmin/OrcaApr24/SPH_bug/scene_3chain",

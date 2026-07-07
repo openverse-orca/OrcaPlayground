@@ -113,14 +113,14 @@ def run_simulation(
 ```
 
 **参数说明**：
-- `orcagym_addr`：OrcaStudio 地址（默认：`localhost:50051`）
+- `orcagym_addr`：OrcaStudio/OrcaLab 地址（默认：`localhost:50051`）
 - `agent_name`：代理名称（通常为 `"NoRobot"`）
 - `env_name`：环境名称（`"Actors"` 或 `"Lights"`）
 - `scene_runtime`：场景运行时对象（可选，用于相灯光示例）
 
 ## 💡 使用提示
 
-1. **确保 OrcaStudio 正在运行**：默认地址为 `localhost:50051`
+1. **确保 OrcaStudio/OrcaLab 正在运行**：默认地址为 `localhost:50051`
 2. **资产路径**：确保资产路径正确，资产应位于 `assets/` 目录下
 3. **场景清空**：`run_actors.py` 会自动清空场景，避免名称冲突
 4. **随机性**：每次运行 `run_actors.py` 和 `run_lights.py` 会产生不同的随机效果

@@ -31,9 +31,9 @@
 
 ### 2.1 环境准备
 
-1. **OrcaStudio 运行中**：启动 OrcaStudio
+1. **OrcaStudio/OrcaLab 运行中**：启动 OrcaStudio/OrcaLab
 2. **加载空关卡**：加载一个**空关卡**（场景中**不要**预先放置 G1，脚本会通过 `add_actor` 动态加载）
-3. **点击运行**：在 OrcaStudio 中点击「运行」按钮，使关卡进入仿真状态
+3. **点击运行**：在 OrcaStudio/OrcaLab 中点击「运行」按钮，使关卡进入仿真状态
 4. **orca conda 环境**：所有命令在 `orca` 环境下执行
 
 > **为什么用空关卡？** Euler 体系走 `LoadLocalEnv` 路径，不会填充 Studio 端
@@ -53,7 +53,7 @@ OrcaPlayground/assets/g1/models/dec_loco/model_6600.onnx  # 行走策略 ONNX
 ### 2.3 障碍物 spawnable（可选，默认启用）
 
 脚本会自动通过 `add_actor` 加载 50 个障碍物（环形分布在 5–10m 区域）。需先在
-OrcaStudio 中导入以下 mjcf 文件生成 spawnable actor（导入后默认生成在 prefabs 目录，
+OrcaStudio/OrcaLab 中导入以下 mjcf 文件生成 spawnable actor（导入后默认生成在 prefabs 目录，
 文件名加 `_usda` 后缀）：
 
 ```
@@ -92,9 +92,9 @@ assets/scenes/obstacle_sphere.xml
 
 ## 4. 用户操作步骤
 
-### 步骤 1（人工）：启动 OrcaStudio 并加载空关卡
+### 步骤 1（人工）：启动 OrcaStudio/OrcaLab 并加载空关卡
 
-1. 启动 OrcaStudio
+1. 启动 OrcaStudio/OrcaLab
 2. 加载一个**空关卡**（无需预先放置 G1，脚本会动态 spawn）
 3. （可选）按 §2.3 导入障碍物 mjcf 生成 spawnable
 4. 点击「运行」按钮，使关卡进入仿真状态
@@ -124,7 +124,7 @@ python examples/euler/08_video_capture/video_capture.py --num-steps 300
 
 ```
 [INFO] 等待 3 秒，让 Studio 端 MuJoCo grpc server 完成重启...
-  [PAUSE] 请在 OrcaStudio 视口中确认 G1 机器人 + 障碍物已出现在场景中（按 Space 键继续）
+  [PAUSE] 请在 OrcaStudio/OrcaLab 视口中确认 G1 机器人 + 障碍物已出现在场景中（按 Space 键继续）
 ```
 
 在 Studio 视口确认 G1 + 障碍物已出现后，**按 Space 键**继续。
@@ -169,7 +169,7 @@ python examples/euler/08_video_capture/video_capture.py --num-steps 300
 [INFO] 已注册 G1 + 50 个障碍物到场景
 [INFO] 已为 50 个障碍物设置随机颜色
 [INFO] 等待 3 秒，让 Studio 端 MuJoCo grpc server 完成重启...
-  [PAUSE] 请在 OrcaStudio 视口中确认 G1 机器人 + 障碍物已出现在场景中（按 Space 键继续）
+  [PAUSE] 请在 OrcaStudio/OrcaLab 视口中确认 G1 机器人 + 障碍物已出现在场景中（按 Space 键继续）
   [OBSERVE] start: 请在 Studio 视口观察 G1 初始姿态：应站立在地面上
 [DEBUG] agent_name='g1_29dof_camera_usda'
 [DEBUG] set_camera_sensor_info succeeded (all streams + recording)
@@ -212,7 +212,7 @@ python examples/euler/08_video_capture/video_capture.py --num-steps 300
 **原因**：录制未真正开始，或 `set_camera_sensor_info` 未成功激活摄像头。
 
 **解决**：
-1. 确认 OrcaStudio 中关卡已点击「运行」按钮
+1. 确认 OrcaStudio/OrcaLab 中关卡已点击「运行」按钮
 2. 确认走的是 **AddActor 路径**（空关卡 + 脚本 `spawn_scene`），而非预先放好 G1
 3. 检查日志是否出现 `set_camera_sensor_info succeeded`；若 failed 检查 gRPC 地址
 

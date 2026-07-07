@@ -35,12 +35,15 @@
 from __future__ import annotations
 
 import argparse
+import io
 import os
 import sys
 import time
+from contextlib import contextmanager
 
 import grpc
 import numpy as np
+import torch
 
 CURRENT_FILE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -60,6 +63,29 @@ _MODEL_DIR = os.path.join(CURRENT_FILE_DIR, "models")
 def _log(msg: str) -> None:
     print(msg)
     _logger.info(msg)
+
+
+@contextmanager
+def _patch_torch_load_for_sb3():
+    """兼容 PyTorch 2.12 与 SB3 的 zip 流加载。
+
+    SB3 的 load_from_zip_file 把 archive.open() 返回的 ZipExtFile 流直接传给
+    torch.load。PyTorch 2.12 的 C++ PyTorchFileReader 无法在该流上正确 seek，
+    报 "PytorchStreamReader failed reading file .data/serialization_id"。
+    将流读入 BytesIO 再交给 torch.load 即可规避（模型文件本身未损坏）。
+    """
+    _original_load = torch.load
+
+    def _patched_load(f, *args, **kwargs):
+        if hasattr(f, "read") and not isinstance(f, (str, bytes, os.PathLike)):
+            return _original_load(io.BytesIO(f.read()), *args, **kwargs)
+        return _original_load(f, *args, **kwargs)
+
+    torch.load = _patched_load
+    try:
+        yield
+    finally:
+        torch.load = _original_load
 
 
 def _probe_studio(addr: str, timeout: float = 2.0) -> bool:
@@ -197,7 +223,8 @@ def evaluate(args) -> None:
     env = make_env(args, rank=0, seed=args.seed)()
     step_dt = env.dt  # time_step * frame_skip（Monitor 包装前读取）
     env = Monitor(env)
-    model = PPO.load(args.model_path, env=env)
+    with _patch_torch_load_for_sb3():
+        model = PPO.load(args.model_path, env=env)
     _log("[1/3] 模型加载成功")
 
     try:

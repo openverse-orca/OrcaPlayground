@@ -1,6 +1,6 @@
 # 第 5 课：外力应用与状态设置 — G1 推力/摩擦/接触力/mocap 位姿写入在线验证
 
-> 阶段四（P4）在线端到端验证第 2 课。本课验证 G1 人形机器人在 OrcaStudio 真实仿真中
+> 阶段四（P4）在线端到端验证第 2 课。本课验证 G1 人形机器人在 OrcaStudio/OrcaLab 真实仿真中
 > 的外力应用与状态设置 API（R 类规则）运行正确。
 
 ---
@@ -58,7 +58,7 @@
 - ✅ 步骤 0（总体框架搭建）已完成
 - ✅ 步骤 1（Lesson 4 状态查询）已完成
 - ✅ conda `orca` 环境可用
-- ✅ OrcaStudio 已启动，并加载含 1 个 G1 机器人的关卡
+- ✅ OrcaStudio/OrcaLab 已启动，并加载含 1 个 G1 机器人的关卡
 - ✅ 场景已导入 `g1_29dof_camera.xml`（含 `TestMocapAnchor` mocap body、
   `manipulation_box` 及 `anchor_box_weld` 等约束）
 - ✅ Studio 中已点击「运行」启动仿真
@@ -69,9 +69,9 @@
 
 ## 3. 操作步骤（5 步手工验证流程）
 
-### 步骤 1（人工）：启动 OrcaStudio 并加载 G1 关卡
+### 步骤 1（人工）：启动 OrcaStudio/OrcaLab 并加载 G1 关卡
 
-1. 打开 OrcaStudio
+1. 打开 OrcaStudio/OrcaLab
 2. 资产搜索 `g1`，拖入 1 台 G1 人形机器人（导入 `g1_29dof_camera.xml`）
 3. 确认场景含 `manipulation_box` 与 `TestMocapAnchor`
 4. 点击「运行」启动仿真
@@ -215,7 +215,7 @@ python examples/euler/05_force_apply/force_apply.py --addr 192.168.1.100:50051
 
 ### Q5：gRPC 连接失败
 
-**原因**：OrcaStudio 未启动或地址不对。
+**原因**：OrcaStudio/OrcaLab 未启动或地址不对。
 
 **解决**：参考 [00_setup.md](../00_setup.md) 第 6 节连通性排查。
 

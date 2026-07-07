@@ -24,8 +24,8 @@
 
 - ✅ conda `orca` 环境可用，已安装 `stable-baselines3`
 - ✅ `orca_gym` 包已安装
-- ✅ **训练**：不需要 OrcaStudio（离线）
-- ✅ **评估 online**：需要 OrcaStudio + pendulum 场景
+- ✅ **训练**：不需要 OrcaStudio/OrcaLab（离线）
+- ✅ **评估 online**：需要 OrcaStudio/OrcaLab + pendulum 场景
 
 ---
 
@@ -178,7 +178,7 @@ reward = -(theta² + 0.1 * theta_dot² + 0.001 * action²)
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `--addr` | `localhost:50051` | OrcaStudio gRPC 地址 |
+| `--addr` | `localhost:50051` | OrcaStudio/OrcaLab gRPC 地址 |
 | `--no-skip-grpc` | `False` | 启用 gRPC（默认离线模式） |
 | `--time-step` | `0.002` | 物理时间步长（秒） |
 | `--frame-skip` | `5` | 每个动作执行的物理步数 |

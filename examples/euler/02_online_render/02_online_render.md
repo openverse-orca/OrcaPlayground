@@ -1,7 +1,7 @@
-# 第 2 课：在线渲染与交互 — 连接 OrcaStudio
+# 第 2 课：在线渲染与交互 — 连接 OrcaStudio/OrcaLab
 
 > 阶段三（P3A）在线联调课。在第 1 课离线联调基础上，启用 gRPC 在线模式，
-> 连接 OrcaStudio 实时渲染。本课聚焦在线模式特有能力：渲染循环、同步/异步渲染、
+> 连接 OrcaStudio/OrcaLab 实时渲染。本课聚焦在线模式特有能力：渲染循环、同步/异步渲染、
 > RTF 实时同步、Studio UI 交互。
 
 ---
@@ -26,7 +26,7 @@
 ## 2. 前置条件
 
 - ✅ conda `orca` 环境可用
-- ✅ OrcaStudio 已启动，并加载 pendulum 场景（`simple_pendulum.xml`）
+- ✅ OrcaStudio/OrcaLab 已启动，并加载 pendulum 场景（`simple_pendulum.xml`）
 - ✅ Studio 中已点击「运行」启动仿真，gRPC 监听 `localhost:50051`
 
 ---
@@ -49,9 +49,9 @@ examples/euler/02_online_render/
 
 ## 4. 运行步骤
 
-### 步骤 1（人工）：启动 OrcaStudio 并加载 pendulum 场景
+### 步骤 1（人工）：启动 OrcaStudio/OrcaLab 并加载 pendulum 场景
 
-1. 打开 OrcaStudio
+1. 打开 OrcaStudio/OrcaLab
 2. 资产搜索 `pendulum` 或导入 `assets/scenes/simple_pendulum.xml`
 3. 点击「运行」启动仿真
 
@@ -89,7 +89,7 @@ python examples/euler/02_online_render/online_render.py --addr 192.168.1.100:500
 
 ```
 ============================================================
-第 2 课：在线渲染与交互 — 连接 OrcaStudio
+第 2 课：在线渲染与交互 — 连接 OrcaStudio/OrcaLab
   模式: 在线 gRPC（addr=localhost:50051）
   步数: 50000
   sync_render: False（异步：按 fps 节流）
@@ -121,7 +121,7 @@ python examples/euler/02_online_render/online_render.py --addr 192.168.1.100:500
 
 | 概念 | 说明 |
 |------|------|
-| 在线模式 | `skip_grpc_load=False`，通过 gRPC 连接 OrcaStudio，同步渲染 |
+| 在线模式 | `skip_grpc_load=False`，通过 gRPC 连接 OrcaStudio/OrcaLab，同步渲染 |
 | `render_mode="human"` | 渲染到 Studio 视口（`"none"` 不渲染） |
 | `sync_render` | `True`：每个物理步都渲染（帧率最高）；`False`：按 fps 节流（默认，CPU 占用低） |
 | `override_ctrls` | Studio UI 返回的手动控制值，在 `set_ctrl` 中覆盖程序动作 |
@@ -133,7 +133,7 @@ python examples/euler/02_online_render/online_render.py --addr 192.168.1.100:500
 ```python
 env = SimpleEulerEnv(
     orcagym_addr=args.addr,
-    skip_grpc_load=False,       # 在线模式：连接 OrcaStudio
+    skip_grpc_load=False,       # 在线模式：连接 OrcaStudio/OrcaLab
     render_mode="human",        # 渲染到 Studio 视口
     sync_render=args.sync_render,
 )
@@ -162,7 +162,7 @@ for step in range(args.steps):
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `--addr` | `localhost:50051` | OrcaStudio gRPC 地址 |
+| `--addr` | `localhost:50051` | OrcaStudio/OrcaLab gRPC 地址 |
 | `--steps` | `50000` | 仿真步数 |
 | `--time-step` | `0.002` | 物理时间步长（秒） |
 | `--frame-skip` | `5` | 每个动作执行的物理步数 |
@@ -175,10 +175,10 @@ for step in range(args.steps):
 
 ### Q1：gRPC 连接失败 / 超时
 
-**原因**：OrcaStudio 未启动或地址不对。
+**原因**：OrcaStudio/OrcaLab 未启动或地址不对。
 
 **解决**：
-1. 确认 OrcaStudio 已启动并监听 `localhost:50051`
+1. 确认 OrcaStudio/OrcaLab 已启动并监听 `localhost:50051`
 2. 确认场景中已加载 pendulum 模型
 3. 确认 `--addr` 参数正确
 

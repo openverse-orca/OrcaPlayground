@@ -56,7 +56,7 @@ python examples/wheeled_chassis/run_wheeled_chassis.py \
 
 `run_wheeled_chassis.py` 参数：
 
-- `--orcagym_addr`：OrcaStudio 远程地址（可选，默认：`localhost:50051`）
+- `--orcagym_addr`：OrcaStudio/OrcaLab 远程地址（可选，默认：`localhost:50051`）
 - `--env_name`：环境名称（可选，默认：`WheeledChassis`）
 
 ## 📋 支持的底盘类型
@@ -111,11 +111,11 @@ env_name = "Ackerman"
 
 ## 💡 使用提示
 
-1. **确保 OrcaStudio 正在运行**：默认地址为 `localhost:50051`
+1. **确保 OrcaStudio/OrcaLab 正在运行**：默认地址为 `localhost:50051`
 2. **在场景中添加机器人**：确保场景中存在对应的机器人预制体
 3. **不需要手动传实例名**：`--agent_name` 仅作兼容保留，脚本会自动扫描场景里的完整匹配实例
 4. **匹配不全直接退出**：如果 actuator 或 body 后缀没有全部对应上，脚本会打印诊断并退出
-5. **键盘控制**：环境支持键盘输入控制（通过 OrcaStudio）
+5. **键盘控制**：环境支持键盘输入控制（通过 OrcaStudio/OrcaLab）
 
 ## 🔧 手动拖入资产进行调试
 

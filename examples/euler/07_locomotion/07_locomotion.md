@@ -1,6 +1,6 @@
 # 第 7 课：G1 行走控制链路 — ONNX 推理 + PD 控制器 + 稳定性验证
 
-> 阶段四（P4）在线端到端验证第 7 课。本课专注验证 G1 人形机器人在 OrcaStudio 真实仿真中
+> 阶段四（P4）在线端到端验证第 7 课。本课专注验证 G1 人形机器人在 OrcaStudio/OrcaLab 真实仿真中
 > 的 **ONNX 行走控制链路**（不含视频采集，视频采集见 Lesson 8）。
 >
 > **拆分背景**：原 Lesson 7（studio_capture）把行走控制与视频采集耦合，行走链路出问题时
@@ -61,8 +61,8 @@ clip 到 motor_effort_limit
 
 ### 2.1 环境准备
 
-1. **OrcaStudio 运行中**：启动 OrcaStudio，加载含 1 个 G1 的关卡（`g1_29dof_camera.xml`）
-2. **关卡已运行**：在 OrcaStudio 中点击「运行」按钮，使关卡进入仿真状态
+1. **OrcaStudio/OrcaLab 运行中**：启动 OrcaStudio/OrcaLab，加载含 1 个 G1 的关卡（`g1_29dof_camera.xml`）
+2. **关卡已运行**：在 OrcaStudio/OrcaLab 中点击「运行」按钮，使关卡进入仿真状态
 3. **orca conda 环境**：所有命令在 `orca` 环境下执行
 
 ### 2.2 资产文件
@@ -95,9 +95,9 @@ OrcaPlayground/assets/g1/models/dec_loco/model_6600.onnx  # 行走策略 ONNX
 
 ## 4. 运行步骤
 
-### 步骤 1（人工）：启动 OrcaStudio 并加载 G1 关卡
+### 步骤 1（人工）：启动 OrcaStudio/OrcaLab 并加载 G1 关卡
 
-1. 启动 OrcaStudio
+1. 启动 OrcaStudio/OrcaLab
 2. 加载含 1 个 G1 的关卡（场景含 `g1_29dof_camera.xml`）
 3. 点击「运行」按钮，使关卡进入仿真状态
 

@@ -39,7 +39,7 @@ pip install -r examples/g1/requirements.txt
 python examples/g1/run_g1_random_walk.py
 ```
 ### 键盘控制模式
-使用 **OrcaStudio 场景键盘**（无需终端焦点）：
+使用 **OrcaStudio/OrcaLab 场景键盘**（无需终端焦点）：
 
 ```bash
 python examples/g1/run_g1_sim.py
@@ -52,7 +52,7 @@ python examples/g1/run_g1_sim.py --keyboard console
 ```
 
 说明：
-- `--keyboard orcastudio`（默认）：通过 OrcaGym gRPC 读取 OrcaStudio 场景内按键。
+- `--keyboard OrcaStudio/OrcaLab`（默认）：通过 OrcaGym gRPC 读取 OrcaStudio/OrcaLab 场景内按键。
 - `--keyboard console`：通过 `sshkeyboard` 读控制台输入；仿真仍连同一 `--orcagym-addr`（默认 `127.0.0.1:50051`）。
 - 所有启动、扫描和异常信息请查看左下角**终端按钮**中的输出。
 
@@ -89,6 +89,6 @@ python examples/g1/run_g1_sim.py --keyboard console
 | `6`/`7`/`8`/`9` | 粗调/细调 Kp 增益（与旧版 `4`/`5`/`6`/`7` 对应） |
 | `0` | 重置 Kp 增益 |
 
-说明：主命令使用数字键 `1`–`5`（替代原 F1–F5），便于在 `--keyboard console`（sshkeyboard）下使用；OrcaStudio 场景键盘同样按上表映射。
+说明：主命令使用数字键 `1`–`5`（替代原 F1–F5），便于在 `--keyboard console`（sshkeyboard）下使用；OrcaStudio/OrcaLab 场景键盘同样按上表映射。
 
 

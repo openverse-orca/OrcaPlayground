@@ -26,7 +26,7 @@
 
 ## 2. 前置条件
 
-1. **OrcaStudio 已启动**，gRPC 监听 `127.0.0.1:50051`
+1. **OrcaStudio/OrcaLab 已启动**，gRPC 监听 `127.0.0.1:50051`
 2. **已加载含 G1 的关卡**，且 G1 模型包含 mocap body `TestMocapAnchor`
    （`assets/g1/g1_29dof_camera.xml` 已内置）
 3. **关卡已点击「运行」**，仿真处于运行态
@@ -52,9 +52,9 @@ examples/euler/09_body_manipulation/
 
 ## 4. 运行步骤
 
-### 步骤 1（人工）：启动 OrcaStudio 并加载 G1 关卡
+### 步骤 1（人工）：启动 OrcaStudio/OrcaLab 并加载 G1 关卡
 
-1. 打开 OrcaStudio，确认 gRPC 服务已启动
+1. 打开 OrcaStudio/OrcaLab，确认 gRPC 服务已启动
 2. 加载含 G1（含 mocap body）的关卡
 3. 点击「运行」启动仿真
 

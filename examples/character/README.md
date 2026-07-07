@@ -52,7 +52,7 @@ python examples/character/run_character.py \
 
 ### 命令行参数说明
 
-- `--orcagym_addr`：OrcaStudio 远程地址（可选，默认：`localhost:50051`）
+- `--orcagym_addr`：OrcaStudio/OrcaLab 远程地址（可选，默认：`localhost:50051`）
 - `--env_name`：环境名称（可选，默认：`Character`）
 
 ### 前置准备
