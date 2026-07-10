@@ -83,8 +83,9 @@ OrcaPlayground/assets/g1/models/dec_loco/model_6600.onnx  # 行走策略 ONNX
 07_locomotion/
 ├── 07_locomotion.md          ← 本教程文档
 ├── locomotion.py             ← 脚本入口
-├── locomotion_env.py         ← Env 子类（行走稳定性验证）
-├── g1_base_env.py            ← G1 基类（资产路径指向 assets/g1）
+├── locomotion_env.py         ← Env 子类（行走稳定性验证 + DebugMesh 可视化）
+├── locomotion_debug_viz.py   ← DebugMesh 可视化封装（指令箭头/接触球/足底力箭头）
+├── g1_base_env.py            ← G1 基类（资产路径指向 assets/g1，含 _draw_debug_viz hook）
 ├── scene_scanner.py          ← 场景扫描（探针 OrcaGymEulerEnv）
 ├── g1_locomotion.py          ← ONNX 行走封装（含内联 HistoryHandler + PD 控制器）
 └── online_verifier.py        ← 在线验证器
@@ -123,7 +124,8 @@ python examples/euler/07_locomotion/locomotion.py --addr 192.168.1.100:50051
   - `do_simulation(ctrl, frame_skip)`：步进物理仿真
   - `verify_step`（每 50 步）：基座高度/姿态/力矩触限/起步站立/ONNX 有限性
   - `observe_step`（step 0/250/450）：行走稳定性观察提示
-  - `render()`：同步到 Studio 视口
+  - `_draw_debug_viz(step)`：DebugMesh 可视化（每周期，immediate 模式，render 前）
+  - `render()`：同步到 Studio 视口（Simulate flush 消费本周期 immediate 绘制）
 - `after_loop`：行走验证结束提示
 
 ### 步骤 4（人工）：观察 Studio 视口
@@ -133,6 +135,31 @@ python examples/euler/07_locomotion/locomotion.py --addr 192.168.1.100:50051
 | step 0 | `g1_standing` | G1 应站立，不瘫倒（验证 PD 控制器有效） |
 | step 250 | `g1_walking_stable` | G1 行走应稳定，不乱踹（双腿交替迈步，非剧烈抖动） |
 | step 450 | `g1_walking_end` | G1 行走 9 秒后仍应稳定站立/行走 |
+
+#### 4.1 DebugMesh 可视化（全程）
+
+本课集成 `LocomotionDebugVisualizer`（`locomotion_debug_viz.py`），在 Studio 视口中实时绘制
+三类可视化要素，直观展示控制指令、接触状态与足底受力：
+
+| 要素 | 颜色 | 含义 | 数据来源 |
+|------|------|------|---------|
+| 头顶绿色箭头 | 绿 `[0.2,1,0.2,1]` | 前进速度指令（沿 pelvis 前向，长度 ∝ `lin_vel[0]`） | `locomotion.lin_vel_command` |
+| 头顶蓝色箭头 | 蓝 `[0.2,0.6,1,1]` | 转向角速度指令（沿世界 Z 轴，长度 ∝ `ang_vel`，>0 左转向上） | `locomotion.ang_vel_command` |
+| 接触点黄球 | 黄半透明 `[1,0.85,0.2,0.35]` | MuJoCo contact 位置（足底着地/自碰撞） | `query_contact_simple()` |
+| 接触点橙红球 | 橙红半透明 `[1,0.3,0.2,0.45]` | 渗透接触（`dist<0`，足底陷入地面） | `query_contact_simple()` |
+| 足底红色力箭头 | 红 `[1,0.2,0.2,1]` | 足底 body 受到的外部力（地面反作用力，从足底原点指出） | `get_cfrc_ext()` |
+
+可视化观察对照（对应 `observe_step` 的 5 阶段）：
+
+| 阶段 | step | 指令 | 预期可视化 |
+|------|------|------|-----------|
+| 1 站立 | 0 | `stand=0` | 头顶无箭头（指令=0）；双足红箭头向上（支撑体重）；双足黄球（足底接触） |
+| 2 前进 | 200 | `lin_vel=(0.5,0)` | 头顶绿箭头沿前向伸长（~0.15m）；双足交替红箭头与黄球（步态周期） |
+| 3 左转 | 400 | `ang_vel=0.5` | 头顶蓝箭头向上出现（~0.1m）；绿箭头仍存在 |
+| 4 左移 | 600 | `lin_vel=(0,0.3)` | 头顶绿箭头变短（0.3×0.3=0.09m）；步态继续 |
+| 5 停止 | 800 | `stand=0` | 头顶箭头消失；双足恢复站立状态的红箭头+黄球 |
+
+> **离线模式**：`debug_draw().is_online == False` 时所有绘制自动 no-op，不影响离线测试。
 
 ### 步骤 5（自动）：脚本输出判定报告
 
@@ -210,6 +237,24 @@ python examples/euler/07_locomotion/locomotion.py --addr 192.168.1.100:50051
 1. 检查 `env.data.qpos`/`qvel` 是否含 NaN（仿真发散）
 2. 确认 `model_6600.onnx` 文件完整（`ls -la` 检查大小）
 3. 检查观测缩放 `obs_scales` 是否合理
+
+### Q5：视口无 DebugMesh 可视化（箭头/球体不出现）
+
+**原因**：DebugDraw 未连接 OrcaStudio，或 C++ 侧 DebugMeshScene 无效。
+
+**解决**：
+1. 确认 OrcaStudio 已运行且关卡处于仿真状态（离线模式 `debug_draw().is_online` 为 False，绘制自动 no-op）
+2. 确认 C++ 侧 `GetDebugMeshSceneId()` 返回有效 sceneId（DebugMesh 系统已初始化）
+3. 检查 gRPC 通道是否正常（`env._stub` 非 None）
+
+### Q6：接触球不出现 / 力箭头不出现
+
+**原因**：对应数据为空或低于阈值。
+
+**解决**：
+1. 接触球不出现：`query_contact_simple()` 返回空列表，检查 G1 是否已触地（站立阶段应有足底接触）
+2. 力箭头不出现：`get_cfrc_ext()` 足底力 < 1.0 N 阈值，抬腿相无受力属于正常（支撑腿应有力箭头）
+3. 力箭头方向错误：确认 `cfrc_ext` 力在世界系（站立时应竖直向上，支撑体重约 400N）
 
 ---
 

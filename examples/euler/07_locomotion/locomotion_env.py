@@ -36,6 +36,7 @@ from __future__ import annotations
 import numpy as np
 from g1_base_env import G1BaseEnv, OnlineVerifier
 from g1_locomotion import G1Locomotion
+from locomotion_debug_viz import LocomotionDebugVisualizer
 
 # 行走稳定性判定阈值
 _BASE_HEIGHT_MIN = 0.6  # 站立最低高度（m）
@@ -45,14 +46,15 @@ _TORQUE_CLIP_RATIO_LIMIT = 0.5  # 力矩触限比例上限（50%）
 
 
 class LocomotionEnv(G1BaseEnv):
-    """Lesson 7 Env 子类：G1 行走控制链路验证。
+    """Lesson 7 Env 子类：G1 行走控制链路验证 + DebugMesh 可视化。
 
     重写钩子:
-        - initialize_simulation: 创建 G1Locomotion 实例（含 PD 控制器）
+        - initialize_simulation: 创建 G1Locomotion 实例（含 PD 控制器）+ LocomotionDebugVisualizer
         - compute_ctrl: 调用 G1Locomotion.compute_q_target 返回位置目标（29 维）
         - _pd_controller: 闭环 PD 单步（重读 obs 重算 tau，架构 §6.4 S6）
         - before_loop: 行走观察提示 + 初始化力矩触限计数
         - verify_step: 每 50 步检查基座高度/姿态/力矩触限/ONNX 输出有限性
+        - _draw_debug_viz: 每周期绘制 DebugMesh 可视化（头顶指令箭头/接触球/足底力箭头）
         - observe_step: 行走稳定性观察提示
     """
 
@@ -60,6 +62,8 @@ class LocomotionEnv(G1BaseEnv):
         """初始化仿真 + 创建 G1Locomotion 行走策略封装（含 PD 控制器）。"""
         super().initialize_simulation()
         self.locomotion = G1Locomotion(agent_name=self.agent_name)
+        # DebugMesh 可视化器（离线模式自动 no-op）
+        self._viz = LocomotionDebugVisualizer(self.agent_name, self.locomotion)
         # 力矩触限统计（用于 joint_torque_within_limit 判定）
         self._torque_clip_count = 0
         self._torque_total_count = 0
@@ -195,6 +199,16 @@ class LocomotionEnv(G1BaseEnv):
             True,
             f"ONNX 输出有限（step={step}）",
         )
+
+    def _draw_debug_viz(self, step: int) -> None:
+        """每控制周期绘制 DebugMesh 可视化（immediate 模式，render 前）。"""
+        self._viz.draw(self)
+
+    def close(self) -> None:
+        """退出时主动销毁 DebugMesh retained 对象（箭头 + 接触球池）。"""
+        if hasattr(self, "_viz"):
+            self._viz.destroy(self)
+        super().close()
 
     def observe_step(self, step: int, verifier: OnlineVerifier) -> None:
         """循环中：5 阶段动作演示 + 暂停解说。

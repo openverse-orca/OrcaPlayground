@@ -185,6 +185,7 @@ class G1BaseEnv(OrcaGymEulerEnv):
         - before_loop(verifier): 循环前准备（Lesson 7 begin_save_video）
         - verify_step(step, verifier): 每周期数值判定
         - observe_step(step, verifier): 阶段性人工观察提示
+        - _draw_debug_viz(step): 每周期 DebugMesh 可视化（render 前，默认空）
         - after_loop(verifier): 循环后收尾（Lesson 7 stop_save_video + mp4 检查）
         - verify_final(verifier): 结束最终判定
 
@@ -275,8 +276,9 @@ class G1BaseEnv(OrcaGymEulerEnv):
                 b. step(action)  # 架构 §6.4 S5/S6：内部含 PD 闭环
                 c. verify_step(step, verifier)  # 数值判定
                 d. observe_step(step, verifier)  # 人工观察提示
-                e. render()
-                f. real_time 限速（RTF=1.0，按墙钟对齐 frame_skip*time_step）
+                e. _draw_debug_viz(step)  # DebugMesh 可视化（每周期，render 前）
+                f. render()
+                g. real_time 限速（RTF=1.0，按墙钟对齐 frame_skip*time_step）
             4. after_loop（循环后收尾）
             5. verify_final(verifier)  # 最终判定
             6. verifier.report()  # 输出报告
@@ -314,6 +316,7 @@ class G1BaseEnv(OrcaGymEulerEnv):
             self.step(action)
             self.verify_step(step, verifier)
             self.observe_step(step, verifier)
+            self._draw_debug_viz(step)
             self.render()
 
             # 墙钟对齐：若本周期提前完成，睡眠剩余时间以维持 RTF=1.0
@@ -332,20 +335,24 @@ class G1BaseEnv(OrcaGymEulerEnv):
 
     # --- 人工观察暂停（子类在 verify_step/observe_step 中调用）---
 
-    def wait_for_keypress(self, prompt: str, key: str = " ") -> None:
+    def wait_for_keypress(self, prompt: str, key: str = " ", timeout: float = 25.0) -> None:
         """暂停循环，等待用户在终端按键恢复（用于人工观察视口状态）。
 
         在 run_lesson 循环的 verify_step/observe_step 中调用，阻塞直到用户
-        按下指定键（默认空格）。配合每周期独立计时的 RTF 限速，暂停只会拉长
-        当前周期，恢复后后续周期仍按 RTF=1.0 对齐，不会全速追赶。
+        按下指定键（默认空格）或 ``timeout`` 秒后自动恢复。配合每周期独立计时的
+        RTF 限速，暂停只会拉长当前周期，恢复后后续周期仍按 RTF=1.0 对齐，不会全速追赶。
 
         暂停期间以 ~30fps 轮询调用 render()，确保视口持续刷新到最新仿真状态
         （render 自身有 30fps 节流，物理仿真 1000Hz 远快于渲染，IK 修改 qpos 后
         需主动 render 才能提交到 Studio 视口，否则画面停留在旧帧）。
 
+        超时自动恢复：``timeout`` 秒内无按键则自动继续，防止 DebugMesh retained
+        对象因 keepalive 过期而消失（keepalive=30s，timeout=25s 留 5s 余量）。
+
         Args:
             prompt: 显示给用户的提示文本。
             key: 触发恢复的按键（默认空格 ``" "``）；同时接受 Enter。
+            timeout: 自动恢复超时（秒，默认 25）。<=0 表示永不超时。
         """
         print(f"  [PAUSE] {prompt}（按 Space 键继续）")
         sys.stdout.flush()
@@ -363,6 +370,7 @@ class G1BaseEnv(OrcaGymEulerEnv):
 
         render_interval = 1.0 / 30.0  # 30fps，与 render() 自身节流一致
         last_render = 0.0
+        deadline = time.perf_counter() + timeout if timeout > 0 else None
         fd = sys.stdin.fileno()
         old = termios.tcgetattr(fd)
         try:
@@ -379,6 +387,10 @@ class G1BaseEnv(OrcaGymEulerEnv):
                 if now - last_render >= render_interval:
                     last_render = now
                     self.render()
+                # 超时自动恢复（防止 retained 对象 keepalive 过期）
+                if deadline is not None and now >= deadline:
+                    print(f"\r\n  [TIMEOUT] {timeout:.0f}s 无按键，自动继续")
+                    break
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old)
         sys.stdout.write("\r\n")
@@ -410,6 +422,14 @@ class G1BaseEnv(OrcaGymEulerEnv):
 
     def observe_step(self, step: int, verifier: OnlineVerifier) -> None:
         """阶段性人工观察提示（子类重写）。"""
+        return None
+
+    def _draw_debug_viz(self, step: int) -> None:
+        """每控制周期 DebugMesh 可视化（子类重写，render 前调用）。
+
+        默认空实现。Lesson 7 重写为调用 LocomotionDebugVisualizer.draw，
+        绘制头顶指令箭头/接触球/足底力箭头。离线模式自动 no-op。
+        """
         return None
 
     def after_loop(self, verifier: OnlineVerifier) -> None:
