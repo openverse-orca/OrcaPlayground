@@ -414,18 +414,13 @@ class BodyManipulationEnv(G1BaseEnv):
             print("[非交互终端，自动选择 5 退出]")
             return "5"
 
-        import select
-        import termios
-        import tty
+        if sys.platform == "win32":
+            # Windows: msvcrt 非阻塞按键检测
+            import msvcrt
 
-        fd = sys.stdin.fileno()
-        old = termios.tcgetattr(fd)
-        try:
-            tty.setraw(fd)
             while True:
-                rlist, _, _ = select.select([fd], [], [], 1.0 / 30.0)
-                if rlist:
-                    ch = os.read(fd, 1).decode(errors="ignore")
+                if msvcrt.kbhit():
+                    ch = msvcrt.getch().decode(errors="ignore")
                     if ch in ("1", "2", "3", "4", "5"):
                         sys.stdout.write("\r\n")
                         sys.stdout.flush()
@@ -433,5 +428,27 @@ class BodyManipulationEnv(G1BaseEnv):
                         return ch
                 # 等待期间持续 render 刷新视口
                 self.render()
-        finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old)
+                time.sleep(0.01)
+        else:
+            # Unix: raw 模式 + select 非阻塞轮询
+            import select
+            import termios
+            import tty
+
+            fd = sys.stdin.fileno()
+            old = termios.tcgetattr(fd)
+            try:
+                tty.setraw(fd)
+                while True:
+                    rlist, _, _ = select.select([fd], [], [], 1.0 / 30.0)
+                    if rlist:
+                        ch = os.read(fd, 1).decode(errors="ignore")
+                        if ch in ("1", "2", "3", "4", "5"):
+                            sys.stdout.write("\r\n")
+                            sys.stdout.flush()
+                            print(f"已选择: {ch}")
+                            return ch
+                    # 等待期间持续 render 刷新视口
+                    self.render()
+            finally:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old)

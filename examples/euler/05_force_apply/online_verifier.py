@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import tempfile
 from datetime import datetime
 from typing import Any
 
@@ -36,15 +37,15 @@ class OnlineVerifier:
         report = verifier.report()  # 输出 JSON + 控制台摘要
     """
 
-    def __init__(self, lesson_name: str, report_dir: str = "/tmp") -> None:
+    def __init__(self, lesson_name: str, report_dir: str | None = None) -> None:
         """初始化判定器。
 
         Args:
             lesson_name: 课程名称（如 "Lesson 4: 状态查询 API"）。
-            report_dir: JSON 报告输出目录，默认 /tmp。
+            report_dir: JSON 报告输出目录，默认系统临时目录。
         """
         self.lesson_name = lesson_name
-        self.report_dir = report_dir
+        self.report_dir = report_dir if report_dir is not None else tempfile.gettempdir()
         self.checks: list[dict[str, Any]] = []
         self.observations: list[dict[str, Any]] = []
         self._observed_names: set[str] = set()

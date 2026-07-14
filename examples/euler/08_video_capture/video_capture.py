@@ -59,6 +59,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import time
 
 import numpy as np
 
@@ -94,22 +95,34 @@ def _wait_for_keypress(prompt: str) -> None:
         except EOFError:
             return
         return
-    import select
-    import termios
-    import tty
+    if sys.platform == "win32":
+        # Windows: msvcrt 非阻塞按键检测
+        import msvcrt
 
-    fd = sys.stdin.fileno()
-    old = termios.tcgetattr(fd)
-    try:
-        tty.setraw(fd)
         while True:
-            rlist, _, _ = select.select([fd], [], [], 1.0)
-            if rlist:
-                ch = os.read(fd, 1).decode(errors="ignore")
+            if msvcrt.kbhit():
+                ch = msvcrt.getch().decode(errors="ignore")
                 if ch in (" ", "\r", "\n"):
                     break
-    finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+            time.sleep(0.01)
+    else:
+        # Unix: raw 模式 + select 非阻塞轮询
+        import select
+        import termios
+        import tty
+
+        fd = sys.stdin.fileno()
+        old = termios.tcgetattr(fd)
+        try:
+            tty.setraw(fd)
+            while True:
+                rlist, _, _ = select.select([fd], [], [], 1.0)
+                if rlist:
+                    ch = os.read(fd, 1).decode(errors="ignore")
+                    if ch in (" ", "\r", "\n"):
+                        break
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old)
 
 
 def spawn_scene(orcagym_addr: str, spawn_obstacles: bool = True) -> None:

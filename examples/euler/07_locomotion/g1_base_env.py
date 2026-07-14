@@ -363,26 +363,20 @@ class G1BaseEnv(OrcaGymEulerEnv):
             except EOFError:
                 return
             return
-        # 交互终端：raw 模式 + select 非阻塞轮询，边等按键边 render 刷新视口
-        import select
-        import termios
-        import tty
-
+        # 交互终端：非阻塞轮询按键，边等按键边 render 刷新视口
         render_interval = 1.0 / 30.0  # 30fps，与 render() 自身节流一致
         last_render = 0.0
         deadline = time.perf_counter() + timeout if timeout > 0 else None
-        fd = sys.stdin.fileno()
-        old = termios.tcgetattr(fd)
-        try:
-            tty.setraw(fd)
+
+        if sys.platform == "win32":
+            # Windows: msvcrt 非阻塞按键检测
+            import msvcrt
+
             while True:
-                # 以 render_interval 为超时轮询 stdin，超时则 render
-                rlist, _, _ = select.select([fd], [], [], render_interval)
-                if rlist:
-                    ch = os.read(fd, 1).decode(errors="ignore")
+                if msvcrt.kbhit():
+                    ch = msvcrt.getch().decode(errors="ignore")
                     if ch in (key, "\r", "\n"):
                         break
-                # 暂停期间持续 render，确保视口刷新到 IK 后的最新姿态
                 now = time.perf_counter()
                 if now - last_render >= render_interval:
                     last_render = now
@@ -391,9 +385,34 @@ class G1BaseEnv(OrcaGymEulerEnv):
                 if deadline is not None and now >= deadline:
                     print(f"\r\n  [TIMEOUT] {timeout:.0f}s 无按键，自动继续")
                     break
-        finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old)
-        sys.stdout.write("\r\n")
+                time.sleep(0.01)  # 避免 CPU 空转
+        else:
+            # Unix: raw 模式 + select 非阻塞轮询
+            import select
+            import termios
+            import tty
+
+            fd = sys.stdin.fileno()
+            old = termios.tcgetattr(fd)
+            try:
+                tty.setraw(fd)
+                while True:
+                    rlist, _, _ = select.select([fd], [], [], render_interval)
+                    if rlist:
+                        ch = os.read(fd, 1).decode(errors="ignore")
+                        if ch in (key, "\r", "\n"):
+                            break
+                    now = time.perf_counter()
+                    if now - last_render >= render_interval:
+                        last_render = now
+                        self.render()
+                    # 超时自动恢复（防止 retained 对象 keepalive 过期）
+                    if deadline is not None and now >= deadline:
+                        print(f"\r\n  [TIMEOUT] {timeout:.0f}s 无按键，自动继续")
+                        break
+            finally:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old)
+            sys.stdout.write("\r\n")
         sys.stdout.flush()
 
     # --- 钩子方法（子类重写）---
