@@ -2,7 +2,7 @@
 
 > **阶段四 Euler 体系 · 最后一课**
 >
-> 本课采用交互式菜单驱动模式，验证 Studio 体操作 API 与 MuJoCo equality
+> 本课采用交互式菜单驱动模式，验证 Studio/OrcaLab 体操作 API 与 MuJoCo equality
 > 约束。机器人在无绑定状态下向前行走 3 秒后暂停，用户通过数字键选择操作
 > （绑定移动/取消绑定/退出），脚本根据选择执行 mocap 驱动或自主行走。
 
@@ -20,7 +20,7 @@
 | `set_mocap_pos_and_quat(dict)` | 设置 mocap body 位姿 | 对齐 mocap + 3 秒内周期性移动 |
 | `get_body_xpos_xmat_xquat(names)` | 读取 body 位姿 | 暂停前检查 + 位移验证 |
 
-> **交互式 UI 操作**（Studio 鼠标拖拽，由 `render()` 内部驱动的 `_do_body_manipulation`）属于基础能力，不在本课展示。
+> **交互式 UI 操作**（Studio/OrcaLab 鼠标拖拽，由 `render()` 内部驱动的 `_do_body_manipulation`）属于基础能力，不在本课展示。
 
 ---
 

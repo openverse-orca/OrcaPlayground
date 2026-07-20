@@ -238,6 +238,32 @@ pip install -r examples/euler/requirements.txt
 | MuJoCo | OrcaGym 自带的 `mujoco` 包 |
 | OrcaStudio/OrcaLab | **第 2 课、第 4-9 课需要**，需启动 gRPC 服务（默认 `localhost:50051`） |
 | stable-baselines3 | **仅第 3 课需要**，`requirements.txt` 已包含 |
+| **Euler_asset 资产包** | **第 8 课需要**，需在 OrcaStudio/OrcaLab 中订阅（见下） |
+
+#### 订阅 Euler_asset 资产包（第 8 课必需）
+
+第 8 课（视频捕获）通过 `OrcaGymScene.add_actor` + `publish_scene` 在线 spawn G1 与
+50 个障碍物到空关卡。所需的 spawnable 资产由 **Euler_asset 资产包** 提供，脚本自动按
+顺序尝试两种 spawnable 路径，任一可用即可：
+
+| 资产 | 候选路径 1（OrcaStudio 缓存） | 候选路径 2（OrcaLab Euler_asset） |
+|------|------------------------------|-----------------------------------|
+| G1 人形机器人（带相机） | `assets/prefabs/g1_29dof_camera_usda` | `assets/e071469a36d3c8aa/default_project/prefabs/g1_29dof_camera_usda` |
+| 障碍物 - box | `assets/prefabs/obstacle_box_usda` | `assets/e071469a36d3c8aa/default_project/prefabs/obstacle_box_usda` |
+| 障碍物 - capsule | `assets/prefabs/obstacle_capsule_usda` | `assets/e071469a36d3c8aa/default_project/prefabs/obstacle_capsule_usda` |
+| 障碍物 - cylinder | `assets/prefabs/obstacle_cylinder_usda` | `assets/e071469a36d3c8aa/default_project/prefabs/obstacle_cylinder_usda` |
+| 障碍物 - sphere | `assets/prefabs/obstacle_sphere_usda` | `assets/e071469a36d3c8aa/default_project/prefabs/obstacle_sphere_usda` |
+
+**订阅步骤**：
+
+1. 打开 OrcaStudio/OrcaLab
+2. 进入资产商店 / 资产管理，搜索并订阅 **Euler_asset** 资产包
+3. 等待资产导入完成（spawnable 出现在上述路径之一）
+4. 加载一个**空关卡**（不含 G1），点击运行
+5. 运行 `python examples/euler/08_video_capture/video_capture.py`
+
+> 若两种候选路径均不可用，脚本会抛出错误提醒并列出已尝试路径，请回到第 2 步确认
+> Euler_asset 已订阅并导入。
 
 ### 3. 验证安装
 
@@ -291,3 +317,21 @@ python -c "import stable_baselines3; print('sb3:', stable_baselines3.__version__
 同目录 `from simple_env import ...`（第 1-3 课）或 `from g1_base_env import ...`
 （第 4-9 课）可直接生效，无需额外 `PYTHONPATH`。若仍报此错，请确认使用的是迁移后
 的脚本（位于 `examples/euler/0X_*/`），而非旧的 `envs/euler/` 路径。
+
+### Q6：第 8 课运行报错 "所有 spawnable 候选路径均失败"
+
+**原因**：第 8 课通过 `OrcaGymScene.add_actor` 在线 spawn G1 + 50 个障碍物，所需的
+spawnable 资产由 **Euler_asset 资产包** 提供。脚本按顺序尝试两种候选路径：
+`assets/prefabs/<name>_usda`（OrcaStudio 缓存）与
+`assets/e071469a36d3c8aa/default_project/prefabs/<name>_usda`（OrcaLab Euler_asset）。
+若两者均不可用，spawn 阶段会失败并抛出 `RuntimeError`。
+
+**解决**：
+
+1. 在 OrcaStudio/OrcaLab 中订阅 **Euler_asset** 资产包（详见"环境准备 → 订阅
+   Euler_asset 资产包"小节）
+2. 等待资产导入完成，确认错误信息中列出的候选路径至少有一个可用
+3. 重新加载空关卡并运行脚本
+
+> 错误信息会列出每个候选路径的失败原因，便于定位是路径错误、资产未导入，还是
+> OrcaStudio/OrcaLab 连接问题。

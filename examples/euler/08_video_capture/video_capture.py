@@ -25,14 +25,12 @@
 > EulerEnv 的 ``LoadLocalEnv`` 从场景生成 MJCF 用于仿真控制。
 
 用法:
-    # 1. 先启动 OrcaStudio 并加载一个**空关卡**（无 G1），点击运行
-    # 2. 在 OrcaStudio 中导入障碍物 mjcf 文件，生成 spawnable actor：
-    #      assets/scenes/obstacle_box.xml
-    #      assets/scenes/obstacle_capsule.xml
-    #      assets/scenes/obstacle_cylinder.xml
-    #      assets/scenes/obstacle_sphere.xml
-    #    （导入后默认生成在 prefabs 目录，文件名加 _usda 后缀，
-    #     即 assets/prefabs/obstacle_<type>_usda，与 G1 路径风格一致）
+    # 1. 先启动 OrcaStudio/OrcaLab 并加载一个**空关卡**（无 G1），点击运行
+    # 2. 在 OrcaStudio/OrcaLab 中订阅 Euler_asset 资产包（含 G1 与障碍物 spawnable）
+    #    脚本自动按顺序尝试两种 spawnable 路径，任一可用即可：
+    #      - OrcaStudio 缓存：assets/prefabs/<name>_usda
+    #      - OrcaLab Euler_asset：assets/e071469a36d3c8aa/default_project/prefabs/<name>_usda
+    #    两者均不可用时脚本抛出错误提醒，提示订阅 Euler_asset 资产包
     # 3. 运行脚本（脚本会自动通过 add_actor 加载 G1 + 50 个障碍物）
     python examples/euler/08_video_capture/video_capture.py
 
@@ -57,6 +55,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import sys
 import time
@@ -73,9 +72,15 @@ from online_verifier import OnlineVerifier
 from video_capture_env import VideoCaptureEnv
 
 # G1 spawnable 配置
-# Studio 资产缓存路径（去掉 .spawnable 扩展名），对应文件：
-#   Cache/linux/assets/prefabs/g1_29dof_camera_usda.spawnable
-G1_SPAWNABLE_PATH = "assets/prefabs/g1_29dof_camera_usda"
+# spawnable 资产路径候选（去掉 .spawnable 扩展名），按顺序尝试，任一可用即可：
+#   [0] OrcaStudio 缓存路径（assets/prefabs/g1_29dof_camera_usda）
+#   [1] OrcaLab Euler_asset 路径
+#       （assets/e071469a36d3c8aa/default_project/prefabs/g1_29dof_camera_usda）
+# 均失败时 spawn_scene 抛出错误提醒，提示订阅 Euler_asset 资产包
+G1_SPAWNABLE_PATHS: list[str] = [
+    "assets/prefabs/g1_29dof_camera_usda",
+    "assets/e071469a36d3c8aa/default_project/prefabs/g1_29dof_camera_usda",
+]
 # AddActor name 与 spawnable name 一致，确保与 EulerEnv 场景扫描的 agent_name 匹配
 G1_ACTOR_NAME = "g1_29dof_camera_usda"
 
@@ -134,62 +139,128 @@ def spawn_scene(orcagym_addr: str, spawn_obstacles: bool = True) -> None:
     3. publish_scene() 触发 spawn，填充 m_spawnedEntities
     4. set_material_info() 为障碍物设置随机颜色（spawn 后 actor 已存在）
 
-    spawn 后 Studio 端：
-    - m_spawnedEntities[G1_ACTOR_NAME] = containerEntityId
-    - CameraCaptureComponent::Activate → InitCameraSensor → RegisterCameraComponent
-    - 随后 SetCameraSensorInfo 能找到 actor 并激活 RGB/depth 流
+    spawnable 路径双候选回退（OrcaStudio 缓存优先，OrcaLab Euler_asset 兜底）：
+    按候选路径索引顺序尝试。每个索引对应一次独立的 OrcaGymScene 连接：先 publish_scene
+    清空，再 add_actor 注册 G1 + 障碍物，最后 publish_scene 触发 spawn。任一索引完整
+    成功即返回；所有索引均失败时抛出 RuntimeError，提示订阅 Euler_asset 资产包。
 
     publish_scene 会触发 Studio 端 MuJoCo grpc server 重启，立即创建 env
     会因 server 未就绪而失败（LoadLocalEnv: MuJoCo has not been initialized）。
-    因此 publish 后等待 3 秒让 server 完成重启，并暂停引导用户确认场景已出现在
+    因此 spawn 后等待 3 秒让 server 完成重启，并暂停引导用户确认场景已出现在
     Studio 视口中，再继续创建 EulerEnv。
     """
-    import time
-
     from orca_gym.scene.orca_gym_scene import Actor, OrcaGymScene
+    from obstacle_spawner import (
+        EULER_ASSET_SUBSCRIBE_HINT,
+        generate_obstacle_layout,
+        set_obstacle_colors,
+        spawn_obstacles,
+    )
 
-    scene = OrcaGymScene(grpc_addr=orcagym_addr)
-    try:
-        scene.publish_scene()
+    # 上游 OrcaGym 的 _add_actor 在失败时会用 ERROR 级别 logger 打印大段诊断信息。
+    # 双候选回退时单个候选失败属于正常切换流程，不应刷屏；仅在所有候选均失败时
+    # 统一抛错并恢复日志级别。这里临时把上游 logger（单例，名为 "OrcaGym"）及其
+    # console handler 调到 CRITICAL 静音。
+    _og_scene_logger = logging.getLogger("OrcaGym")
+    _orig_logger_level = _og_scene_logger.level
+    _og_scene_logger.setLevel(logging.CRITICAL)
+    _og_handler_levels: list[tuple[logging.Handler, int]] = []
+    for _h in _og_scene_logger.handlers:
+        _og_handler_levels.append((_h, _h.level))
+        _h.setLevel(logging.CRITICAL)
 
-        # G1
-        g1_actor = Actor(
-            name=G1_ACTOR_NAME,
-            asset_path=G1_SPAWNABLE_PATH,
-            position=np.array([0.0, 0.0, 0.0]),
-            rotation=np.array([0.0, 0.0, 0.0, 1.0]),
-            scale=1.0,
-        )
-        scene.add_actor(g1_actor)
+    obstacle_specs = generate_obstacle_layout() if spawn_obstacles else None
+    num_candidates = len(G1_SPAWNABLE_PATHS)
+    errors: list[str] = []
+    connection_failed = False  # gRPC 连接类失败（与资产包无关，单独提示）
+    spawned = False
 
-        # 障碍物（50 个静态几何体，环形分布在 5-10m 区域）
-        obstacle_specs = None
-        if spawn_obstacles:
-            from obstacle_spawner import (
-                generate_obstacle_layout,
-                spawn_obstacles,
-                set_obstacle_colors,
+    for idx in range(num_candidates):
+        g1_path = G1_SPAWNABLE_PATHS[idx]
+        scene = OrcaGymScene(grpc_addr=orcagym_addr)
+        try:
+            # 清空已有 spawned entity
+            scene.publish_scene()
+
+            # G1
+            g1_actor = Actor(
+                name=G1_ACTOR_NAME,
+                asset_path=g1_path,
+                position=np.array([0.0, 0.0, 0.0]),
+                rotation=np.array([0.0, 0.0, 0.0, 1.0]),
+                scale=1.0,
             )
-            obstacle_specs = generate_obstacle_layout()
-            spawn_obstacles(scene, obstacle_specs)
-            print(f"[INFO] 已注册 G1 + {len(obstacle_specs)} 个障碍物到场景")
+            scene.add_actor(g1_actor)
 
-        # 触发 spawn
-        scene.publish_scene()
+            # 障碍物（50 个静态几何体，环形分布在 5-10m 区域）
+            if obstacle_specs:
+                spawn_obstacles(scene, obstacle_specs, path_index=idx)
 
-        # spawn 后为障碍物设置颜色（actor 已存在于 m_spawnedEntities）
-        if obstacle_specs:
-            set_obstacle_colors(scene, obstacle_specs)
-            print(f"[INFO] 已为 {len(obstacle_specs)} 个障碍物设置随机颜色")
-    finally:
-        scene.close()
+            # 触发 spawn
+            scene.publish_scene()
+
+            # spawn 后为障碍物设置颜色（actor 已存在于 m_spawnedEntities）
+            if obstacle_specs:
+                set_obstacle_colors(scene, obstacle_specs)
+            print(f"[INFO] 已加载 G1"
+                  + (f" + {len(obstacle_specs)} 个障碍物" if obstacle_specs else "")
+                  + f"（候选路径 #{idx}: {g1_path}）")
+            if obstacle_specs:
+                print(f"[INFO] 已为 {len(obstacle_specs)} 个障碍物设置随机颜色")
+            spawned = True
+            break
+        except Exception as e:
+            # 单个候选失败时静默记录，仅在所有候选均失败时统一报错。
+            # 区分两类失败：
+            #   - 连接类（gRPC UNAVAILABLE / Connection refused）：OrcaStudio/OrcaLab
+            #     未启动或端口不通，与资产包无关，只标记一次，不记录资产路径字眼。
+            #   - 其他（如 Spawnable name not found）：资产问题，提示订阅资产包。
+            err_str = str(e)
+            is_conn_err = (
+                "Connection refused" in err_str
+                or "failed to connect to all addresses" in err_str
+                or "grpc_status:14" in err_str
+            )
+            if is_conn_err:
+                connection_failed = True
+            else:
+                errors.append(f"候选 #{idx} '{g1_path}': {err_str}")
+        finally:
+            try:
+                scene.close()
+            except Exception:
+                pass
+
+    # 恢复上游 logger 及 handler 级别；若所有候选均失败，恢复后再抛错以便用户看到完整 traceback
+    _og_scene_logger.setLevel(_orig_logger_level)
+    for _h, _lvl in _og_handler_levels:
+        _h.setLevel(_lvl)
+
+    if not spawned:
+        target = "G1 与障碍物" if spawn_obstacles else "G1"
+        # 连接失败：不提及资产，只提示启动 OrcaStudio/OrcaLab
+        if connection_failed:
+            raise RuntimeError(
+                f"无法连接 OrcaStudio/OrcaLab gRPC 服务（{orcagym_addr}）"
+                "请确认 OrcaStudio/OrcaLab 已启动、已点击运行，且 gRPC 端口监听正常。"
+            )
+        # 仅资产类失败才提示订阅 Euler_asset
+        raise RuntimeError(
+            f"所有 spawnable 候选路径均失败，无法加载 {target}。\n"
+            "已尝试:\n"
+            + "\n".join(f"  - {e}" for e in errors)
+            + "\n"
+            + EULER_ASSET_SUBSCRIBE_HINT
+        )
 
     # publish_scene 触发 Studio 端 MuJoCo grpc server 重启，等待其完成初始化
     print("[INFO] 等待 3 秒，让 Studio 端 MuJoCo grpc server 完成重启...")
     time.sleep(3)
-    _wait_for_keypress(
-        "请在 OrcaStudio 视口中确认 G1 机器人 + 障碍物已出现在场景中"
-    )
+    if spawn_obstacles:
+        prompt = "请在 OrcaStudio 视口中确认 G1 机器人 + 障碍物已出现在场景中"
+    else:
+        prompt = "请在 OrcaStudio 视口中确认 G1 机器人已出现在场景中"
+    _wait_for_keypress(prompt)
 
 
 def parse_args() -> argparse.Namespace:

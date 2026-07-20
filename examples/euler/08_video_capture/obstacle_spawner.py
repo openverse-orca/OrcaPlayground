@@ -14,13 +14,13 @@
     能充分展示实例分割效果。
 
 前置操作：
-    用户需先在 OrcaStudio 中导入以下 mjcf 文件，生成 spawnable actor：
-        assets/scenes/obstacle_box.xml
-        assets/scenes/obstacle_capsule.xml
-        assets/scenes/obstacle_cylinder.xml
-        assets/scenes/obstacle_sphere.xml
-    导入后 spawnable 路径默认为 assets/scenes/obstacle_<type>，
-    若 Studio 实际生成路径不同，修改下方 OBSTACLE_SPAWNABLES 配置。
+    需在 OrcaStudio/OrcaLab 中订阅 Euler_asset 资产包（含障碍物 spawnable）。
+    脚本自动按以下顺序尝试 spawnable 路径，任一可用即可：
+      1. OrcaStudio 缓存路径：assets/prefabs/obstacle_<type>_usda
+      2. OrcaLab Euler_asset 路径：
+         assets/e071469a36d3c8aa/default_project/prefabs/obstacle_<type>_usda
+    两者均不可用时，由调用方（video_capture.spawn_scene）抛出错误提醒，
+    提示用户订阅 Euler_asset 资产包。
 """
 
 from __future__ import annotations
@@ -32,16 +32,32 @@ import numpy as np
 
 from orca_gym.scene.orca_gym_scene import Actor, MaterialInfo, OrcaGymScene
 
+# Euler_asset 资产包订阅提示（所有候选路径均失败时由调用方输出）
+EULER_ASSET_SUBSCRIBE_HINT = (
+    "请确认已在 OrcaStudio/OrcaLab 中订阅 Euler_asset 资产包"
+    "（含 G1 与障碍物 spawnable），并已完成资产导入。"
+)
+
 # 4 种基础几何体 spawnable 配置
-# path:     spawnable 资产路径（去掉 .spawnable 扩展名）
-#           mjcf 导入 Studio 后默认生成在 prefabs 目录，文件名加 _usda 后缀，
-#           与 G1 路径（assets/prefabs/g1_29dof_camera_usda）一致
+# paths:       spawnable 资产路径候选列表（去掉 .spawnable 扩展名），按顺序尝试：
+#              [0] OrcaStudio 缓存路径（assets/prefabs/<name>_usda）
+#              [1] OrcaLab Euler_asset 路径
+#                  （assets/e071469a36d3c8aa/default_project/prefabs/<name>_usda）
+#              任一可用即可；均失败时由调用方抛错提示订阅资产包
 # half_height: scale=1 时 geom 中心到地面距离（用于 z 定位，让物体坐落在地面）
 OBSTACLE_SPAWNABLES: dict[str, dict] = {
-    "box":      {"path": "assets/prefabs/obstacle_box_usda",      "half_height": 0.25},
-    "capsule":  {"path": "assets/prefabs/obstacle_capsule_usda",  "half_height": 0.50},
-    "cylinder": {"path": "assets/prefabs/obstacle_cylinder_usda", "half_height": 0.40},
-    "sphere":   {"path": "assets/prefabs/obstacle_sphere_usda",   "half_height": 0.25},
+    "box":      {"paths": ["assets/prefabs/obstacle_box_usda",
+                           "assets/e071469a36d3c8aa/default_project/prefabs/obstacle_box_usda"],
+                 "half_height": 0.25},
+    "capsule":  {"paths": ["assets/prefabs/obstacle_capsule_usda",
+                           "assets/e071469a36d3c8aa/default_project/prefabs/obstacle_capsule_usda"],
+                 "half_height": 0.50},
+    "cylinder": {"paths": ["assets/prefabs/obstacle_cylinder_usda",
+                           "assets/e071469a36d3c8aa/default_project/prefabs/obstacle_cylinder_usda"],
+                 "half_height": 0.40},
+    "sphere":   {"paths": ["assets/prefabs/obstacle_sphere_usda",
+                           "assets/e071469a36d3c8aa/default_project/prefabs/obstacle_sphere_usda"],
+                 "half_height": 0.25},
 }
 
 # 布局参数
@@ -56,7 +72,7 @@ SCALE_MAX = 1.5       # 缩放上限（基础 0.5-0.8m × 1.5 ≈ 0.75-1.2m）
 class ObstacleSpec:
     """单个障碍物的生成规格。"""
     name: str
-    spawnable_path: str
+    spawnable_paths: list[str]  # 候选 spawnable 路径（按顺序尝试，任一可用即可）
     position: np.ndarray
     rotation: np.ndarray
     scale: float
@@ -101,7 +117,7 @@ def generate_obstacle_layout(seed: int = 42) -> list[ObstacleSpec]:
 
         specs.append(ObstacleSpec(
             name=f"obstacle_{obs_type}_{i:02d}",
-            spawnable_path=cfg["path"],
+            spawnable_paths=list(cfg["paths"]),
             position=np.array([x, y, z]),
             rotation=quat,
             scale=scale,
@@ -111,8 +127,12 @@ def generate_obstacle_layout(seed: int = 42) -> list[ObstacleSpec]:
     return specs
 
 
-def spawn_obstacles(scene: OrcaGymScene, specs: list[ObstacleSpec]) -> None:
-    """将障碍物 add_actor 到场景，并在 spawn 后设置颜色。
+def spawn_obstacles(
+    scene: OrcaGymScene,
+    specs: list[ObstacleSpec],
+    path_index: int = 0,
+) -> None:
+    """将障碍物 add_actor 到场景（使用指定候选路径索引）。
 
     必须在 scene.publish_scene() 清空之后、spawn 用的 publish_scene() 之前
     调用 add_actor；颜色设置需在 spawn 之后（actor 已存在于 m_spawnedEntities）。
@@ -120,14 +140,19 @@ def spawn_obstacles(scene: OrcaGymScene, specs: list[ObstacleSpec]) -> None:
     本函数仅负责 add_actor，不触发 publish_scene，由调用方统一编排 publish 时序。
     颜色设置也由调用方在 publish_scene spawn 后调用 set_obstacle_colors。
 
+    路径选择由调用方在候选路径间切换（见 spec.spawnable_paths），本函数不做回退，
+    统一用 spec.spawnable_paths[path_index] 拼接 asset_path。add_actor 失败时向上
+    抛出，由调用方捕获后切换 path_index 重试。
+
     Args:
         scene: OrcaGymScene 实例。
         specs: ObstacleSpec 列表。
+        path_index: 候选路径索引（0=OrcaStudio 缓存，1=OrcaLab Euler_asset）。
     """
     for spec in specs:
         actor = Actor(
             name=spec.name,
-            asset_path=spec.spawnable_path,
+            asset_path=spec.spawnable_paths[path_index],
             position=spec.position,
             rotation=spec.rotation,
             scale=spec.scale,

@@ -52,16 +52,21 @@ OrcaPlayground/assets/g1/models/dec_loco/model_6600.onnx  # 行走策略 ONNX
 
 ### 2.3 障碍物 spawnable（可选，默认启用）
 
-脚本会自动通过 `add_actor` 加载 50 个障碍物（环形分布在 5–10m 区域）。需先在
-OrcaStudio/OrcaLab 中导入以下 mjcf 文件生成 spawnable actor（导入后默认生成在 prefabs 目录，
-文件名加 `_usda` 后缀）：
+脚本会自动通过 `add_actor` 加载 50 个障碍物（环形分布在 5–10m 区域）。所需的 spawnable
+资产由 **Euler_asset 资产包** 提供，需先在 OrcaStudio/OrcaLab 中订阅该资产包
+（订阅步骤见 [TUTORIAL.md → 订阅 Euler_asset 资产包](../TUTORIAL.md)）。
 
-```
-assets/scenes/obstacle_box.xml
-assets/scenes/obstacle_capsule.xml
-assets/scenes/obstacle_cylinder.xml
-assets/scenes/obstacle_sphere.xml
-```
+脚本自动按顺序尝试两种 spawnable 路径，任一可用即可：
+
+| 资产 | 候选路径 1（OrcaStudio 缓存） | 候选路径 2（OrcaLab Euler_asset） |
+|------|------------------------------|-----------------------------------|
+| box | `assets/prefabs/obstacle_box_usda` | `assets/e071469a36d3c8aa/default_project/prefabs/obstacle_box_usda` |
+| capsule | `assets/prefabs/obstacle_capsule_usda` | `assets/e071469a36d3c8aa/default_project/prefabs/obstacle_capsule_usda` |
+| cylinder | `assets/prefabs/obstacle_cylinder_usda` | `assets/e071469a36d3c8aa/default_project/prefabs/obstacle_cylinder_usda` |
+| sphere | `assets/prefabs/obstacle_sphere_usda` | `assets/e071469a36d3c8aa/default_project/prefabs/obstacle_sphere_usda` |
+
+> 若两种候选路径均不可用，脚本会抛出错误提醒并列出已尝试路径，请确认 Euler_asset
+> 已订阅并导入。
 
 > 若仅想快速测试（不加载障碍物），可加 `--no-obstacles` 参数。
 
