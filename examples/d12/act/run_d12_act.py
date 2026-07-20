@@ -39,9 +39,9 @@ if PROJECT_ROOT not in sys.path:
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
-from envs.d12.act_policy import ACTPolicy
-from envs.d12.configs.d12_robot_config import d12_robot_config
-from envs.d12.d12_env import D12Env
+from examples.d12.act_policy import ACTPolicy
+from examples.d12.configs.d12_robot_config import d12_robot_config
+from examples.d12.d12_env import D12Env
 
 from orca_gym.log.orca_log import get_orca_logger
 

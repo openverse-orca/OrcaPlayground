@@ -23,9 +23,9 @@ import json
 from orca_gym.utils import rotations
 from examples.legged_gym.scripts.scene_util import generate_height_map_file
 from orca_gym.devices.keyboard import KeyboardInput, KeyboardInputSourceType
-from envs.legged_gym.legged_sim_env import LeggedSimEnv
-from envs.legged_gym.legged_config import LeggedRobotConfig, LeggedObsConfig, CurriculumConfig, LeggedEnvConfig
-from envs.legged_gym.robot_locator import locate_scene_robot
+from examples.legged_gym.legged_sim_env import LeggedSimEnv
+from examples.legged_gym.legged_config import LeggedRobotConfig, LeggedObsConfig, CurriculumConfig, LeggedEnvConfig
+from examples.legged_gym.robot_locator import locate_scene_robot
 
 from examples.legged_gym.scripts.grpc_client import GrpcInferenceClient, create_grpc_client
 
@@ -253,7 +253,7 @@ def register_env(orcagym_addr : str,
                 }
     gym.register(
         id=env_id,
-        entry_point='envs.legged_gym.legged_sim_env:LeggedSimEnv',
+        entry_point='examples.legged_gym.legged_sim_env:LeggedSimEnv',
         kwargs=kwargs,
         max_episode_steps= max_episode_steps,
         reward_threshold=0.0,

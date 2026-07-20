@@ -14,7 +14,7 @@ import gymnasium as gym
 from orca_gym.scene.orca_gym_scene import OrcaGymScene
 from orca_gym.scene.orca_gym_scene_runtime import OrcaGymSceneRuntime
 
-from envs.common.model_scanner import (
+from examples._common.model_scanner import (
     build_suffix_template,
     require_complete_matches,
     scan_scene_for_template,
@@ -24,7 +24,7 @@ _logger = get_orca_logger(console_level="WARNING", file_level="INFO", force_rein
 
 
 ENV_ENTRY_POINT = {
-    "Character": "envs.character.character_env:CharacterEnv",
+    "Character": "examples.character.character_env:CharacterEnv",
 }
 
 TIME_STEP = 0.001

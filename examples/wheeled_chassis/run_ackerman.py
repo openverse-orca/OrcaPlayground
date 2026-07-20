@@ -12,7 +12,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from envs.common.model_scanner import (
+from examples._common.model_scanner import (
     build_suffix_template,
     require_complete_matches,
     scan_scene_for_template,
@@ -47,7 +47,7 @@ def sceneinfo(
 
 
 ENV_ENTRY_POINT = {
-    "Ackerman": "envs.wheeled_chassis.ackerman_env:AckermanEnv",
+    "Ackerman": "examples.wheeled_chassis.ackerman_env:AckermanEnv",
 }
 
 TIME_STEP = 0.001

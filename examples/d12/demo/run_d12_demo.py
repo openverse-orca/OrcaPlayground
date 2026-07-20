@@ -24,20 +24,20 @@ if PROJECT_ROOT not in sys.path:
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
-from envs.d12.scripts.pose_resolver import (
+from examples.d12.scripts.pose_resolver import (
     build_segmented_trajectory,
     dump_object_poses,
     load_pose_spec_from_file,
     resolve_pose_spec_for_current_scene,
 )
-from envs.d12.scripts.object_randomizer import (
+from examples.d12.scripts.object_randomizer import (
     advance_rand_spec_seed,
     apply_object_randomization,
     load_rand_spec_from_file,
 )
-from envs.d12.configs.d12_robot_config import d12_robot_config
+from examples.d12.configs.d12_robot_config import d12_robot_config
 
-from envs.d12.d12_env import D12Env
+from examples.d12.d12_env import D12Env
 from orca_gym.log.orca_log import get_orca_logger
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

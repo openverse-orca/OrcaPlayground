@@ -50,9 +50,9 @@ project_root = os.path.dirname(os.path.dirname(current_file_dir))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from envs.fluid import run_simulation_with_config
-from envs.fluid.launch.fluid_session import run_particle_playback_from_config
-from envs.fluid.launch.sph_config import setup_python_logging
+from examples.fluid import run_simulation_with_config
+from examples.fluid.launch.fluid_session import run_particle_playback_from_config
+from examples.fluid.launch.sph_config import setup_python_logging
 
 # Performance stats related imports
 import subprocess

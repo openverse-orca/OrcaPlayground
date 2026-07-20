@@ -89,7 +89,7 @@ python -c "import gymnasium; print(f'gymnasium: {gymnasium.__version__}')"
 python -c "import mujoco; print(f'mujoco: {mujoco.__version__}')"
 python -c "import ray; print(f'Ray {ray.__version__}')"
 python -c "import torch; print(f'PyTorch {torch.__version__}, CUDA: {torch.cuda.is_available()}')"
-python -c "from envs.legged_gym.legged_config import LeggedRobotConfig; print(f'Robots: {list(LeggedRobotConfig.keys())}')"
+python -c "from examples.legged_gym.legged_config import LeggedRobotConfig; print(f'Robots: {list(LeggedRobotConfig.keys())}')"
 ```
 
 ## 🧭 两条训练链路一览

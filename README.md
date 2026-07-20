@@ -100,17 +100,9 @@ python examples/fluid/run_fluid_sim.py
 
 ```
 OrcaPlayground/
-├── envs/                  # 环境定义模块（参考实现，详见 envs/README.md）
-│   ├── legged_gym/        #   足式机器人（SB3 / RLlib 训练 + 交互仿真）
-│   ├── franka_rl/         #   Franka 多机械臂（SB3 + HER 训练）
-│   ├── manipulation/      #   单/双臂操作环境
-│   ├── drone/             #   无人机推力环境
-│   ├── fluid/             #   SPH 流体耦合仿真
-│   ├── character/         #   人形角色动画
-│   ├── wheeled_chassis/   #   差速 / 阿克曼底盘
-│   ├── g1/  zq_sa01/  xbot_gym/  # 人形 / 四足机器人环境
-│   └── common/            #   场景模型扫描等公共工具
-├── examples/              # 示例代码目录
+├── examples/              # 示例代码目录（每个样例自包含 env 子类 + 入口脚本）
+│   ├── _common/           #   公共工具（场景模型扫描等）
+│   ├── _archived/         #   归档样例（基于旧范式，后续复活需迁移至新体系）
 │   ├── character/         # 角色仿真（含 README.md）
 │   ├── legged_gym/        # 足式机器人 RL 训练 + 交互仿真（含 README.md）
 │   ├── wheeled_chassis/   # 轮式底盘：差速 + 阿克曼（含 README.md）
@@ -121,9 +113,10 @@ OrcaPlayground/
 │   ├── drone_driver/      # 无人机推力驱动仿真（含 README.md）
 │   ├── zq_sa01/           # ZQ SA01 人形（含 README.md）
 │   ├── g1/                # G1 人形（含 README.md）
+│   ├── mujoco/            # MuJoCo 原生 env（AntOrcaGymEnv，供 legged_gym 注册引用）
 │   ├── orca_locomotion/   # OrcaLocomotion：Go2 / G1 策略回放（含 README.md）
 │   ├── replicator/        # 场景复制：Actor / Light（含 README.md）
-│   └── fluid/             # 流体仿真（含 README.md）
+│   └── fluid/             # 流体仿真（含 README.md，含 fluid_stats 子模块）
 ├── .orcalab/              # OrcaLab 配置文件
 │   └── config.toml        # 外部程序配置
 └── requirements.txt       # Python 基础依赖
