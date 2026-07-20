@@ -358,9 +358,9 @@ class BasePolicy:
         elif keycode == "d" and self.stand_command[0, 0]:
             self.lin_vel_command[0, 1]-=0.1
         elif keycode == "q":
-            self.ang_vel_command[0, 0]-=0.1
-        elif keycode == "e":
             self.ang_vel_command[0, 0]+=0.1
+        elif keycode == "e":
+            self.ang_vel_command[0, 0]-=0.1
         elif keycode == "z":
             self.ang_vel_command[0, 0] = 0.
             self.lin_vel_command[0, 0] = 0.
