@@ -1,4 +1,4 @@
-from orca_gym.environment.orca_gym_local_env import OrcaGymLocalEnv
+from orca_gym.environment.euler.orca_gym_euler_env import OrcaGymEulerEnv
 import yaml
 from orca_gym.devices.keyboard import KeyboardInput, KeyboardInputSourceType
 import os
@@ -12,7 +12,7 @@ _logger = get_orca_logger()
 
 class Character():
     def __init__(self, 
-        env: OrcaGymLocalEnv, 
+        env: OrcaGymEulerEnv, 
         agent_name: str,
         agent_id: int,
         character_name: str,

@@ -3,7 +3,7 @@ from gymnasium.core import ObsType
 from orca_gym.utils import rotations
 from typing import Optional, Any, SupportsFloat
 from gymnasium import spaces
-from orca_gym.environment.orca_gym_local_env import OrcaGymLocalEnv
+from orca_gym.environment.euler.orca_gym_euler_env import OrcaGymEulerEnv
 from .character import Character
 from orca_gym.scene.orca_gym_scene_runtime import OrcaGymSceneRuntime
 
@@ -11,7 +11,7 @@ from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()
 
 
-class CharacterEnv(OrcaGymLocalEnv):
+class CharacterEnv(OrcaGymEulerEnv):
     """
     A class to represent the ORCA Gym environment for the animation character.
     """

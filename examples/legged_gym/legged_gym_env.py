@@ -18,7 +18,7 @@ from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()
 
 
-class LeggedGymEnv(OrcaGymAsyncEnv):
+class LeggedGymEnv(OrcaGymAsyncEnv):  # TODO(euler-migration): 待 Euler 异步路径后改为 OrcaGymEulerEnv
     metadata = {'render_modes': ['human', 'none'], 'version': '0.0.1', 'render_fps': 30}
 
     def __init__(

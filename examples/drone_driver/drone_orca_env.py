@@ -91,7 +91,7 @@ class RotorSpec:
     spin_sign: float
 
 
-class DroneOrcaEnv(OrcaGymLocalEnv):
+class DroneOrcaEnv(OrcaGymEulerEnv):
     """自由飞行刚体：旋翼关节仅动画。
 
     - **vertical_z_only**：世界 +Z 标量推力（经体轴换算写入 xfrc），可选 WASD 世界系水平力；姿态可锁。
@@ -257,7 +257,7 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         )
         self._aero = replace(self._model_profile.aero, vertical_z_only=vz_cfg)
 
-        subtree_mass = float(self.gym._mjModel.body_subtreemass[self._frame_body_id])
+        subtree_mass = float(self.data.body_subtree_mass(self._frame_body))
         full_cfg = self._model_profile.full_mode
         # 与 subtree 重力平衡；略高会持续爬升。接触/地面效应可用键盘垂直通道微调。
         self._hover_thrust = subtree_mass * 9.81
@@ -555,7 +555,7 @@ class DroneOrcaEnv(OrcaGymLocalEnv):
         self.set_joint_qvel({self._free_joint: np.zeros(6, dtype=np.float64)})
         self.mj_forward()
         self.gym.update_data()
-        self._takeoff_z_ref = float(self.gym._mjData.xpos[self._frame_body_id, 2])
+        self._takeoff_z_ref = float(self.data.body_xpos(self._frame_body)[2])
         if self._reset_height_offset_m > 0.0:
             self._diag_warning(
                 f"[DroneOrcaEnv] reset 后 frame z={self._takeoff_z_ref:.4f}m "

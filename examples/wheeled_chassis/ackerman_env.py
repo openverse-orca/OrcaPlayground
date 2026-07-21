@@ -15,7 +15,7 @@ from orca_gym.environment.orca_gym_local_env import OrcaGymLocalEnv
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 
 
-class AckermanEnv(OrcaGymLocalEnv):
+class AckermanEnv(OrcaGymEulerEnv):
     """
     A class to represent the ORCA Gym environment for the Replicator scene.
     """

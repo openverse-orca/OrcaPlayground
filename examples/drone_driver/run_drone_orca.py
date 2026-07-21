@@ -384,10 +384,10 @@ def run_takeoff_bisection(
             raw.set_vertical_fixed_thrust_over_hover(ratio)
             env.reset()
             z0 = raw.get_vertical_takeoff_z_reference()
-            while float(raw.gym._mjData.time) < bisect_hold_s:
+            while float(raw.data.time) < bisect_hold_s:
                 env.step(dummy_action)
                 env.render()
-            z1 = float(raw.gym._mjData.xpos[raw._frame_body_id, 2])
+            z1 = float(raw.data.body_xpos(raw._frame_body)[2])
             return (z1 - z0) >= bisect_dz_m
 
         _logger.warning(

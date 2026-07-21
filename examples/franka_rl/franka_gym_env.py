@@ -64,7 +64,7 @@ class FrankaGymEnv(OrcaGymAsyncEnv):
             base_info = body_dict.get(agent.base_body_name, {})
             base_id = base_info.get('BodyId', base_info.get('ID'))
             if base_id is not None:
-                agent._base_xpos = self.gym._mjData.body(base_id).xpos.copy()
+                agent._base_xpos = self.data.body_xpos(agent.base_body_name).copy()
 
     @property
     def agents(self) -> list[FrankaAgent]:

@@ -11,7 +11,7 @@ from collections import deque
 from typing import Optional, Tuple, Dict
 from gymnasium import spaces
 
-from orca_gym.environment.orca_gym_local_env import OrcaGymLocalEnv
+from orca_gym.environment.euler.orca_gym_euler_env import OrcaGymEulerEnv
 
 from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()
@@ -63,7 +63,7 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
         
         # 简单检查timestep
         if self.verbose:
-            actual_timestep = self.gym._mjModel.opt.timestep
+            actual_timestep = self.sim_config.timestep
             _logger.performance(f"[XBotSimpleEnv] Physics timestep: {actual_timestep}s ({1.0/actual_timestep:.0f}Hz)")
         
         _logger.info(f"[XBotSimpleEnv] Using humanoid-gym PD gains: kp_max={np.max(self.kps)}, kd={self.kds[0]}, tau_limit={self.tau_limit}, action_scale={self.action_scale}, decimation={self.decimation}")

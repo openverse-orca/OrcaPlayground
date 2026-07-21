@@ -2,7 +2,7 @@ import numpy as np
 from datetime import datetime
 import math
 from gymnasium.core import ObsType
-from orca_gym.environment.async_env import OrcaGymAsyncAgent
+from orca_gym.environment.async_env import OrcaGymAsyncAgent  # TODO(euler-migration): Euler 体系无异步 agent 对应，待 OrcaGym 侧提供 Euler 异步路径后迁移
 from orca_gym.utils import rotations
 from orca_gym.utils.reward_printer import RewardPrinter
 from typing import Optional, Any, SupportsFloat
@@ -16,7 +16,7 @@ from .legged_utils import local2global, global2local, quat_angular_velocity, smo
 from orca_gym.utils.joint_controller import pd_control
 from numpy.linalg import norm, lstsq
 
-class LeggedRobot(OrcaGymAsyncAgent):
+class LeggedRobot(OrcaGymAsyncAgent):  # TODO(euler-migration): 待 Euler 异步路径后迁移
     def __init__(self, 
                  env_id: str,                 
                  agent_name: str, 

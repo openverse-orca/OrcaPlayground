@@ -1,8 +1,8 @@
 import numpy as np
-from orca_gym.environment.orca_gym_local_env import OrcaGymLocalEnv
+from orca_gym.environment.euler.orca_gym_euler_env import OrcaGymEulerEnv
 
 
-class D12Env(OrcaGymLocalEnv):
+class D12Env(OrcaGymEulerEnv):
 
     def __init__(
         self,
@@ -30,7 +30,7 @@ class D12Env(OrcaGymLocalEnv):
 
     def _get_obs(self) -> dict:
         return {
-            "qpos": np.array(self.gym._mjData.qpos, dtype=np.float32),
-            "qvel": np.array(self.gym._mjData.qvel, dtype=np.float32),
+            "qpos": np.array(self.data.qpos, dtype=np.float32),
+            "qvel": np.array(self.data.qvel, dtype=np.float32),
             "ctrl": np.array(self.ctrl, dtype=np.float32),
         }

@@ -185,7 +185,7 @@ class _AntAgent:
         self._env.set_joint_qpos({self._base_joint_name: body_qpos})
 
 
-class AntOrcaGymEnv(OrcaGymLocalEnv):
+class AntOrcaGymEnv(OrcaGymEulerEnv):
     """
     A class to represent the ORCA Gym environment for the Replicator scene.
     Supports single and multi-agent Ant configurations.

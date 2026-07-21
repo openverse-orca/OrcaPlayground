@@ -14,7 +14,7 @@ from examples.replicator.run_lights import LIGHT_COUNT
 _logger = get_orca_logger()
 
 
-class LightsEnv(OrcaGymLocalEnv):
+class LightsEnv(OrcaGymEulerEnv):
     """
     A class to represent the ORCA Gym environment for the Replicator scene.
     """

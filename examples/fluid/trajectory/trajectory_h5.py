@@ -94,11 +94,11 @@ def human_eq_indices(
     sph_names: FrozenSet[str],
 ) -> List[int]:
     """全局 eq 索引中排除任一端为 SPH 耦合 mocap 的约束。"""
-    mj = env.gym._mjModel
-    neq = int(mj.neq)
+    eq_list = env.model.get_eq_list()
+    neq = len(eq_list) if eq_list is not None else 0
     out: List[int] = []
     for i in range(neq):
-        if _eq_touches_sph(mj, i, sph_names):
+        if _eq_touches_sph(env.model, i, sph_names):
             continue
         out.append(i)
     return out
@@ -128,7 +128,7 @@ class TrajectoryRecorder:
         self._mocap_names = human_mocap_body_names(env, sph_names)
         self._eq_indices = human_eq_indices(env, sph_names)
         self._nu = int(env.model.nu)
-        self._eq_w = _eq_data_width(env.gym._mjModel)
+        self._eq_w = env.model.equality_data_width()
         self._K = len(self._mocap_names)
         self._E = len(self._eq_indices)
 
@@ -265,20 +265,15 @@ class TrajectoryRecorder:
         """在 env.step 成功之后调用。"""
         self._ensure_open()
         env = self._env
-        mj = env.gym._mjModel
-        d = env.gym._mjData
 
-        ctrl = np.array(d.ctrl[: self._nu], dtype=np.float32, copy=True)
+        ctrl = np.array(env.ctrl[: self._nu], dtype=np.float32, copy=True)
 
         mpos = np.zeros((self._K, 3), dtype=np.float32)
         mquat = np.zeros((self._K, 4), dtype=np.float32)
         for j, name in enumerate(self._mocap_names):
-            bid = env.model.body_name2id(name)
-            mid = int(mj.body_mocapid[bid])
-            if mid < 0:
-                raise RuntimeError(f"Body {name!r} is not a mocap body")
-            mpos[j] = d.mocap_pos[mid]
-            mquat[j] = d.mocap_quat[mid]
+            # TODO(euler-migration): 原 mj.body_mocapid[bid] 判断 mocap 有效性，Euler 无直接 API
+            mpos[j] = env.data.mocap_pos(name)
+            mquat[j] = env.data.mocap_quat(name)
 
         eq_a = np.zeros((self._E,), dtype=np.uint8)
         n1 = np.empty((self._E,), dtype=object)
@@ -348,7 +343,7 @@ class TrajectoryPlayer:
             )
 
         self._nu = int(g.attrs["nu"])
-        self._eq_w = int(g.attrs.get("eq_data_width", env.gym._mjModel.eq_data.shape[1]))
+        self._eq_w = int(g.attrs.get("eq_data_width", env.model.equality_data_width()))
         if "mocap_body_names_json" in g.attrs:
             self._mocap_names = json.loads(str(g.attrs["mocap_body_names_json"]))
         else:
@@ -394,15 +389,15 @@ class TrajectoryPlayer:
             raise ValueError(
                 f"Trajectory nu={self._nu} != env.model.nu={env.model.nu}"
             )
-        mj = env.gym._mjModel
-        if _eq_data_width(mj) != self._eq_w:
+        if env.model.equality_data_width() != self._eq_w:
             raise ValueError("Trajectory eq_data width mismatch vs current model")
         for name in self._mocap_names:
-            bid = env.model.body_name2id(name)
-            if int(mj.body_mocapid[bid]) < 0:
-                raise ValueError(f"Trajectory mocap body {name!r} missing or not mocap")
+            # TODO(euler-migration): 原 mj.body_mocapid[bid] 判断 mocap 有效性，Euler 无直接 API
+            pass
+        eq_list = env.model.get_eq_list()
+        neq = len(eq_list) if eq_list is not None else 0
         for gi in self._eq_indices:
-            if gi < 0 or gi >= mj.neq:
+            if gi < 0 or gi >= neq:
                 raise ValueError(f"Invalid recorded eq index {gi}")
 
     @property

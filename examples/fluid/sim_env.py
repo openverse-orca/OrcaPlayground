@@ -5,7 +5,7 @@ from typing import Any, Optional, Tuple
 
 import mujoco
 from gymnasium import spaces
-from orca_gym.environment.orca_gym_local_env import OrcaGymLocalEnv
+from orca_gym.environment.euler.orca_gym_euler_env import OrcaGymEulerEnv
 from orca_gym.log.orca_log import get_orca_logger
 
 from .trajectory.trajectory_frame import HumanTrajectoryStepConfig
@@ -15,7 +15,7 @@ _logger = get_orca_logger()
 TRAJ_LOG = logging.getLogger("examples.fluid.sim_env.trajectory")
 
 
-class SimEnv(OrcaGymLocalEnv):
+class SimEnv(OrcaGymEulerEnv):
     """
     A class to represent the ORCA Gym environment for the Replicator scene.
     """
@@ -97,8 +97,7 @@ class SimEnv(OrcaGymLocalEnv):
                 f"mocap rows {cfg.mocap_pos.shape[0]}/{cfg.mocap_quat.shape[0]} != K={K}"
             )
         E = len(cfg.eq_indices)
-        mj = self.gym._mjModel
-        ew = int(mj.eq_data.shape[1])
+        ew = self.model.equality_data_width()
         if cfg.eq_active.shape[0] != E:
             raise ValueError("eq_active length mismatch vs eq_indices")
         if len(cfg.eq_obj1_name) != E or len(cfg.eq_obj2_name) != E:
@@ -150,9 +149,11 @@ class SimEnv(OrcaGymLocalEnv):
     def _mj_body_name(self, body_id: int) -> str:
         if body_id < 0:
             return f"<invalid:{body_id}>"
-        mj = self.gym._mjModel
-        n = mujoco.mj_id2name(mj, mujoco.mjtObj.mjOBJ_BODY, body_id)
-        return n if n else f"<id:{body_id}>"
+        try:
+            n = self.model.body_id2name(body_id)
+            return n if n else f"<id:{body_id}>"
+        except Exception:
+            return f"<id:{body_id}>"
 
     def _resolve_body_id_from_name(self, body_name: str) -> int:
         if not body_name:
@@ -226,8 +227,6 @@ class SimEnv(OrcaGymLocalEnv):
     def _apply_equality_human_row(
         self, cfg: HumanTrajectoryStepConfig, step_index: int
     ) -> None:
-        mj = self.gym._mjModel
-        d = self.gym._mjData
         eqt_row = cfg.eq_type
         eqd_row = cfg.eq_data
         ea_row = cfg.eq_active
@@ -241,8 +240,7 @@ class SimEnv(OrcaGymLocalEnv):
             name2 = cfg.eq_obj2_name[j]
             f1 = self._resolve_body_id_from_name(name1)
             f2 = self._resolve_body_id_from_name(name2)
-            c1 = int(mj.eq_obj1id[gi])
-            c2 = int(mj.eq_obj2id[gi])
+            c1, c2 = self.model.equality_object_ids(gi)  # TODO(euler-migration): 原 mj.eq_obj1id/eq_obj2id
             TRAJ_LOG.debug(
                 "[SimEnv.trajectory] step=%s eq[%s] target=(%s|%s) id=(%d,%d) "
                 "model_before=(%s|%s) id=(%d,%d) active_file=%s",
@@ -273,7 +271,8 @@ class SimEnv(OrcaGymLocalEnv):
                     f1,
                     f2,
                 )
-                self.gym.modify_equality_objects(c1, c2, f1, f2)
+                # TODO(euler-migration): OrcaGymEulerEnv 未委托 modify_equality_objects，需迁移到 equality_update
+                self.modify_equality_objects(c1, c2, f1, f2)
 
         eq_list = self.model.get_eq_list()
         if eq_list is None:
@@ -283,15 +282,18 @@ class SimEnv(OrcaGymLocalEnv):
         for j, gi in enumerate(cfg.eq_indices):
             if gi >= len(eq_list):
                 continue
-            eq_list[gi]["obj1_id"] = int(mj.eq_obj1id[gi])
-            eq_list[gi]["obj2_id"] = int(mj.eq_obj2id[gi])
+            obj1_id, obj2_id = self.model.equality_object_ids(gi)
+            eq_list[gi]["obj1_id"] = int(obj1_id)
+            eq_list[gi]["obj2_id"] = int(obj2_id)
             eq_list[gi]["eq_type"] = int(eqt_row[j])
             eq_list[gi]["eq_data"] = np.array(eqd_row[j], dtype=np.float64, copy=True)
+        # TODO(euler-migration): OrcaGymEulerEnv 未委托 update_equality_constraints，需迁移到 equality_update
         self.update_equality_constraints(eq_list)
 
         for j, gi in enumerate(cfg.eq_indices):
-            m1 = int(mj.eq_obj1id[gi])
-            m2 = int(mj.eq_obj2id[gi])
+            m1, m2 = self.model.equality_object_ids(gi)
+            m1 = int(m1)
+            m2 = int(m2)
             f1 = self._resolve_body_id_from_name(cfg.eq_obj1_name[j])
             f2 = self._resolve_body_id_from_name(cfg.eq_obj2_name[j])
             if m1 != f1 or m2 != f2:
@@ -306,9 +308,10 @@ class SimEnv(OrcaGymLocalEnv):
                     f2,
                 )
 
-        if hasattr(d, "eq_active"):
-            for j, gi in enumerate(cfg.eq_indices):
-                d.eq_active[gi] = bool(ea_row[j])
+        # TODO(euler-migration): eq_active 写入需 OrcaGym 侧在 OrcaGymEulerEnv/OrcaGymDataView 暴露公共访问器
+        # if hasattr(d, "eq_active"):
+        #     for j, gi in enumerate(cfg.eq_indices):
+        #         d.eq_active[gi] = bool(ea_row[j])
 
         self._last_eq_replay_key = key
 
@@ -341,14 +344,10 @@ class SimEnv(OrcaGymLocalEnv):
         torque: np.ndarray,
     ) -> None:
         """
-        在刚体上施加世界系外力/外力矩（写入 MuJoCo mjData.xfrc_applied，供 mj_step 使用）。
+        在刚体上施加世界系外力/外力矩（通过 OrcaGymEulerEnv.apply_body_force 写入仿真器）。
 
-        OrcaLink force_position 模式下 SPH 经 Ch1 下发的流体力通过此方法写入 MuJoCo。
-        注意：self.data 为 OrcaGymData 状态副本，不含 xfrc_applied；须写 gym._mjData。
+        OrcaLink force_position 模式下 SPH 经 Ch1 下发的流体力通过此方法写入。
         """
-        body_id = self.model.body_name2id(body_name)
         f = np.asarray(force, dtype=np.float64).reshape(3)
         tau = np.asarray(torque, dtype=np.float64).reshape(3)
-        mjd = self.gym._mjData
-        mjd.xfrc_applied[body_id, :3] = f
-        mjd.xfrc_applied[body_id, 3:] = tau
+        self.apply_body_force(body_name, f, tau)

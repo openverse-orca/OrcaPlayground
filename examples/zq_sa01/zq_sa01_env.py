@@ -17,7 +17,7 @@ _logger = get_orca_logger()
 np.set_printoptions(suppress=True, precision=6, floatmode='fixed')
 
 
-class ZQSA01Env(OrcaGymLocalEnv):
+class ZQSA01Env(OrcaGymEulerEnv):
     """ZQ SA01 双足人形机器人环境"""
 
     def __init__(
@@ -119,7 +119,7 @@ class ZQSA01Env(OrcaGymLocalEnv):
 
     def _detect_sensors(self):
         """自动检测传感器名称"""
-        all_sensors = list(self.model._sensor_dict.keys())
+        all_sensors = list(self.model.gen_sensor_dict().keys())
         
         # 查找 IMU 传感器
         self.orientation_sensor = None

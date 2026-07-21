@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Optional
 from orca_gym.devices.pico_joytsick import PicoJoystick
-from orca_gym.environment import OrcaGymLocalEnv
+from orca_gym.environment.euler.orca_gym_euler_env import OrcaGymEulerEnv
 from collections import defaultdict
 
 from examples.legged_gym.legged_robot import LeggedRobot

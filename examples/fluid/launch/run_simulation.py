@@ -307,8 +307,9 @@ def _sync_mujoco_passive_viewer(ctx: FluidSimulationContext) -> None:
         return
     gui_cfg = ctx.config.get("mujoco_gui") or {}
     unwrapped = ctx.env.unwrapped
-    mj_model = unwrapped.gym._mjModel
-    mj_data = unwrapped.gym._mjData
+    # TODO(euler-migration): MuJoCo passive viewer 需 mjModel/mjData，Euler 体系未暴露，需 OrcaGym 侧扩展
+    mj_model = unwrapped.gym._mjModel  # noqa: SLF001
+    mj_data = unwrapped.gym._mjData  # noqa: SLF001
     mujoco.mj_forward(mj_model, mj_data)
     if gui_cfg.get("site_markers", True):
         with viewer.lock():

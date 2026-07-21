@@ -69,7 +69,8 @@ def _bodies_with_mesh_token(
     if not matching_mesh_ids:
         return []
 
-    mj_model = env.gym._mjModel
+    # TODO(euler-migration): 原 env.gym._mjModel 访问 geom，Euler 体系无直接 geom API，需 OrcaGym 侧扩展
+    mj_model = env.gym._mjModel  # noqa: SLF001
     bodies: set[str] = set()
     for i in range(mj_model.ngeom):
         geom = mj_model.geom(i)
@@ -165,7 +166,8 @@ def _set_fixed_body_world_pose(env: Any, body_name: str, pos: np.ndarray, quat_w
 
     用于 fluidblock 等静态 body 随 waterjug 刚性运动。
     """
-    mj_model = env.gym._mjModel
+    # TODO(euler-migration): 原 env.gym._mjModel 访问 geom，Euler 体系无直接 geom API，需 OrcaGym 侧扩展
+    mj_model = env.gym._mjModel  # noqa: SLF001
     body_id = env.model.body_name2id(body_name)
     mj_model.body_pos[body_id] = np.asarray(pos, dtype=np.float64).reshape(3)
     mj_model.body_quat[body_id] = np.asarray(quat_wxyz, dtype=np.float64).reshape(4)
