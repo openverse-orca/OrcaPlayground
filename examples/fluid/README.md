@@ -1,7 +1,7 @@
 # Fluid-MuJoCo 耦合仿真示例
 
 SPH 流体与 MuJoCo 刚体耦合，经 OrcaLink 与 OrcaStudio/OrcaLab 通信。
-
+Kitchen_Night_fluid
 ## 入口脚本（三场景）
 
 | 脚本 | 默认配置 | 用途 |
@@ -57,4 +57,4 @@ python run_fluid_sim_auto_shortChain.py --gui --mujoco-gui
 python run_fluid_sim_auto_shortChain.py --config fluid_sim_config_short_chain.release.json
 ```
 
-OrcaStudio/OrcaLab 自动开场景脚本见 `examples/tools/auto_start_scene.py`（`ORCA_LEVEL_NAME` 可覆盖关卡名）。
+OrcaStudio/OrcaLab 自动开场景脚本见 `examples/fluid/auto_start_scene.py`（`ORCA_LEVEL_NAME` 可覆盖关卡名）。

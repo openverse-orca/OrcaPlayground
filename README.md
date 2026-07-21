@@ -102,7 +102,6 @@ python examples/fluid/run_fluid_sim.py
 OrcaPlayground/
 ├── examples/              # 示例代码目录（每个样例自包含 env 子类 + 入口脚本）
 │   ├── _common/           #   公共工具（场景模型扫描等）
-│   ├── _archived/         #   归档样例（基于旧范式，后续复活需迁移至新体系）
 │   ├── character/         # 角色仿真（含 README.md）
 │   ├── legged_gym/        # 足式机器人 RL 训练 + 交互仿真（含 README.md）
 │   ├── wheeled_chassis/   # 轮式底盘：差速 + 阿克曼（含 README.md）
@@ -113,7 +112,6 @@ OrcaPlayground/
 │   ├── drone_driver/      # 无人机推力驱动仿真（含 README.md）
 │   ├── zq_sa01/           # ZQ SA01 人形（含 README.md）
 │   ├── g1/                # G1 人形（含 README.md）
-│   ├── mujoco/            # MuJoCo 原生 env（AntOrcaGymEnv，供 legged_gym 注册引用）
 │   ├── orca_locomotion/   # OrcaLocomotion：Go2 / G1 策略回放（含 README.md）
 │   ├── replicator/        # 场景复制：Actor / Light（含 README.md）
 │   └── fluid/             # 流体仿真（含 README.md，含 fluid_stats 子模块）

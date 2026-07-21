@@ -4,6 +4,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Iterable
 
+# TODO(cross-ref): _common 反向依赖 fluid —— 公共工具不应依赖具体样例。
+#   解耦方案：将 SimEnv 依赖下沉到调用方，或把 model_scanner 中依赖 SimEnv 的部分拆到 fluid 侧。
 from examples.fluid.sim_env import SimEnv
 from orca_gym.log.orca_log import get_orca_logger
 
