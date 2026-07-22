@@ -25,58 +25,6 @@ class ControlDevice:
     XBOX = "xbox"
 
 
-def _joint_dof_bounds(mjm: mujoco.MjModel, joint_name: str) -> tuple[int, int]:
-    jid = int(mujoco.mj_name2id(mjm, mujoco.mjtObj.mjOBJ_JOINT, joint_name))
-    if jid < 0:
-        return 0, 0
-    adr = int(mjm.jnt_dofadr[jid])
-    jt = int(mjm.jnt_type[jid])
-    if jt == mujoco.mjtJoint.mjJNT_FREE:
-        n = 6
-    elif jt == mujoco.mjtJoint.mjJNT_BALL:
-        n = 3
-    elif jt in (mujoco.mjtJoint.mjJNT_SLIDE, mujoco.mjtJoint.mjJNT_HINGE):
-        n = 1
-    else:
-        n = 0
-    return adr, adr + n
-
-
-def _body_root_name(mjm: mujoco.MjModel, body_id: int) -> str:
-    if body_id < 0:
-        return "<none>"
-    cur = int(body_id)
-    root = mujoco.mj_id2name(mjm, mujoco.mjtObj.mjOBJ_BODY, cur) or f"body{cur}"
-    while cur > 0:
-        parent = int(mjm.body_parentid[cur])
-        if parent <= 0:
-            break
-        cur = parent
-        root = mujoco.mj_id2name(mjm, mujoco.mjtObj.mjOBJ_BODY, cur) or f"body{cur}"
-    return root
-
-
-def _format_dof_label(mjm: mujoco.MjModel, dof_idx: int) -> str:
-    if dof_idx < 0 or dof_idx >= int(mjm.nv):
-        return f"v[{dof_idx}]<out_of_range>"
-    jid = int(mjm.dof_jntid[dof_idx])
-    bid = int(mjm.dof_bodyid[dof_idx])
-    jn = mujoco.mj_id2name(mjm, mujoco.mjtObj.mjOBJ_JOINT, jid) or f"joint{jid}"
-    bn = mujoco.mj_id2name(mjm, mujoco.mjtObj.mjOBJ_BODY, bid) or f"body{bid}"
-    root = _body_root_name(mjm, bid)
-    return f"v[{dof_idx}]<joint={jn} body={bn} actor={root}>"
-
-
-def _format_geom_label(mjm: mujoco.MjModel, geom_id: int) -> str:
-    if geom_id < 0 or geom_id >= int(mjm.ngeom):
-        return f"geom[{geom_id}]<out_of_range>"
-    body_id = int(mjm.geom_bodyid[geom_id])
-    body_name = mujoco.mj_id2name(mjm, mujoco.mjtObj.mjOBJ_BODY, body_id) or f"body{body_id}"
-    geom_name = mujoco.mj_id2name(mjm, mujoco.mjtObj.mjOBJ_GEOM, geom_id) or f"geom{geom_id}"
-    actor = _body_root_name(mjm, body_id)
-    return f"{actor}/{body_name}/{geom_name}"
-
-
 def _normalize_axis(vec: np.ndarray, fallback: tuple[float, float, float]) -> np.ndarray:
     arr = np.asarray(vec, dtype=np.float64).reshape(3)
     norm = float(np.linalg.norm(arr))
@@ -196,10 +144,10 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
             if spec.joint_suffix in actuators_by_suffix
         }
         self._drone_body = self._resolve_name("bodies", "Drone")
-        self._drone_frame_body = self._resolve_name("bodies", "drone_frame")
+        self._frame_body = self._resolve_name("bodies", "drone_frame")
 
         self._drone_body_id = int(self.model.body_name2id(self._drone_body))
-        self._frame_body_id = int(self.model.body_name2id(self._drone_frame_body))
+        self._frame_body_id = int(self.model.body_name2id(self._frame_body))
 
         self._gripper_joints: dict[str, str] = {}
         _gripper_resolve_errors: list[str] = []
@@ -213,15 +161,11 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
             else:
                 _gripper_resolve_errors.append(f"scene_binding: {gname} not found")
                 try:
-                    mjm = self.gym._mjModel
-                    jid = mujoco.mj_name2id(mjm, mujoco.mjtObj.mjOBJ_JOINT, gname)
-                    if jid >= 0:
-                        self._gripper_joints[gname] = gname
-                        _logger.info(f"[DroneOrcaEnv] gripper joint resolved via MjModel direct: {gname} (jid={jid})")
-                    else:
-                        _gripper_resolve_errors.append(f"MjModel direct: jid=-1 for '{gname}'")
-                except Exception as e2:
-                    _gripper_resolve_errors.append(f"MjModel direct: {e2}")
+                    jid = self.model.joint_name2id(gname)
+                    self._gripper_joints[gname] = gname
+                    _logger.info(f"[DroneOrcaEnv] gripper joint resolved via model: {gname} (jid={jid})")
+                except (KeyError, ValueError) as e2:
+                    _gripper_resolve_errors.append(f"model direct: {e2}")
         self._gripper_enabled = len(self._gripper_joints) == 2
         if self._gripper_enabled:
             _logger.info("[DroneOrcaEnv] 抓取机构已启用: Z=收拢(抓取), X=扩张(释放) (键盘) / LB=收拢, RB=扩张 (手柄)")
@@ -229,9 +173,8 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
             _logger.warning(f"[DroneOrcaEnv] 抓取机构未启用, resolved={len(self._gripper_joints)}/2, errors={_gripper_resolve_errors}")
             _logger.info(f"[DroneOrcaEnv] scene_binding joints_by_suffix={self._scene_binding.get('joints_by_suffix', {})}")
             try:
-                all_joints = [self.gym._mjModel.joint(i).name
-                              for i in range(self.gym._mjModel.njnt)]
-                _logger.info(f"[DroneOrcaEnv] all MjModel joints: {all_joints}")
+                all_joints = list(self.model.get_joint_dict().keys())
+                _logger.info(f"[DroneOrcaEnv] all model joints: {all_joints}")
             except Exception:
                 pass
         self._gripper_target: float = 0.0
@@ -316,10 +259,7 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
         self._unstable_contact_logged_this_reset = False
         self._last_reset_sim_time = 0.0
 
-        mjm = self.gym._mjModel
-        self._v_dof_labels: list[str] = []
-        for i in range(int(mjm.nv)):
-            self._v_dof_labels.append(_format_dof_label(mjm, i))
+        self._v_dof_labels: list[str] = [f"v[{i}]" for i in range(int(self.nv))]
 
         self._diag_env_steps = 0
         # periodic 动力学长日志默认关闭；需要排查 full 模式乱飘时可通过参数打开
@@ -332,11 +272,10 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
         self._full_mode_filt_vxy = np.zeros(2, dtype=np.float64)
         self._full_mode_thrust_lpf = float(self._hover_thrust)
 
-        drone_bid = mujoco.mj_name2id(mjm, mujoco.mjtObj.mjOBJ_BODY, self._drone_body.split("/")[-1])
-        if drone_bid >= 0:
-            di = mjm.body_inertia[drone_bid]
+        try:
+            di = self.model.get_body_byname(self._drone_body)["Inertia"]
             self._body_J = np.diag(np.asarray(di, dtype=np.float64))
-        else:
+        except (KeyError, ValueError):
             self._body_J = np.diag(np.array([6.0, 4.0, 3.0], dtype=np.float64))
         self._body_J_inv = np.linalg.inv(self._body_J)
         self._ctbr_omega_max_rp = float(full_cfg.ctbr_omega_max_rp)
@@ -349,32 +288,30 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
         self._attitude_recover_kp_active = float(full_cfg.attitude_recover_kp_active)
         self._torque_warmup_s = float(full_cfg.torque_warmup_s)
 
-        free_lo, free_hi = _joint_dof_bounds(mjm, self._free_joint)
+        free_lo, free_hi = self._compute_joint_dof_bounds(self._free_joint)
         self._free_dof_lo = free_lo
         self._free_dof_hi = free_hi
-        rotor_bounds = [_joint_dof_bounds(mjm, self._rotor_joints[s.joint_suffix]) for s in self._rotor_specs]
+        rotor_bounds = [self._compute_joint_dof_bounds(self._rotor_joints[s.joint_suffix]) for s in self._rotor_specs]
         self._rotor_dof_bounds = rotor_bounds
         drone_idx: list[int] = []
         for lo, hi in ((free_lo, free_hi), *rotor_bounds):
             drone_idx.extend(range(lo, hi))
         self._drone_dof_indices = np.asarray(drone_idx, dtype=np.int32)
         self._drone_actor_roots = {
-            _body_root_name(mjm, self._drone_body_id),
-            _body_root_name(mjm, self._frame_body_id),
+            self._drone_body.split("/")[0],
+            self._frame_body.split("/")[0],
         }
 
         rotor_jids: set[int] = set()
         for spec in self._rotor_specs:
-            jid = int(mujoco.mj_name2id(mjm, mujoco.mjtObj.mjOBJ_JOINT, self._rotor_joints[spec.joint_suffix]))
-            if jid >= 0:
-                rotor_jids.add(jid)
+            try:
+                rotor_jids.add(self.model.joint_name2id(self._rotor_joints[spec.joint_suffix]))
+            except (KeyError, ValueError):
+                pass
         rotor_actuator_names: list[str] = []
-        for ia in range(int(mjm.nu)):
-            if int(mjm.actuator_trntype[ia]) != int(mujoco.mjtTrn.mjTRN_JOINT):
-                continue
-            trnjid = int(mjm.actuator_trnid[ia])
+        for aname, act in self.model.get_actuator_dict().items():
+            trnjid = int(act.get("TrnId", -1))
             if trnjid in rotor_jids:
-                aname = mujoco.mj_id2name(mjm, mujoco.mjtObj.mjOBJ_ACTUATOR, ia) or f"actuator_{ia}"
                 rotor_actuator_names.append(aname)
         if rotor_actuator_names:
             self._diag_warning(
@@ -465,20 +402,56 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
         if self._should_emit_diag_logs():
             _logger.warning(message)
 
+    def apply_joint_qpos_dict(self, joint_qpos_dict: dict) -> None:
+        """将 {joint_name: qpos} dict 合并为完整 qpos 数组后写入（Euler 体系 set_joint_qpos 仅接受数组）。"""
+        full_qpos = self.data.qpos.copy()
+        for jname, jqpos in joint_qpos_dict.items():
+            addr = self.jnt_qposadr(jname)
+            arr = np.atleast_1d(np.asarray(jqpos, dtype=full_qpos.dtype))
+            full_qpos[addr:addr + len(arr)] = arr
+        self.set_joint_qpos(full_qpos)
+
+    def apply_joint_qvel_dict(self, joint_qvel_dict: dict) -> None:
+        """将 {joint_name: qvel} dict 合并为完整 qvel 数组后写入。"""
+        full_qvel = self.data.qvel.copy()
+        for jname, jqvel in joint_qvel_dict.items():
+            addr = self.jnt_dofadr(jname)
+            arr = np.atleast_1d(np.asarray(jqvel, dtype=full_qvel.dtype))
+            full_qvel[addr:addr + len(arr)] = arr
+        self.set_joint_qvel(full_qvel)
+
+    def _compute_joint_dof_bounds(self, joint_name: str) -> tuple[int, int]:
+        """用 Euler 公共 API 计算 joint 的 dof 地址范围 [lo, hi)。"""
+        try:
+            adr = self.jnt_dofadr(joint_name)
+        except (KeyError, ValueError):
+            return 0, 0
+        jtype = int(self.model.get_joint_byname(joint_name)["Type"])
+        if jtype == int(mujoco.mjtJoint.mjJNT_FREE):
+            n = 6
+        elif jtype == int(mujoco.mjtJoint.mjJNT_BALL):
+            n = 3
+        elif jtype in (int(mujoco.mjtJoint.mjJNT_SLIDE), int(mujoco.mjtJoint.mjJNT_HINGE)):
+            n = 1
+        else:
+            n = 0
+        return adr, adr + n
+
     def _ctrl_align_rotor_position_actuators(self) -> np.ndarray:
         """若旧资产仍带桨 position 执行器：ctrl 与相位对齐；无执行器时全零即可（桨纯脚本驱动）。"""
         ctrl = np.zeros(self.nu, dtype=np.float32)
         if not self._rotor_actuators:
             return ctrl
-        mjm = self.gym._mjModel
         for spec in self._rotor_specs:
             aname = self._rotor_actuators.get(spec.joint_suffix)
             if not aname:
                 continue
-            aid = int(mujoco.mj_name2id(mjm, mujoco.mjtObj.mjOBJ_ACTUATOR, aname))
-            if aid < 0:
+            try:
+                aid = self.model.actuator_name2id(aname)
+            except (KeyError, ValueError):
                 continue
-            lo, hi = float(mjm.actuator_ctrlrange[aid, 0]), float(mjm.actuator_ctrlrange[aid, 1])
+            ctrlrange = self.model.get_actuator_byname(aname)["CtrlRange"]
+            lo, hi = float(ctrlrange[0]), float(ctrlrange[1])
             ph = float(self._rotor_phases[spec.joint_suffix])
             ctrl[aid] = float(np.clip(ph, lo, hi))
         return ctrl
@@ -510,7 +483,7 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
         self._vertical_ramp_t1_logged = False
         self._last_vertical_ramp_log_t = -1.0e9
         self._unstable_contact_logged_this_reset = False
-        self._last_reset_sim_time = float(self.gym._mjData.time)
+        self._last_reset_sim_time = float(self.data.time)
         self._rotor_phases = {
             spec.joint_suffix: self._initial_rotor_qpos[self._rotor_joints[spec.joint_suffix]]
             for spec in self._rotor_specs
@@ -541,11 +514,11 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
                 qpos_update[full_name] = np.array([0.0], dtype=np.float64)
                 qvel_update[full_name] = np.array([0.0], dtype=np.float64)
 
-        self.gym._mjData.xfrc_applied[self._drone_body_id].fill(0.0)
+        self.clear_body_force(self._drone_body)
         if self._frame_body_id != self._drone_body_id:
-            self.gym._mjData.xfrc_applied[self._frame_body_id].fill(0.0)
-        self.set_joint_qpos(qpos_update)
-        self.set_joint_qvel(qvel_update)
+            self.clear_body_force(self._frame_body)
+        self.apply_joint_qpos_dict(qpos_update)
+        self.apply_joint_qvel_dict(qvel_update)
         self.set_ctrl(self._ctrl_align_rotor_position_actuators())
         self.mj_forward()
         if not self._aero.vertical_z_only.enabled:
@@ -554,7 +527,6 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
         # Orca 同步偶发在 mj_forward 后写回非零关节速度，再清一次 free
         self.apply_joint_qvel_dict({self._free_joint: np.zeros(6, dtype=np.float64)})
         self.mj_forward()
-        self.gym.update_data()
         self._takeoff_z_ref = float(self.data.body_xpos(self._frame_body)[2])
         if self._reset_height_offset_m > 0.0:
             self._diag_warning(
@@ -563,8 +535,8 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
             )
         self._diag_warning(
             "[DroneOrcaEnv] reset 刚体参考 "
-            f"{self._body_pose_summary(self._frame_body_id, 'frame')} "
-            f"{self._body_pose_summary(self._drone_body_id, 'drone')}"
+            f"{self._body_pose_summary(self._frame_body, 'frame')} "
+            f"{self._body_pose_summary(self._drone_body, 'drone')}"
         )
         contact_summary = self._format_contact_summary()
         if contact_summary is not None:
@@ -600,6 +572,10 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
             self._apply_thrust_and_drag(command, self._physics_dt)
             self.set_ctrl(self._ctrl_align_rotor_position_actuators())
             self.mj_step(nstep=1)
+            # mj_step 不触发 sync_to_view，data.time（float 快照）不会更新。
+            # _apply_thrust_and_drag 依赖 data.time 计算 sim_since_reset 控制推力爬升；
+            # render() 也依赖 data.time 推进 OrcaStudio 画面。每次 mj_step 后必须同步。
+            self._sync_view()
             if self._aero.vertical_z_only.enabled:
                 if self._aero.vertical_z_only.lock_pose_and_planar_velocity:
                     self._enforce_vertical_only_kinematics()
@@ -618,7 +594,6 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
             self._update_rotors(rotor_cmd, self._physics_dt)
             if self._gripper_enabled:
                 self._update_gripper(self._physics_dt)
-            self.gym.update_data()
             if self._diag_logs_enabled and not unstable_logged_this_step and self._drone_physics_should_warn_immediate():
                 include_contacts = not self._unstable_contact_logged_this_reset
                 self._emit_drone_physics_warning("unstable_post_mj_step", include_contacts=include_contacts)
@@ -643,11 +618,10 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
 
     def _apply_free_joint_velocity_safety(self) -> None:
         """对 free joint 速度做硬钳制，防止场景耦合把系统带入数值发散区。"""
-        data = self.gym._mjData
         lo, hi = self._free_dof_lo, self._free_dof_hi
         if hi - lo != 6:
             return
-        qv = np.asarray(data.qvel[lo:hi], dtype=np.float64).reshape(6)
+        qv = np.asarray(self.data.qvel[lo:hi], dtype=np.float64).reshape(6)
         dcfg = self._aero.drag
         lv_cap = float(dcfg.free_linear_speed_cap)
         av_cap = float(dcfg.free_angular_speed_cap)
@@ -745,11 +719,8 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
 
     def _apply_thrust_vertical_z_only(self, command: np.ndarray) -> None:
         """世界 +Z 标量推力 + 仅用 qvel 的 vz 阻尼；无力矩、无地面效应。free joint qvel 布局为 [vx,vy,vz,ωx,ωy,ωz]。"""
-        data = self.gym._mjData
         vz_cfg = self._aero.vertical_z_only
-        thrust_bid = (
-            self._frame_body_id if vz_cfg.apply_thrust_at_free_frame else self._drone_body_id
-        )
+        thrust_body = self._frame_body if vz_cfg.apply_thrust_at_free_frame else self._drone_body
 
         ws_cmd, ad_cmd, vertical_cmd, _yaw_cmd = [float(np.clip(v, -1.0, 1.0)) for v in command]
 
@@ -758,7 +729,7 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
             thrust = float(np.clip(r * self._hover_thrust, self._thrust_min, self._thrust_max))
         elif vz_cfg.thrust_ramp_enabled:
             dur = max(float(vz_cfg.thrust_ramp_duration_s), 1e-6)
-            u = min(1.0, float(data.time) / dur)
+            u = min(1.0, float(self.data.time) / dur)
             t0 = float(vz_cfg.thrust_ramp_t0_factor)
             t1 = float(vz_cfg.thrust_ramp_t1_factor)
             thrust = self._hover_thrust * (t0 + u * (t1 - t0))
@@ -775,9 +746,9 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
 
         lo, hi = self._free_dof_lo, self._free_dof_hi
         if hi - lo == 6:
-            vz = float(data.qvel[lo + 2])
+            vz = float(self.data.qvel[lo + 2])
         else:
-            vz = float(data.cvel[self._drone_body_id][5])
+            vz = float(self.data.body_cvel(self._drone_body)[5])
         k_l = float(vz_cfg.vz_linear_k)
         k_q = float(vz_cfg.vz_quadratic_k)
         fz = thrust - k_l * vz - k_q * abs(vz) * vz
@@ -788,7 +759,7 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
         fy = 0.0
         if kxy > 1e-12 and hi - lo == 6:
             # 用推力作用体的 COM 世界系线速度做阻尼/刹停，与全量模式 drag 一致；勿与 qvel 混用以免原点/COM 不一致
-            cvel = data.cvel[thrust_bid]
+            cvel = self.data.body_cvel(thrust_body)
             vx_w = float(cvel[3])
             vy_w = float(cvel[4])
             kxd = float(vz_cfg.keyboard_world_xy_vel_damping)
@@ -813,14 +784,13 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
 
         f_w = np.array([fx, fy, fz], dtype=np.float64)
 
-        data.xfrc_applied[self._drone_body_id].fill(0.0)
+        self.clear_body_force(self._drone_body)
         if self._frame_body_id != self._drone_body_id:
-            data.xfrc_applied[self._frame_body_id].fill(0.0)
+            self.clear_body_force(self._frame_body)
         # xfrc_applied 线力为世界系；竖直模式在 lock 姿态下 R≈I，写 f_w 与旧版写 R^T f_w 等价，解锁姿态时亦正确
-        data.xfrc_applied[thrust_bid, 0:3] = f_w
-        data.xfrc_applied[thrust_bid, 3:6] = 0.0
+        self.apply_body_force(thrust_body, f_w, np.zeros(3, dtype=np.float64))
 
-        r_w_b = data.xmat[thrust_bid].reshape(3, 3)
+        r_w_b = self.data.body_xmat(thrust_body).reshape(3, 3)
         self._last_xfrc_body = np.concatenate([r_w_b.T @ f_w, np.zeros(3, dtype=np.float64)])
         self._last_thrust_scalar = thrust
         self._last_tau_cmd[:] = 0.0
@@ -839,7 +809,7 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
         else:
             new_q[3:7] = self._initial_free_qpos[3:7]
         self.apply_joint_qpos_dict({self._free_joint: new_q})
-        qv = np.asarray(self.gym._mjData.qvel[lo:hi], dtype=np.float64).reshape(6)
+        qv = np.asarray(self.data.qvel[lo:hi], dtype=np.float64).reshape(6)
         new_v = np.zeros(6, dtype=np.float64)
         new_v[2] = float(qv[2])
         vz_xy = self._aero.vertical_z_only
@@ -867,8 +837,7 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
         lo, hi = self._free_dof_lo, self._free_dof_hi
         if hi - lo != 6:
             return
-        data = self.gym._mjData
-        vz = float(data.qvel[lo + 2])
+        vz = float(self.data.qvel[lo + 2])
         thr = float(self._last_thrust_scalar)
         mg = max(self._hover_thrust, 1e-9)
         if vz > float(vz_cfg.takeoff_vz_threshold):
@@ -876,7 +845,7 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
             om_m = float(np.mean([self._rotor_speeds[s.joint_suffix] for s in self._rotor_specs]))
             self._diag_warning(
                 "[DroneOrcaEnv] 首次 vz 过阈(易与弹跳混淆): "
-                f"sim_t={float(data.time):.4f}s vz={vz:.4f}m/s z={float(data.xpos[self._frame_body_id, 2]):.4f}m "
+                f"sim_t={float(self.data.time):.4f}s vz={vz:.4f}m/s z={float(self.data.body_xpos(self._frame_body)[2]):.4f}m "
                 f"thrust={thr:.4f}N T/(mg)={thr/mg:.4f} 桨ω_mean≈{om_m:.2f}rad/s"
             )
 
@@ -891,9 +860,8 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
         lo, hi = self._free_dof_lo, self._free_dof_hi
         if hi - lo != 6:
             return
-        data = self.gym._mjData
-        vz = float(data.qvel[lo + 2])
-        z = float(data.xpos[self._frame_body_id, 2])
+        vz = float(self.data.qvel[lo + 2])
+        z = float(self.data.body_xpos(self._frame_body)[2])
         v_th = float(vz_cfg.takeoff_sustain_vz_threshold)
         dz_need = float(vz_cfg.takeoff_sustain_dz_m)
         need_t = float(vz_cfg.takeoff_sustain_time_s)
@@ -909,7 +877,7 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
         om_m = float(np.mean([self._rotor_speeds[s.joint_suffix] for s in self._rotor_specs]))
         self._diag_warning(
             "[DroneOrcaEnv] 持续起飞临界(精估): "
-            f"sim_t={float(data.time):.4f}s Δz={(z - self._takeoff_z_ref):.4f}m vz={vz:.4f}m/s "
+            f"sim_t={float(self.data.time):.4f}s Δz={(z - self._takeoff_z_ref):.4f}m vz={vz:.4f}m/s "
             f"thrust={thr:.4f}N T/(mg)={thr/mg:.6f} 桨ω_mean≈{om_m:.2f}rad/s"
         )
 
@@ -935,14 +903,13 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
             self._apply_thrust_vertical_z_only(command)
             return
 
-        data = self.gym._mjData
         # full 模式：推力方向仍按 drone_frame 姿态解算，但实际 wrench 打在 Drone 子体质心。
         # 诊断表明某些场景中 frame 的等效 COM/参考点异常，直接打在 frame 会引入巨大的假力矩。
-        pose_bid = self._frame_body_id
-        bid = self._drone_body_id
-        data.xfrc_applied[self._drone_body_id].fill(0.0)
-        data.xfrc_applied[self._frame_body_id].fill(0.0)
-        sim_since_reset = max(0.0, float(data.time) - float(self._last_reset_sim_time))
+        pose_body = self._frame_body
+        bid_body = self._drone_body
+        self.clear_body_force(self._drone_body)
+        self.clear_body_force(self._frame_body)
+        sim_since_reset = max(0.0, float(self.data.time) - float(self._last_reset_sim_time))
         startup_minimal_stab = (
             self._fullmode_reset_minimal_stab_s > 0.0
             and sim_since_reset < self._fullmode_reset_minimal_stab_s
@@ -952,7 +919,7 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
 
         planar_mag = min(1.0, float(math.hypot(ws_cmd, ad_cmd)))
         max_tilt_rad = math.radians(float(self._model_profile.full_mode.max_tilt_deg))
-        R_d = data.xmat[pose_bid].reshape(3, 3)
+        R_d = self.data.body_xmat(pose_body).reshape(3, 3)
         zb_w_cur = R_d @ np.array([0.0, 0.0, 1.0], dtype=np.float64)
         # WASD 时按当前真实倾角补 hover，而不是按目标倾角补。
         # 之前实际只倾了 1~2 度，却按更大的目标角度多补了推力，导致平移时持续上飘/下沉。
@@ -975,7 +942,7 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
         )
         thrust = float(self._full_mode_thrust_lpf)
 
-        cvel = data.cvel[bid]
+        cvel = self.data.body_cvel(bid_body)
         omega_w_raw = np.asarray(cvel[0:3], dtype=np.float64).reshape(3)
         omega_b_raw = R_d.T @ omega_w_raw
         dcfg = self._aero.drag
@@ -1154,7 +1121,7 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
 
         self._last_ground_effect_factor = 1.0
         if self._aero.ground_effect.enabled:
-            z = float(data.xpos[pose_bid, 2])
+            z = float(self.data.body_xpos(pose_body)[2])
             gcfg = self._aero.ground_effect
             z_body_w = R_d @ np.array([0.0, 0.0, 1.0], dtype=np.float64)
             cos_up = float(np.clip(z_body_w[2], -1.0, 1.0))
@@ -1171,8 +1138,7 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
         if fn2 > max_fw and fn2 > 1e-12:
             f_w = f_w * (max_fw / fn2)
 
-        data.xfrc_applied[bid, 0:3] = f_w
-        data.xfrc_applied[bid, 3:6] = tau_w
+        self.apply_body_force(bid_body, f_w, tau_w)
 
         # 诊断用：与机体系控制律对齐的等效 wrench（世界系施加值旋回机体系）
         self._last_xfrc_body = np.concatenate(
@@ -1182,12 +1148,11 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
         self._last_tau_cmd = tau_b_cmd.copy()
 
     def _drone_physics_should_warn_immediate(self) -> bool:
-        mjd = self.gym._mjData
-        nv = int(self.nv)
+        nv = int(self.model.nv)
         if nv <= 0:
             return False
-        qacc = np.asarray(mjd.qacc, dtype=np.float64).reshape(-1)
-        qvel = np.asarray(mjd.qvel, dtype=np.float64).reshape(-1)
+        qacc = np.asarray(self.data.qacc, dtype=np.float64).reshape(-1)
+        qvel = np.asarray(self.data.qvel, dtype=np.float64).reshape(-1)
         if not np.all(np.isfinite(qacc)) or not np.all(np.isfinite(qvel)):
             return True
         if self._aero.vertical_z_only.enabled:
@@ -1206,60 +1171,35 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
         return False
 
     def _format_contact_summary(self, max_items: int = 6) -> Optional[str]:
-        mjm = self.gym._mjModel
-        mjd = self.gym._mjData
-        ncon = int(mjd.ncon)
+        contacts = self.data.contact
+        ncon = len(contacts)
         if ncon <= 0:
             return None
-        drone_items: list[str] = []
-        other_items: list[str] = []
-        for i in range(ncon):
-            con = mjd.contact[i]
+        items: list[str] = []
+        for i, con in enumerate(contacts):
+            if i >= max_items:
+                break
             g1 = int(con.geom1)
             g2 = int(con.geom2)
-            b1 = int(mjm.geom_bodyid[g1]) if 0 <= g1 < int(mjm.ngeom) else -1
-            b2 = int(mjm.geom_bodyid[g2]) if 0 <= g2 < int(mjm.ngeom) else -1
-            a1 = _body_root_name(mjm, b1)
-            a2 = _body_root_name(mjm, b2)
-            item = (
-                f"{_format_geom_label(mjm, g1)}<->{_format_geom_label(mjm, g2)}"
-                f" dist={float(con.dist):.5f}"
-            )
-            if a1 in self._drone_actor_roots or a2 in self._drone_actor_roots:
-                drone_items.append(item)
-            else:
-                other_items.append(item)
-        chosen: list[str] = []
-        if drone_items:
-            chosen.extend(drone_items[:max_items])
-        remaining = max_items - len(chosen)
-        if remaining > 0:
-            chosen.extend(other_items[:remaining])
+            item = f"geom[{g1}]<->geom[{g2}] dist={float(con.dist):.5f}"
+            items.append(item)
         suffix = ""
-        omitted = ncon - len(chosen)
+        omitted = ncon - len(items)
         if omitted > 0:
             suffix = f" ... +{omitted} more"
-        return f"ncon={ncon} contacts=[" + "; ".join(chosen) + "]" + suffix
+        return f"ncon={ncon} contacts=[" + "; ".join(items) + "]" + suffix
 
-    def _body_pose_summary(self, body_id: int, label: str) -> str:
-        data = self.gym._mjData
-        origin = np.asarray(data.xpos[body_id], dtype=np.float64).reshape(3)
-        com = np.asarray(data.xipos[body_id], dtype=np.float64).reshape(3)
-        return (
-            f"{label}_origin={np.round(origin, 4)} "
-            f"{label}_com={np.round(com, 4)} "
-            f"{label}_com_offset={np.round(com - origin, 4)}"
-        )
+    def _body_pose_summary(self, body_name: str, label: str) -> str:
+        origin = np.asarray(self.data.body_xpos(body_name), dtype=np.float64).reshape(3)
+        return f"{label}_origin={np.round(origin, 4)}"
 
     def _emit_drone_physics_warning(self, reason: str, include_contacts: bool = False) -> None:
         """在全局仅开启 WARNING 时仍可看见：用 WARNING 输出一帧关键动力学量。"""
         if not self._should_emit_diag_logs():
             return
-        mjd = self.gym._mjData
-        bid = self._drone_body_id
-        qacc = np.asarray(mjd.qacc, dtype=np.float64).reshape(-1)
-        qvel = np.asarray(mjd.qvel, dtype=np.float64).reshape(-1)
-        nv = int(self.nv)
+        qacc = np.asarray(self.data.qacc, dtype=np.float64).reshape(-1)
+        qvel = np.asarray(self.data.qvel, dtype=np.float64).reshape(-1)
+        nv = int(self.model.nv)
         imax = int(np.argmax(np.abs(qacc))) if nv > 0 else 0
         vmax = int(np.argmax(np.abs(qvel))) if nv > 0 else 0
         di = self._drone_dof_indices
@@ -1273,12 +1213,12 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
             np.concatenate([qacc[lo:hi] for lo, hi in self._rotor_dof_bounds]) if self._rotor_dof_bounds else np.array([])
         )
         qvel_rot_flat = np.concatenate([qvel[lo:hi] for lo, hi in self._rotor_dof_bounds]) if self._rotor_dof_bounds else np.array([])
-        euler = rotations.quat2euler(np.asarray(mjd.xquat[bid], dtype=np.float64).reshape(1, -1))
+        euler = rotations.quat2euler(np.asarray(self.data.body_xquat(self._drone_body), dtype=np.float64).reshape(1, -1))
         euler_deg = np.rad2deg(euler.reshape(-1))
         frame_euler_suffix = ""
         if not self._aero.vertical_z_only.enabled:
             fe = rotations.quat2euler(
-                np.asarray(mjd.xquat[self._frame_body_id], dtype=np.float64).reshape(1, -1)
+                np.asarray(self.data.body_xquat(self._frame_body), dtype=np.float64).reshape(1, -1)
             )
             frame_euler_suffix = f" frame_euler_deg={np.round(np.rad2deg(fe.reshape(-1)), 2)}"
         cmd = np.asarray(self._last_command, dtype=np.float64).reshape(-1)
@@ -1288,17 +1228,17 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
             if contact_summary is not None:
                 contact_suffix = f" {contact_summary}"
         pose_suffix = (
-            f" {self._body_pose_summary(self._frame_body_id, 'frame')}"
-            f" {self._body_pose_summary(self._drone_body_id, 'drone')}"
+            f" {self._body_pose_summary(self._frame_body, 'frame')}"
+            f" {self._body_pose_summary(self._drone_body, 'drone')}"
         )
         msg = (
-            f"[DroneOrcaEnv] {reason} sim_t={mjd.time:.5f} "
+            f"[DroneOrcaEnv] {reason} sim_t={self.data.time:.5f} "
             f"hover_thrust={self._hover_thrust:.4f} subtree_kg={self._hover_thrust / 9.81:.4f} "
             f"cmd[ws,ad,rf,qe]={cmd.round(3)} "
             f"thrust_cmd={self._last_thrust_scalar:.4f} tau_cmd={np.round(self._last_tau_cmd, 5)} "
             f"ge_fac={self._last_ground_effect_factor:.3f} "
             f"xfrc_body[Fxyz,Txyz]={np.round(self._last_xfrc_body, 4)} "
-            f"Drone_xyz={np.round(mjd.xpos[bid], 4)} euler_drone_deg={np.round(euler_deg, 2)}{frame_euler_suffix} "
+            f"Drone_xyz={np.round(self.data.body_xpos(self._drone_body), 4)} euler_drone_deg={np.round(euler_deg, 2)}{frame_euler_suffix} "
             f"scene_max|qacc|={float(np.max(np.abs(qacc))) if nv else 0:.4e}@{imax}({self._v_dof_labels[imax] if nv else ''}) "
             f"scene_max|qvel|={float(np.max(np.abs(qvel))) if nv else 0:.4e}@{vmax}({self._v_dof_labels[vmax] if nv else ''}) "
             f"drone_max|qacc|={float(np.max(np.abs(qa_d))) if qa_d.size else 0:.4e}@{gidx_d_acc}({self._v_dof_labels[gidx_d_acc] if nv and gidx_d_acc >= 0 else ''}) "
@@ -1321,18 +1261,17 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
         dt_log = float(vz_cfg.ramp_progress_log_interval_s)
         if dt_log <= 0.0:
             return
-        data = self.gym._mjData
-        t = float(data.time)
+        t = float(self.data.time)
         if t - self._last_vertical_ramp_log_t < dt_log:
             return
         self._last_vertical_ramp_log_t = t
         mg = max(float(self._hover_thrust), 1e-9)
         lo, hi = self._free_dof_lo, self._free_dof_hi
-        vz = float(data.qvel[lo + 2]) if hi - lo == 6 else float(data.cvel[self._drone_body_id][5])
+        vz = float(self.data.qvel[lo + 2]) if hi - lo == 6 else float(self.data.body_cvel(self._drone_body)[5])
         om_m = self._mean_rotor_omega()
         self._diag_warning(
             f"[DroneOrcaEnv] ramp sim_t={t:.2f}s T/(mg)={self._last_thrust_scalar/mg:.4f} "
-            f"thrust_N={self._last_thrust_scalar:.4f} vz={vz:.5f} z={float(data.xpos[self._drone_body_id, 2]):.4f}m "
+            f"thrust_N={self._last_thrust_scalar:.4f} vz={vz:.5f} z={float(self.data.body_xpos(self._drone_body)[2]):.4f}m "
             f"omega_mean={om_m:.2f}rad/s"
         )
         dur = max(float(vz_cfg.thrust_ramp_duration_s), 1e-6)
@@ -1399,15 +1338,13 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
             )
             qvel_update[self._rotor_joints[joint_suffix]] = np.array([0.0], dtype=np.float64)
 
-        self.set_joint_qpos(qpos_update)
-        self.set_joint_qvel(qvel_update)
+        self.apply_joint_qpos_dict(qpos_update)
+        self.apply_joint_qvel_dict(qvel_update)
         self.mj_forward()
 
     def _update_gripper(self, dt: float) -> None:
         if not self._gripper_enabled:
             return
-        mjm = self.gym._mjModel
-        mjd = self.gym._mjData
         max_delta = self._gripper_close_speed * dt
         qpos_update = {}
         qvel_update = {}
@@ -1415,16 +1352,17 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
             self._gripper_diag_logged = True
             _logger.info(f"[DroneOrcaEnv] _update_gripper first call: target={self._gripper_target:.2f}, joints={self._gripper_joints}")
         for gname, full_name in self._gripper_joints.items():
-            jid = int(mujoco.mj_name2id(mjm, mujoco.mjtObj.mjOBJ_JOINT, full_name))
-            if jid < 0:
-                _logger.warning(f"[DroneOrcaEnv] gripper joint '{gname}' -> full_name='{full_name}' not found in MjModel")
+            try:
+                qadr = self.jnt_qposadr(full_name)
+                _ = self.jnt_dofadr(full_name)
+            except (KeyError, ValueError):
+                _logger.warning(f"[DroneOrcaEnv] gripper joint '{gname}' -> full_name='{full_name}' not found in model")
                 continue
-            qadr = int(mjm.jnt_qposadr[jid])
-            adr = int(mjm.jnt_dofadr[jid])
-            jrange = mjm.jnt_range[jid]
-            current_pos = float(mjd.qpos[qadr])
+            jrange_arr = self.model.get_joint_qposrange([full_name])[0]
+            jrange = (float(jrange_arr[0]), float(jrange_arr[1]))
+            current_pos = float(self.data.qpos[qadr])
             if self._gripper_target < 0:
-                lo, hi = float(jrange[0]), float(jrange[1])
+                lo, hi = jrange
                 target_pos = hi if abs(hi) > abs(lo) else lo
                 target_pos *= min(abs(self._gripper_target), 1.0)
             else:
@@ -1435,14 +1373,16 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
             qpos_update[full_name] = np.array([new_pos], dtype=np.float64)
             qvel_update[full_name] = np.array([delta / max(dt, 1e-6)], dtype=np.float64)
         if qpos_update:
-            self.set_joint_qpos(qpos_update)
-            self.set_joint_qvel(qvel_update)
+            self.apply_joint_qpos_dict(qpos_update)
+            self.apply_joint_qvel_dict(qvel_update)
 
     def _get_obs(self) -> np.ndarray:
         self.mj_forward()
-        position, _, quat = self.get_body_xpos_xmat_xquat([self._drone_body])
+        _drone_pose = self.get_body_xpos_xmat_xquat([self._drone_body])[self._drone_body]
+        position = _drone_pose["xpos"]
+        quat = _drone_pose["xquat"]
         euler = rotations.quat2euler(quat)
-        cvel = self.gym._mjData.cvel[self._drone_body_id]
+        cvel = self.data.body_cvel(self._drone_body)
         linear_velocity = np.array(cvel[3:6], dtype=np.float32)
         angular_velocity = np.array(cvel[0:3], dtype=np.float32)
         rotor_speed = np.array([self._rotor_speeds[spec.joint_suffix] for spec in self._rotor_specs], dtype=np.float32)
@@ -1458,7 +1398,9 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
         )
 
     def _get_info(self, *, reset_requested: bool) -> dict:
-        position, _, quat = self.get_body_xpos_xmat_xquat([self._drone_body])
+        _drone_pose = self.get_body_xpos_xmat_xquat([self._drone_body])[self._drone_body]
+        position = _drone_pose["xpos"]
+        quat = _drone_pose["xquat"]
         mg = max(float(self._hover_thrust), 1e-9)
         return {
             "position": np.array(position, dtype=np.float32).copy(),

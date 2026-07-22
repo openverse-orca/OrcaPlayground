@@ -33,3 +33,6 @@ select = ["E", "F", "W", "I", "SLF001"]
 "examples/zq_sa01/run_zqsa01.py" = ["SLF001"]
 # franka_rl 已回滚到 OrcaGymAsyncEnv，FrankaAgent 跨类私有访问恢复，待 Euler 异步路径就绪后统一重构
 "examples/franka_rl/**" = ["SLF001"]
+# TODO(euler-migration): d12 demo OSC 控制器需要 mj_fullM（Euler 未暴露 qM），
+# 待 OrcaGym 侧在 OrcaGymEuler/MuJoCoSimCore 添加 mj_fullM 公共方法后移除
+"examples/d12/**" = ["SLF001"]

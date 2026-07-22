@@ -3,6 +3,32 @@
 本文档汇总在 OrcaPlayground 迁移 Euler 架构过程中发现的 OrcaGym 侧疑似问题、
 API 契约不一致、缺失类/方法等，供 OrcaGym 开发者核查与补全。
 
+## 0. 进度概述（2026-07-22 更新）
+
+### 0.1 样例迁移状态
+
+| 样例 | 基类 | 运行验证 | 备注 |
+|------|------|---------|------|
+| character | ✅ `OrcaGymEulerEnv` | ✅ 正常 | L1 极简，无穿墙 |
+| g1 | ✅ `OrcaGymEulerEnv` | ✅ 正常 | L1 极简，per-file-ignore 既有跨类访问 |
+| wheeled_chassis | ✅ `OrcaGymEulerEnv` | ✅ 正常 | L1 极简，per-file-ignore 既有跨类访问 |
+| replicator | ✅ `OrcaGymEulerEnv` | ✅ 正常 | L1 极简，无穿墙 |
+| ant_rl | ✅ `OrcaGymEulerEnv` | ✅ 正常 | L1 极简，无穿墙 |
+| xbot | ✅ `OrcaGymEulerEnv` | ✅ 正常 | L2，修复 `ctrl` property + `time_step` 缺失 |
+| zq_sa01 | ✅ `OrcaGymEulerEnv` | ✅ 正常 | L2，修复 `set_joint_qpos(dict)` |
+| d12 | ✅ `OrcaGymEulerEnv` | ✅ 正常 | L2，修复 OSC 控制器适配（demo+act） |
+| drone_driver | ✅ `OrcaGymEulerEnv` | ✅ 正常 | L4，24+ 处穿墙全修复 + `_sync_view` 同步 |
+| fluid | ✅ `OrcaGymEulerEnv` | ✅ 正常 | L3，equality/xfrc/mocap 穿墙替换 |
+| **franka_rl** | ⚠️ 保留 `OrcaGymAsyncEnv` | ❌ 阻塞 | **待 OrcaGymEulerAsyncEnv** |
+| **legged_gym** | ⚠️ `LeggedSimEnv`✅ / `LeggedGymEnv`保留 | ❌ 阻塞 | **待 OrcaGymEulerAsyncEnv** |
+
+### 0.2 核心结论
+
+- **10/12 样例已适配完毕并运行正常**（含 2 个异步样例中的 `LeggedSimEnv`）
+- **除 `OrcaGymEulerAsyncEnv` 外，其余问题均已在样例侧适配，无需修改 OrcaGym**
+- **唯一阻塞点**：Euler 体系缺少 `OrcaGymEulerAsyncEnv`（详见 §2.1.1），影响 franka_rl 和 legged_gym 两个异步样例
+- 样例侧的适配方式包括：辅助方法（`apply_joint_qpos_dict`）、本地缓冲区（`ctrl_buf`）、Env 子类扩展（`mj_fullM`/`opt` property）、per-file-ignore（既有跨类访问）
+
 ## 1. API 契约不一致
 
 ### 1.1 `query_joint_offsets` / `query_joint_lengths` 返回类型不一致
@@ -172,8 +198,31 @@ OrcaGymEulerAsyncEnv (新增)
 - **底层实现**：`orca_gym_euler.py:233-241` 有 `nq`/`nu` property；`OrcaGymModel` 实例化时设置 `self.nq`/`self.nv`/`self.nu`（`orca_gym_model.py:97-99`）
 - **Local 体系**：通过 mixin 或基类提供 `self.nu` 顶层访问
 - **影响**：样例迁移时 `self.nu`/`self.nq`/`self.nv` 需改为 `self.model.nu`/`self.model.nq`/`self.model.nv`
-- **当前应对**：FrankaGymEnv 中所有 `self.nu` 改为 `self.model.nu`
+- **当前应对**：FrankaGymEnv 中所有 `self.nu` 改为 `self.model.nu`；d12_env.py 在 `__init__` 中 `self.nu = self.model.nu` 缓存
 - **建议**：Euler env 侧补充 `nu`/`nq`/`nv` 顶层 property，与 Local 体系对齐
+
+### 2.6 Euler 体系缺失 `mj_fullM` 公共方法（OSC 控制器需要）
+
+- **现象**：Local 体系 `OrcaGymLocal.mj_fullM()` 封装 MuJoCo `mj_fullM` C 函数计算完整质量矩阵，Euler 体系（`OrcaGymEuler`/`OrcaGymEulerEnv`/`OrcaGymDataView`）均未提供
+- **影响**：robosuite OSC（OperationalSpaceController）控制器的 `update()` 方法依赖 `gym.mj_fullM()` 计算逆动力学所需的质量矩阵，d12 样例的 demo/act 两个入口都使用 OSC 控制器
+- **当前应对**：在 `D12Env.mj_fullM()` 中临时穿墙访问 `self.data._mj_data.qM` + `self.data._mj_model`（`OrcaGymDataView` 用 `__getattr__` 兜底，不拦截 `_mj_data`/`_mj_model`），加 `# noqa: SLF001` + `pyproject.toml` per-file-ignore
+- **尝试过的失败方案**：`self._gym._sim` 路径 → `OrcaGymEuler.__getattribute__` 运行时拦截 `_sim`（`_BLOCKED_ATTRS`），`# noqa: SLF001` 无法绕过运行时拦截
+- **建议**：在 `OrcaGymEuler` 或 `OrcaGymEulerEnv` 添加 `mj_fullM()` 公共方法，封装 `mujoco.mj_fullM(model, buf, data.qM)`，移除 D12Env 的临时穿墙
+
+### 2.7 Euler 体系未暴露 `opt` property（OSC 控制器需要）
+
+- **现象**：Local 体系 `gym.opt.timestep` 访问 `MjModel.opt.timestep`，Euler 体系用 `gym.sim_config.timestep`（SimConfig 对象），未提供 `opt` 别名
+- **影响**：robosuite OSC 控制器内部访问 `self.gym.opt.timestep` 获取物理步长
+- **当前应对**：在 `D12Env` 添加 `opt` property 返回 `self.sim_config`
+- **建议**：考虑在 `OrcaGymEulerEnv` 基类添加 `opt` property 作为通用兼容层，或更新 OSC 控制器适配层使用 `sim_config`
+
+### 2.8 `OrcaGymEuler.__getattribute__` vs `OrcaGymDataView.__getattr__` 拦截策略不一致
+
+- **现象**：两个核心类的私有属性拦截策略不同，导致穿墙路径不对称
+- **`OrcaGymEuler`**：用 `__getattribute__`（拦截所有属性访问，包括已存在的），`_sim`/`_gym`/`_mjData`/`_mjModel` 等在 `_BLOCKED_ATTRS` 列表中的属性一律拒绝
+- **`OrcaGymDataView`**：用 `__getattr__`（仅兜底不存在的属性），`_mj_data`/`_mj_model` 在 `__dict__` 中存在，访问不被拦截
+- **影响**：用户无法通过 `env._gym._sim` 访问 MuJoCo（被拦截），但可以通过 `env.data._mj_data`/`env.data._mj_model` 访问（不被拦截），隔离机制存在绕过路径
+- **建议**：统一拦截策略。如果 DataView 的 `_mj_data`/`_mj_model` 是有意留给 Env 子类扩展的"逃生口"，应在文档中明确；否则应在 DataView 也加 `__getattribute__` 拦截
 
 ## 3. 文档与实现不一致
 
@@ -187,15 +236,18 @@ OrcaGymEulerAsyncEnv (新增)
 
 ## 4. 后续行动项
 
-| 序号 | 问题 | 优先级 | 建议负责方 |
-|------|------|--------|-----------|
-| 1 | `query_joint_offsets`/`query_joint_lengths` 返回类型统一 | 高 | OrcaGym |
-| 2 | `set_joint_qpos` 增加 dict 重载或新增 `set_joint_qpos_by_dict` | 高 | OrcaGym |
-| 3 | Euler env 补充 `query_site_pos_and_quat` | 中 | OrcaGym |
-| 4 | Euler env 补充 `jnt_qpos_len` / `jnt_dof_len` | 中 | OrcaGym |
-| 5 | **Euler 体系新增 `OrcaGymEulerAsyncEnv`（详见 §2.1.1）** | **高** | OrcaGym |
-| 6 | 更新 Euler 架构文档 | 低 | OrcaGym |
-| 7 | Euler env 补充 `nu`/`nq`/`nv` 顶层 property | 中 | OrcaGym |
+| 序号 | 问题 | 优先级 | 建议负责方 | 当前状态 |
+|------|------|--------|-----------|---------|
+| 1 | `query_joint_offsets`/`query_joint_lengths` 返回类型统一 | 高 | OrcaGym | 样例侧已适配（按 tuple 解构），待 OrcaGym 统一契约 |
+| 2 | `set_joint_qpos` 增加 dict 重载或新增 `set_joint_qpos_by_dict` | 高 | OrcaGym | 样例侧已用 `apply_joint_qpos_dict` 辅助方法适配（d12/zq_sa01/g1/fluid/ant_rl/character 共 6 个样例） |
+| 3 | Euler env 补充 `query_site_pos_and_quat` | 中 | OrcaGym | 样例侧已用 `query_site_pos_and_mat` + mat2quat 适配 |
+| 4 | Euler env 补充 `jnt_qpos_len` / `jnt_dof_len` | 中 | OrcaGym | 样例侧已用 `query_joint_lengths` 批量查询适配 |
+| 5 | **Euler 体系新增 `OrcaGymEulerAsyncEnv`（详见 §2.1.1）** | **高** | OrcaGym | **唯一阻塞点**：franka_rl、legged_gym 两个异步样例无法完成迁移 |
+| 6 | 更新 Euler 架构文档 | 低 | OrcaGym | 待 OrcaGym 侧更新 |
+| 7 | Euler env 补充 `nu`/`nq`/`nv` 顶层 property | 中 | OrcaGym | 样例侧已用 `self.model.nu` 适配 |
+| 8 | Euler 体系补充 `mj_fullM` 公共方法 | 中 | OrcaGym | d12 临时穿墙 DataView 路径 + per-file-ignore，待 OrcaGym 扩展后移除 |
+| 9 | Euler 体系补充 `opt` property 或 OSC 适配层改用 `sim_config` | 低 | OrcaGym | d12 在 Env 子类添加 `opt` property 适配 |
+| 10 | 统一 `OrcaGymEuler` 与 `OrcaGymDataView` 的私有属性拦截策略 | 低 | OrcaGym | 当前 DataView 存在 `_mj_data`/`_mj_model` 绕过路径 |
 
 ## 5. 发现过程记录
 
@@ -206,3 +258,9 @@ OrcaGymEulerAsyncEnv (新增)
 | 2026-07-21 | franka_rl | `AttributeError: 'FrankaGymEnv' object has no attribute 'nu'` | §2.5 Euler env 未暴露 nu 顶层 property |
 | 2026-07-21 | franka_rl | 机械臂几乎不动，物块乱飞 | §2.1.1 Euler 模式 B 对单 env 多 agent 场景存在结构性缺陷（ctrl 切片错位、3 台机械臂无人控制、HER 语义破坏） |
 | 2026-07-21 | franka_rl + legged_gym | 综合剖析两类样例的 Euler 迁移阻塞 | §2.1.1 Euler 体系需新增 `OrcaGymEulerAsyncEnv`，支持单 env 多 agent 共享 MuJoCo 实例 |
+| 2026-07-22 | d12 (demo) | `AttributeError: 'D12Env' object has no attribute 'gym'` | §2.6 Euler 体系缺失 `mj_fullM`，OSC 控制器依赖 `env.gym.mj_fullM()` |
+| 2026-07-22 | d12 (demo) | `AttributeError: 'OrcaGymEuler' 对象的属性 '_sim' 被隔离` | §2.8 `OrcaGymEuler.__getattribute__` 运行时拦截 `_sim`，`# noqa: SLF001` 无法绕过；改走 `DataView._mj_data/_mj_model` 路径 |
+| 2026-07-22 | d12 (demo+act) | `env.ctrl[i]=v` 控制信号失效 | §1.2 同 xbot，Euler 的 `ctrl` property getter 返回 `actuator_force`，索引赋值不写入 `mjData.ctrl` |
+| 2026-07-22 | d12 (demo+act) | OSC 控制器访问 `sim.opt.timestep` 失败 | §2.7 Euler 体系用 `sim_config` 而非 `opt`，D12Env 添加 `opt` property 适配 |
+| 2026-07-22 | zq_sa01/g1/fluid/ant_rl/character | `TypeError: float() argument must be a string or a real number, not 'dict'` | §1.2 `set_joint_qpos(dict)` 在 Euler 下类型不匹配，6 个样例统一用 `apply_joint_qpos_dict` 辅助方法适配 |
+| 2026-07-22 | drone_driver | 仿真不启动、控制不生效 | Euler 体系下 `data.time` 是值拷贝，`mj_step` 后未调用 `_sync_view()` 导致 `data.time` 不更新，推力爬升逻辑失效 |

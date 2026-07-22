@@ -209,36 +209,40 @@
 3. **机械替换优先**：不修改业务逻辑，仅替换 API 调用
 4. **ruff SLF001 必过**：每个样例迁移后 `ruff check --select SLF001` 零报警
 
-## 8. 总体结论
+## 8. 总体结论（2026-07-22 更新）
 
 | 维度 | 评估 |
 |------|------|
-| **纯代码改动** | 小（~100 行改 + ~30 行删） |
-| **OrcaGym 新增 API** | **0 个**（全部已有 API 覆盖） |
-| **难点** | 不在代码量，在异步 env 路径 + 验证成本 |
+| **已适配样例** | **10/12**（character/g1/wheeled_chassis/replicator/ant_rl/xbot/zq_sa01/d12/drone_driver/fluid） |
+| **阻塞样例** | **2/12**（franka_rl、legged_gym，待 `OrcaGymEulerAsyncEnv`） |
+| **OrcaGym 必须新增** | **仅 `OrcaGymEulerAsyncEnv`**（异步路径，详见 §10） |
+| **样例侧适配方式** | 辅助方法、本地缓冲区、Env 子类扩展、per-file-ignore |
 | **最大风险** | `OrcaGymAsyncEnv` → `OrcaGymEulerEnv` 的异步能力等价性 |
-| **依赖项** | 需 OrcaGym 侧确认异步路径 + 定义 `OrcaGymEnvProtocol` |
 
-**核心结论**：迁移工作量被显著高估。经详细核查 OrcaGym Euler 源码，**所有样例的穿墙访问均可通过已有 API 替代，无需 OrcaGym 侧新增任何接口**。主要工作量在验证而非编码。
+**核心结论**：
+1. **10/12 样例已适配完毕并运行正常**，除异步路径外无需修改 OrcaGym
+2. **唯一阻塞点**：Euler 体系缺少 `OrcaGymEulerAsyncEnv`，影响 franka_rl 和 legged_gym
+3. 样例侧适配方式包括：`apply_joint_qpos_dict` 辅助方法（6 样例）、`ctrl_buf` 本地缓冲区（xbot/d12）、Env 子类扩展 `mj_fullM`/`opt`（d12）、`_sync_view` 同步（drone_driver）
+4. 发现的 OrcaGym 侧问题详见 `docs/orcagym_issues.md`
 
 ## 9. 全量迁移执行结果（2026-07-21）
 
 ### 9.1 迁移完成状态
 
-| 样例 | 难度 | 基类迁移 | 穿墙修复 | ruff SLF001 | 备注 |
-|------|------|---------|---------|-------------|------|
-| character | L1 | ✅ | ✅ | ✅ | 试点，无穿墙 |
-| wheeled_chassis | L1 | ✅ | ✅ | ✅ per-file-ignore | 既有 `_keyboard._source` 跨类访问 |
-| ant_rl | L1 | ✅ | ✅ | ✅ | 无穿墙 |
-| replicator | L1 | ✅ | ✅ | ✅ | 无穿墙 |
-| g1 | L1 | ✅ | ✅ | ✅ per-file-ignore | 既有 `_prepare_low_state` 跨类访问 |
-| xbot | L2 | ✅ | ✅ `sim_config.timestep` | ✅ | |
-| zq_sa01 | L2 | ✅ | ✅ `gen_sensor_dict()` | ✅ per-file-ignore | run_zqsa01 既有 `_get_obs` 跨类访问 |
-| d12 | L2 | ✅ | ✅ `data.qpos/qvel` | ✅ | |
-| franka_rl | L2 异步 | ⚠️ 保留 `OrcaGymAsyncEnv`+TODO | ✅ `data.body_xpos` | ✅ per-file-ignore | Euler 无异步路径，agent 跨类访问 |
-| fluid | L3 | ✅ | ✅ `data.body_xpos`/`model.equality_*`/`apply_body_force` | ✅ per-file-ignore | passive viewer/geom 需 mjModel，TODO |
-| drone_driver | L4 | ✅ | ⚠️ 部分（time/qvel/xpos/cvel 已替换） | ✅ per-file-ignore | actuator_ctrlrange/xfrc/contact 等 Euler 未委托，TODO |
-| legged_gym | L1 异步 | ⚠️ `LeggedSimEnv`✅，`LeggedGymEnv`保留+TODO | ✅ 无穿墙 | ✅ per-file-ignore | Euler 无异步路径 |
+| 样例 | 难度 | 基类迁移 | 穿墙修复 | ruff SLF001 | 运行验证 | 备注 |
+|------|------|---------|---------|-------------|---------|------|
+| character | L1 | ✅ | ✅ | ✅ | ✅ 正常 | 试点，无穿墙 |
+| wheeled_chassis | L1 | ✅ | ✅ | ✅ per-file-ignore | ✅ 正常 | 既有 `_keyboard._source` 跨类访问 |
+| ant_rl | L1 | ✅ | ✅ | ✅ | ✅ 正常 | 无穿墙 |
+| replicator | L1 | ✅ | ✅ | ✅ | ✅ 正常 | 无穿墙 |
+| g1 | L1 | ✅ | ✅ | ✅ per-file-ignore | ✅ 正常 | 既有 `_prepare_low_state` 跨类访问 |
+| xbot | L2 | ✅ | ✅ `sim_config.timestep` | ✅ | ✅ 正常 | 修复 `ctrl` property + `time_step` 缺失导致步态异常 |
+| zq_sa01 | L2 | ✅ | ✅ `gen_sensor_dict()` | ✅ per-file-ignore | ✅ 正常 | run_zqsa01 既有 `_get_obs` 跨类访问 |
+| d12 | L2 | ✅ | ✅ `data.qpos/qvel` + demo/act OSC 适配 | ✅ per-file-ignore | ✅ 正常 | OSC 控制器需 `mj_fullM`（Euler 未暴露 qM，D12Env 临时穿墙 DataView 路径 + per-file-ignore）；`env.gym`→`env`、`env.ctrl[i]=v`→本地缓冲区、`get_body_xpos_xmat_xquat` 返回 dict、`set_joint_qpos(dict)`→`apply_joint_qpos_dict` 已修复（demo+act 同步） |
+| franka_rl | L2 异步 | ⚠️ 保留 `OrcaGymAsyncEnv`+TODO | ✅ `data.body_xpos` | ✅ per-file-ignore | ❌ 阻塞 | **待 OrcaGymEulerAsyncEnv**，agent 跨类访问 |
+| fluid | L3 | ✅ | ✅ `data.body_xpos`/`model.equality_*`/`apply_body_force` | ✅ per-file-ignore | ✅ 正常 | passive viewer/geom 需 mjModel，TODO |
+| drone_driver | L4 | ✅ | ✅ 完整修复（24+ 处穿墙全替换 + `mj_step` 后 `_sync_view` 同步） | ✅ | ✅ 正常 | actuator_ctrlrange/xfrc/contact 均已有 Euler API 覆盖；修复 `data.time` 不更新导致仿真不启动/推力爬升失效 |
+| legged_gym | L1 异步 | ⚠️ `LeggedSimEnv`✅，`LeggedGymEnv`保留+TODO | ✅ 无穿墙 | ✅ per-file-ignore | ❌ 阻塞 | **待 OrcaGymEulerAsyncEnv** |
 
 ### 9.2 阻塞点（待 OrcaGym 侧扩展）
 
@@ -247,22 +251,23 @@
 | B1 | Euler 异步 env 路径 | franka_rl、legged_gym | `OrcaGymAsyncEnv`/`OrcaGymAsyncAgent`/`OrcaGymAsyncSubprocVecEnv` 无 Euler 对应 |
 | B2 | `modify_equality_objects`/`update_equality_constraints` 委托 | fluid | `OrcaGymEulerEnv` 有 `equality_update` 但未委托旧接口 |
 | B3 | `eq_active` 写入 | fluid | `OrcaGymDataView` 未暴露 `eq_active` 写入 |
-| B4 | MuJoCo passive viewer 的 mjModel/mjData | fluid、drone_driver | Euler 体系未暴露原始 mjModel/mjData |
-| B5 | actuator_ctrlrange/jnt_qposadr/jnt_dofadr/jnt_range | drone_driver | Euler 未委托这些 model 属性 |
-| B6 | xfrc_applied 直接读写 | drone_driver | `apply_body_force` 仅写入，无法读取/清零特定 body |
-| B7 | contact/ncon/contact 结构 | drone_driver | Euler 有 `query_contact_simple` 但不提供完整 contact 结构 |
+| B4 | MuJoCo passive viewer 的 mjModel/mjData | fluid | Euler 体系未暴露原始 mjModel/mjData（drone_driver 已不依赖 passive viewer） |
+| ~~B5~~ | ~~actuator_ctrlrange/jnt_qposadr/jnt_dofadr/jnt_range~~ | ~~drone_driver~~ | ✅ 已解决：`model.get_actuator_byname(name)["CtrlRange"]`、`env.jnt_qposadr(name)`、`env.jnt_dofadr(name)` |
+| ~~B6~~ | ~~xfrc_applied 直接读写~~ | ~~drone_driver~~ | ✅ 已解决：`apply_body_force(body_name, f, tau)`/`clear_body_force(body_name)` |
+| ~~B7~~ | ~~contact/ncon/contact 结构~~ | ~~drone_driver~~ | ✅ 已解决：`data.contact`（list）/`len(data.contact)` |
 
 ### 9.3 迁移策略说明
 
 1. **异步样例（franka_rl、legged_gym）**：基类保留 `OrcaGymAsyncEnv` + `TODO(euler-migration)` 注释，仅修复可替换的穿墙访问。待 OrcaGym 侧提供 Euler 异步路径后迁移基类。
-2. **drone_driver（L4）**：基类已迁移到 `OrcaGymEulerEnv`，可直接替换的穿墙（time/qvel/xpos/cvel/subtree_mass）已修复；Euler 未委托的 API（actuator_ctrlrange/xfrc/contact 等）保留穿墙 + per-file-ignores + TODO。
+2. **drone_driver（L4）**：基类已迁移到 `OrcaGymEulerEnv`，**全部 24+ 处穿墙已完整修复**（time/qvel/xpos/cvel/subtree_mass/actuator_ctrlrange/xfrc/contact/jnt_qposadr/jnt_dofadr 等）。新增 `apply_joint_qpos_dict`/`apply_joint_qvel_dict`/`_compute_joint_dof_bounds` 辅助方法。修复 `mj_step` 后未调用 `_sync_view()` 导致 `data.time` 不更新（仿真不启动、推力爬升失效）的问题。ruff SLF001 零报警，无需 per-file-ignores。
 3. **fluid（L3）**：基类已迁移，equality/xfrc/mocap 穿墙已用 `model.equality_*`/`apply_body_force`/`data.mocap_*` 替换；passive viewer 的 mjModel/mjData 保留 + per-file-ignores + TODO。
 4. **ruff SLF001**：所有 Euler 迁移相关穿墙已修复或标注 TODO；既有跨类私有访问（agent/state_processor/keyboard 内部属性）通过 per-file-ignores 处理，标注待重构。
 
-### 9.4 验证状态
+### 9.4 验证状态（2026-07-22 更新）
 
 - **静态验证**：`ruff check --select SLF001 examples/` ✅ 全部通过
-- **动态验证**：待用户在 sandbox 外（GPU 命令白名单）逐样例运行验证
+- **动态验证**：10/12 样例经用户实际运行确认正常（character/g1/wheeled_chassis/replicator/ant_rl/xbot/zq_sa01/d12/drone_driver/fluid）
+- **阻塞样例**：franka_rl、legged_gym 待 `OrcaGymEulerAsyncEnv`
 
 ## 10. B1 阻塞点深度剖析：Euler 异步 env 路径补全工作量
 
