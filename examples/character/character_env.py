@@ -47,6 +47,24 @@ class CharacterEnv(OrcaGymEulerEnv):
         self._set_obs_space()
         self._set_action_space()
 
+    def apply_joint_qpos_dict(self, joint_qpos_dict: dict) -> None:
+        """将 {joint_name: qpos} 字典合并到完整 qpos 数组并应用（Euler 兼容）。"""
+        full_qpos = self.data.qpos.copy()
+        for jname, jqpos in joint_qpos_dict.items():
+            addr = self.jnt_qposadr(jname)
+            arr = np.atleast_1d(np.asarray(jqpos, dtype=full_qpos.dtype))
+            full_qpos[addr:addr + len(arr)] = arr
+        self.set_joint_qpos(full_qpos)
+
+    def apply_joint_qvel_dict(self, joint_qvel_dict: dict) -> None:
+        """将 {joint_name: qvel} 字典合并到完整 qvel 数组并应用（Euler 兼容）。"""
+        full_qvel = self.data.qvel.copy()
+        for jname, jqvel in joint_qvel_dict.items():
+            addr = self.jnt_dofadr(jname)
+            arr = np.atleast_1d(np.asarray(jqvel, dtype=full_qvel.dtype))
+            full_qvel[addr:addr + len(arr)] = arr
+        self.set_joint_qvel(full_qvel)
+
     def _set_obs_space(self):
         self.observation_space = self.generate_observation_space(self._get_obs().copy())
 

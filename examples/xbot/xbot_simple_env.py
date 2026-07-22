@@ -18,7 +18,7 @@ _logger = get_orca_logger()
 
 
 
-class XBotSimpleEnv(OrcaGymLocalEnv):
+class XBotSimpleEnv(OrcaGymEulerEnv):
     """
     简化的XBot环境，直接移植standalone_mujoco_sim.py的逻辑
     """
@@ -134,8 +134,9 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
             self.xbot_joint_names = list(self._scene_binding.get("joint_names", []))
             actuator_names = list(self._scene_binding.get("actuator_names", []))
             self.xbot_joint_indices = [self.model.joint_name2id(joint_name) for joint_name in self.xbot_joint_names]
-            self.xbot_qpos_indices = [self.gym.jnt_qposadr(joint_name) for joint_name in self.xbot_joint_names]
-            self.xbot_qvel_indices = [self.gym.jnt_dofadr(joint_name) for joint_name in self.xbot_joint_names]
+            # Euler 体系：jnt_qposadr/jnt_dofadr 已委托为公共方法，不通过 self.gym 穿墙
+            self.xbot_qpos_indices = [self.jnt_qposadr(joint_name) for joint_name in self.xbot_joint_names]
+            self.xbot_qvel_indices = [self.jnt_dofadr(joint_name) for joint_name in self.xbot_joint_names]
             self.xbot_actuator_indices = [self.model.actuator_name2id(actuator_name) for actuator_name in actuator_names]
         else:
             self._detect_legacy_joint_binding(xbot_joint_base_names)
@@ -230,8 +231,9 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
                 joint_name = prefix_joint_matches[selected_prefix][joint_base_name]
                 actuator_name = prefix_actuator_matches[selected_prefix][joint_base_name]
                 joint_id = self.model.joint_name2id(joint_name)
-                qpos_addr = self.gym.jnt_qposadr(joint_name)
-                qvel_addr = self.gym.jnt_dofadr(joint_name)
+                # Euler 体系：jnt_qposadr/jnt_dofadr 已委托为公共方法，不通过 self.gym 穿墙
+                qpos_addr = self.jnt_qposadr(joint_name)
+                qvel_addr = self.jnt_dofadr(joint_name)
                 actuator_id = self.model.actuator_name2id(actuator_name)
                 self.xbot_joint_names.append(joint_name)
                 self.xbot_joint_indices.append(joint_id)
@@ -324,8 +326,9 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
         # 如果所有尝试都失败，使用body查询获取姿态
         if not sensor_read_success and self.base_body_name:
             try:
-                _, _, xquat = self.get_body_xpos_xmat_xquat([self.base_body_name])
-                quat = xquat.copy()
+                # Euler 体系返回 dict[body_name -> {"xpos","xmat","xquat"}]，非元组
+                _base_pose = self.get_body_xpos_xmat_xquat([self.base_body_name])[self.base_body_name]
+                quat = np.asarray(_base_pose["xquat"], dtype=np.float64).copy()
                 
                 # 尝试估算角速度（从姿态变化）
                 if self.last_base_quat is not None:
@@ -333,7 +336,9 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
                     current_euler = self.quaternion_to_euler(quat)
                     if self.last_base_euler is not None:
                         delta_euler = current_euler - self.last_base_euler
-                        dt = self.time_step * self.frame_skip  # 0.01s
+                        # Euler 体系无 self.time_step 属性（Local 有），用 self.dt
+                        # (property = sim_config.timestep * frame_skip = 0.001*10 = 0.01s)
+                        dt = self.dt
                         omega = delta_euler / dt  # rad/s
                         # 限制范围避免异常值
                         # ⭐ 修改：放宽限制（standaloneMujoco无限制）
@@ -399,11 +404,11 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
             current_qpos = self.data.qpos.copy()
             CRAWL_HEIGHT = 0.05
             current_qpos[2] = CRAWL_HEIGHT
-            import asyncio
-            if hasattr(self, 'loop') and self.loop:
-                self.loop.run_until_complete(self.gym.set_qpos(current_qpos))
-                self.gym.mj_forward()
-                self.gym.update_data()
+            # Euler 体系：set_joint_qpos 是同步公共 API（替代 Local 的 self.gym.set_qpos 异步调用）；
+            # mj_forward 刷新派生量；update_data 在 Euler 无等价公共方法（原为 Local 私有），
+            # mj_forward 后 DataView 会自动反映新数据。
+            self.set_joint_qpos(current_qpos)
+            self.mj_forward()
         except Exception as e:
             if self.verbose:
                 _logger.debug(f"[XBot] 设置初始高度失败: {e}")
@@ -453,17 +458,20 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
             tau = (target_q - q) * self.kps + (target_dq - dq) * self.kds
             tau = np.clip(tau, -self.tau_limit, self.tau_limit)
 
+            # Euler 体系 self.ctrl 是 property，getter 返回 actuator_force（只读），
+            # 索引赋值 self.ctrl[...] = tau 会写入 actuator_force 而非 mjData.ctrl，
+            # 导致 PD 控制失效。必须用本地缓冲区 + do_simulation(ctrl_buf) 走 set_ctrl。
+            ctrl_buf = np.zeros(self.nu, dtype=np.float32)
             if hasattr(self, 'xbot_actuator_indices') and len(self.xbot_actuator_indices) == 12:
-                self.ctrl.fill(0.0)
                 for i, actuator_idx in enumerate(self.xbot_actuator_indices):
-                    if actuator_idx < len(self.ctrl):
-                        self.ctrl[actuator_idx] = tau[i]
+                    if actuator_idx < len(ctrl_buf):
+                        ctrl_buf[actuator_idx] = tau[i]
             else:
                 if self.step_count == 1:
                     _logger.warning(f"[XBot] 使用兜底方案设置执行器控制")
-                self.ctrl[-12:] = tau.astype(np.float32)
+                ctrl_buf[-12:] = tau.astype(np.float32)
 
-            self.do_simulation(self.ctrl, 1)
+            self.do_simulation(ctrl_buf, 1)
         
         self.last_tau = tau.copy()
 
@@ -481,7 +489,10 @@ class XBotSimpleEnv(OrcaGymLocalEnv):
         prev_base_pos = self.last_base_pos.copy() if self.last_base_pos is not None else None
         
         try:
-            xpos, xmat, xquat = self.get_body_xpos_xmat_xquat([self.base_body_name])
+            # Euler 体系返回 dict[body_name -> {"xpos","xmat","xquat"}]，非元组
+            _base_pose = self.get_body_xpos_xmat_xquat([self.base_body_name])[self.base_body_name]
+            xpos = _base_pose["xpos"]
+            xquat = _base_pose["xquat"]
             real_base_z = float(xpos[2])
             real_euler = self.quaternion_to_euler(xquat)
             position_valid = True

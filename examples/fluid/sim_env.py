@@ -1,4 +1,3 @@
-import copy
 import logging
 import numpy as np
 from typing import Any, Optional, Tuple
@@ -75,6 +74,24 @@ class SimEnv(OrcaGymEulerEnv):
                 dtype=np.float32,
             )
             _logger.info("No action space defined, nu is 0.")
+
+    def apply_joint_qpos_dict(self, joint_qpos_dict: dict) -> None:
+        """将 {joint_name: qpos} 字典合并到完整 qpos 数组并应用（Euler 兼容）。"""
+        full_qpos = self.data.qpos.copy()
+        for jname, jqpos in joint_qpos_dict.items():
+            addr = self.jnt_qposadr(jname)
+            arr = np.atleast_1d(np.asarray(jqpos, dtype=full_qpos.dtype))
+            full_qpos[addr:addr + len(arr)] = arr
+        self.set_joint_qpos(full_qpos)
+
+    def apply_joint_qvel_dict(self, joint_qvel_dict: dict) -> None:
+        """将 {joint_name: qvel} 字典合并到完整 qvel 数组并应用（Euler 兼容）。"""
+        full_qvel = self.data.qvel.copy()
+        for jname, jqvel in joint_qvel_dict.items():
+            addr = self.jnt_dofadr(jname)
+            arr = np.atleast_1d(np.asarray(jqvel, dtype=full_qvel.dtype))
+            full_qvel[addr:addr + len(arr)] = arr
+        self.set_joint_qvel(full_qvel)
 
     def set_pending_human_trajectory_step(self, config: HumanTrajectoryStepConfig) -> None:
         """在 step 前写入一帧人类轨迹；step 内消费后清除。覆盖此前未消费的 pending。"""
@@ -271,24 +288,32 @@ class SimEnv(OrcaGymEulerEnv):
                     f1,
                     f2,
                 )
-                # TODO(euler-migration): OrcaGymEulerEnv 未委托 modify_equality_objects，需迁移到 equality_update
-                self.modify_equality_objects(c1, c2, f1, f2)
+                # Euler 体系用 equality_update 替代 modify_equality_objects：
+                # 按 slot 直接更新 obj1/obj2（底层 update_equality_constraints 按
+                # 当前 (obj1_id, obj2_id) 匹配槽位写入新值）
+                self.equality_update(
+                    gi,
+                    obj1_name=name1,
+                    obj2_name=name2,
+                    forward=False,
+                )
 
-        eq_list = self.model.get_eq_list()
-        if eq_list is None:
-            _logger.warning("model.get_eq_list() is None; skipping equality replay for this frame")
-            return
-        eq_list = copy.deepcopy(eq_list)
+        # Euler 体系用 equality_update 逐槽位替代批量 update_equality_constraints。
+        # equality_update 内部会调用 update_equality_constraints 处理 type/obj/data，
+        # 同时支持 active/solref/solimp 的按 slot 写入。
         for j, gi in enumerate(cfg.eq_indices):
-            if gi >= len(eq_list):
-                continue
-            obj1_id, obj2_id = self.model.equality_object_ids(gi)
-            eq_list[gi]["obj1_id"] = int(obj1_id)
-            eq_list[gi]["obj2_id"] = int(obj2_id)
-            eq_list[gi]["eq_type"] = int(eqt_row[j])
-            eq_list[gi]["eq_data"] = np.array(eqd_row[j], dtype=np.float64, copy=True)
-        # TODO(euler-migration): OrcaGymEulerEnv 未委托 update_equality_constraints，需迁移到 equality_update
-        self.update_equality_constraints(eq_list)
+            eq_type_val = int(eqt_row[j])
+            eq_data_val = np.array(eqd_row[j], dtype=np.float64, copy=True)
+            ea_val = bool(ea_row[j])
+            self.equality_update(
+                gi,
+                eq_type=eq_type_val,
+                data=eq_data_val,
+                active=ea_val,
+                forward=False,
+            )
+        # 批量写入完成后统一 mj_forward 同步派生量
+        self.mj_forward()
 
         for j, gi in enumerate(cfg.eq_indices):
             m1, m2 = self.model.equality_object_ids(gi)
@@ -307,11 +332,6 @@ class SimEnv(OrcaGymEulerEnv):
                     f1,
                     f2,
                 )
-
-        # TODO(euler-migration): eq_active 写入需 OrcaGym 侧在 OrcaGymEulerEnv/OrcaGymDataView 暴露公共访问器
-        # if hasattr(d, "eq_active"):
-        #     for j, gi in enumerate(cfg.eq_indices):
-        #         d.eq_active[gi] = bool(ea_row[j])
 
         self._last_eq_replay_key = key
 

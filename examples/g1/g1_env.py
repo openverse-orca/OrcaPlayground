@@ -208,7 +208,8 @@ class G1Env(OrcaGymEulerEnv):
             torques = np.clip(torques, -self.motor_effort_limit_list, self.motor_effort_limit_list)
             self.set_ctrl(torques)
             self.mj_step(nstep=1)
-            self.gym.update_data()
+            # Euler 体系：mj_step 内部已刷新 mjData，DataView 自动反映新数据，
+            # update_data 在 Euler 无等价公共方法（原为 Local 私有），无需调用。
 
         obs = self._get_obs().copy()
         self.update_share_low_state(obs)
@@ -266,13 +267,25 @@ class G1Env(OrcaGymEulerEnv):
 
         return obs
 
+    def apply_joint_qpos_dict(self, joint_qpos_dict: dict) -> None:
+        """将 {joint_name: qpos} 字典合并到完整 qpos 数组并应用（Euler 兼容）。
+
+        Euler 体系 set_joint_qpos 只接受完整 np.ndarray，不接受 dict（Local 接受）。
+        """
+        full_qpos = self.data.qpos.copy()
+        for jname, jqpos in joint_qpos_dict.items():
+            addr = self.jnt_qposadr(jname)
+            arr = np.atleast_1d(np.asarray(jqpos, dtype=full_qpos.dtype))
+            full_qpos[addr:addr + len(arr)] = arr
+        self.set_joint_qpos(full_qpos)
+
     def reset_model(self) -> tuple[dict, dict]:
         """
         Reset the environment, return observation
         """
         self.ctrl = np.zeros(self.nu, dtype=np.float32)
         qpos = {self.joint_names[i]: self.default_pos_list[i] for i in range(len(self.joint_names))}
-        self.set_joint_qpos(qpos)
+        self.apply_joint_qpos_dict(qpos)
         obs = self._get_obs()
         self.update_share_low_state(obs)
         return obs, {}

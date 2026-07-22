@@ -173,7 +173,7 @@ def run_coupled_particle_mujoco_playback(config: Dict) -> None:
                 joint_qpos = _unpack_joint_name_packed_row(row, joint_names, joint_sizes)
                 joint_qpos = _filter_joint_qpos_for_env(env, joint_qpos)
                 if joint_qpos:
-                    env.unwrapped.set_joint_qpos(joint_qpos)
+                    env.unwrapped.apply_joint_qpos_dict(joint_qpos)
             else:
                 env.unwrapped.data.qpos[:] = row
             env.unwrapped.mj_forward()

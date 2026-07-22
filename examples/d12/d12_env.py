@@ -23,6 +23,15 @@ class D12Env(OrcaGymEulerEnv):
         self.nq = self.model.nq
         self.nv = self.model.nv
 
+    def apply_joint_qpos_dict(self, joint_qpos_dict: dict) -> None:
+        """将 {joint_name: qpos} 字典合并到完整 qpos 数组并应用（Euler 兼容）。"""
+        full_qpos = self.data.qpos.copy()
+        for jname, jqpos in joint_qpos_dict.items():
+            addr = self.jnt_qposadr(jname)
+            arr = np.atleast_1d(np.asarray(jqpos, dtype=full_qpos.dtype))
+            full_qpos[addr:addr + len(arr)] = arr
+        self.set_joint_qpos(full_qpos)
+
     def reset_model(self) -> tuple[dict, dict]:
         self.ctrl = np.zeros(self.nu, dtype=np.float32)
         self.mj_forward()

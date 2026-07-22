@@ -27,8 +27,9 @@ select = ["E", "F", "W", "I", "SLF001"]
 "examples/fluid/trajectory/water_jug_trajectory_controller.py" = ["SLF001"]
 "examples/fluid/launch/run_simulation.py" = ["SLF001"]
 # TODO: 既有跨类私有访问（agent/state_processor/keyboard 内部属性），待重构类接口后移除
-"examples/franka_rl/**" = ["SLF001"]
 "examples/legged_gym/**" = ["SLF001"]
 "examples/g1/**" = ["SLF001"]
 "examples/wheeled_chassis/**" = ["SLF001"]
 "examples/zq_sa01/run_zqsa01.py" = ["SLF001"]
+# franka_rl 已回滚到 OrcaGymAsyncEnv，FrankaAgent 跨类私有访问恢复，待 Euler 异步路径就绪后统一重构
+"examples/franka_rl/**" = ["SLF001"]

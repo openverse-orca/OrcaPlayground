@@ -7,7 +7,7 @@ from orca_gym.devices.xbox_joystick import XboxJoystickManager
 from orca_gym.devices.keyboard import KeyboardInput, KeyboardInputSourceType
 import orca_gym.adapters.robosuite.utils.transform_utils as transform_utils
 from orca_gym.environment.orca_gym_env import RewardType
-from orca_gym.environment.orca_gym_local_env import OrcaGymLocalEnv
+from orca_gym.environment.euler.orca_gym_euler_env import OrcaGymEulerEnv
 import time
 import gymnasium as gym
 
@@ -182,7 +182,7 @@ class _AntAgent:
         body_xyz = body_qpos[:2]
         random_xyz = 0.1 * np_random.uniform(-1, 1, (2))
         body_xyz += random_xyz
-        self._env.set_joint_qpos({self._base_joint_name: body_qpos})
+        self._env.apply_joint_qpos_dict({self._base_joint_name: body_qpos})
 
 
 class AntOrcaGymEnv(OrcaGymEulerEnv):
@@ -190,6 +190,15 @@ class AntOrcaGymEnv(OrcaGymEulerEnv):
     A class to represent the ORCA Gym environment for the Replicator scene.
     Supports single and multi-agent Ant configurations.
     """
+
+    def apply_joint_qpos_dict(self, joint_qpos_dict: dict) -> None:
+        """将 {joint_name: qpos} 字典合并到完整 qpos 数组并应用（Euler 兼容）。"""
+        full_qpos = self.data.qpos.copy()
+        for jname, jqpos in joint_qpos_dict.items():
+            addr = self.jnt_qposadr(jname)
+            arr = np.atleast_1d(np.asarray(jqpos, dtype=full_qpos.dtype))
+            full_qpos[addr:addr + len(arr)] = arr
+        self.set_joint_qpos(full_qpos)
 
     def __init__(
         self,

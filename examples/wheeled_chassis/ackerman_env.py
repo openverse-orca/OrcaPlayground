@@ -9,7 +9,7 @@ from orca_gym.devices.xbox_joystick import XboxJoystickManager
 from orca_gym.devices.keyboard import KeyboardInput, KeyboardInputSourceType
 import orca_gym.adapters.robosuite.utils.transform_utils as transform_utils
 from orca_gym.environment.orca_gym_env import RewardType
-from orca_gym.environment.orca_gym_local_env import OrcaGymLocalEnv
+from orca_gym.environment.euler.orca_gym_euler_env import OrcaGymEulerEnv
 
 # 抑制 pygame 启动 banner
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
@@ -255,8 +255,9 @@ class AckermanEnv(OrcaGymEulerEnv):
 
     def _body_yaw_rad(self) -> float:
         """由 body 旋转矩阵得到绕世界竖直轴的航向（车体 x 轴在水平面内投影角）。"""
-        _, xmat_flat, _ = self.get_body_xpos_xmat_xquat([self._base_name])
-        R = np.asarray(xmat_flat, dtype=np.float64).reshape(-1, 3, 3)[0]
+        # Euler 体系返回 dict[body_name -> {"xpos","xmat","xquat"}]，非元组
+        _base_pose = self.get_body_xpos_xmat_xquat([self._base_name])[self._base_name]
+        R = np.asarray(_base_pose["xmat"], dtype=np.float64).reshape(-1, 3, 3)[0]
         return float(np.arctan2(R[1, 0], R[0, 0]))
 
     @staticmethod
@@ -265,8 +266,9 @@ class AckermanEnv(OrcaGymEulerEnv):
 
     def _snapshot_base_pose(self) -> dict[str, Any]:
         """base_link 世界系位置与航向（用于日志 / info）。"""
-        xpos, _, _ = self.get_body_xpos_xmat_xquat([self._base_name])
-        pos = np.asarray(xpos, dtype=np.float64).reshape(-1, 3)[0]
+        # Euler 体系返回 dict[body_name -> {"xpos","xmat","xquat"}]，非元组
+        _base_pose = self.get_body_xpos_xmat_xquat([self._base_name])[self._base_name]
+        pos = np.asarray(_base_pose["xpos"], dtype=np.float64).reshape(-1, 3)[0]
         yaw_rad = self._body_yaw_rad()
         xy_norm = float(np.linalg.norm(pos[:2]))
         delta_xy = pos[:2] - self._start_xy

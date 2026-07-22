@@ -138,8 +138,8 @@ class Character():
         self._waypoint_distance_threshold = self._config['waypoint_distance_threshold']
         self._waypoint_angle_threshold = np.deg2rad(self._config['waypoint_angle_threshold'])
 
-        body_xpos, _, _ = self._env.get_body_xpos_xmat_xquat([self._body_name])
-        self._original_coordinates = body_xpos[:2]
+        _body_pose = self._env.get_body_xpos_xmat_xquat([self._body_name])[self._body_name]
+        self._original_coordinates = _body_pose["xpos"][:2]
         _logger.info(f"Original Coordinates:  {self._original_coordinates}")
 
         
@@ -154,7 +154,7 @@ class Character():
         elif self._control_type['active_type'] == 'waypoint':
             self._process_waypoint_input(heading)
 
-        self._env.set_joint_qvel(self._ctrl_joint_qvel)
+        self._env.apply_joint_qvel_dict(self._ctrl_joint_qvel)
 
     def on_reset(self):
         self._reset_move_and_turn()
@@ -162,7 +162,7 @@ class Character():
             self._joint_names["Rotate_Z"] : [0],
         }
 
-        self._env.set_joint_qpos(ctrl_qpos)
+        self._env.apply_joint_qpos_dict(ctrl_qpos)
 
 
     def _set_anim_param_bool(self, param_name: str, value: bool):
@@ -283,9 +283,9 @@ class Character():
             self._next_waypoint_coord = next_waypoint_coord
 
         if self._next_waypoint_coord is not None and self._moving_to_waypoint:
-            body_xpos, _, body_xquat = self._env.get_body_xpos_xmat_xquat([self._body_name])
-            current_coordinates = body_xpos[:2] 
-            current_body_heading = rotations.quat2euler(body_xquat[:4])[2] % (2 * np.pi)
+            _body_pose = self._env.get_body_xpos_xmat_xquat([self._body_name])[self._body_name]
+            current_coordinates = _body_pose["xpos"][:2]
+            current_body_heading = rotations.quat2euler(_body_pose["xquat"][:4])[2] % (2 * np.pi)
 
             # calculate the distance to the next waypoint, and the direction
             distance = np.linalg.norm(self._next_waypoint_coord - current_coordinates)

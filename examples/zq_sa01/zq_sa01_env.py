@@ -9,7 +9,7 @@ from typing import Optional
 from gymnasium import spaces
 from scipy.spatial.transform import Rotation as R
 
-from orca_gym.environment.orca_gym_local_env import OrcaGymLocalEnv
+from orca_gym.environment.euler.orca_gym_euler_env import OrcaGymEulerEnv
 from orca_gym.log.orca_log import get_orca_logger
 
 _logger = get_orca_logger()
@@ -139,8 +139,9 @@ class ZQSA01Env(OrcaGymEulerEnv):
     def _get_base_pos(self) -> np.ndarray:
         try:
             base_body = self.body("base")
-            xpos, _, _ = self.get_body_xpos_xmat_xquat([base_body])
-            return xpos.copy()
+            # Euler 体系返回 dict[body_name -> {"xpos","xmat","xquat"}]，非元组
+            _base_pose = self.get_body_xpos_xmat_xquat([base_body])[base_body]
+            return np.asarray(_base_pose["xpos"], dtype=np.float64).copy()
         except Exception:
             try:
                 base_joint = self.joint("root")
@@ -149,6 +150,20 @@ class ZQSA01Env(OrcaGymEulerEnv):
             except Exception:
                 _logger.warning("[ZQSA01] Cannot query base position")
                 return np.zeros(3)
+
+    def _apply_joint_qpos_dict(self, joint_qpos_dict: dict) -> None:
+        """将 {joint_name: qpos} 字典合并到完整 qpos 数组并应用（Euler 兼容）。
+
+        Local 体系 set_joint_qpos 接受 dict，Euler 体系只接受完整 np.ndarray。
+        此方法在 Euler 下模拟 Local 的 dict 接口：读取当前完整 qpos，按
+        jnt_qposadr 地址写入各关节值，再调用 set_joint_qpos(full_array)。
+        """
+        full_qpos = self.data.qpos.copy()
+        for jname, jqpos in joint_qpos_dict.items():
+            addr = self.jnt_qposadr(jname)
+            arr = np.atleast_1d(np.asarray(jqpos, dtype=full_qpos.dtype))
+            full_qpos[addr:addr + len(arr)] = arr
+        self.set_joint_qpos(full_qpos)
 
     def _init_base_pose(self) -> None:
         self.reset_simulation()
@@ -166,14 +181,14 @@ class ZQSA01Env(OrcaGymEulerEnv):
 
         try:
             base_joint = self.joint("root")
-            self.set_joint_qpos({base_joint: self._default_base_qpos})
+            self._apply_joint_qpos_dict({base_joint: self._default_base_qpos})
         except Exception:
             _logger.warning("[ZQSA01] Could not set base joint in __init__")
         joint_pos_dict = {
             self.joint_names[i]: self.default_dof_pos[i]
             for i in range(12)
         }
-        self.set_joint_qpos(joint_pos_dict)
+        self._apply_joint_qpos_dict(joint_pos_dict)
         self.mj_forward()
 
     def set_command(self, vx: float = 0.0, vy: float = 0.0, dyaw: float = 0.0):
@@ -228,7 +243,8 @@ class ZQSA01Env(OrcaGymEulerEnv):
             
             self.set_ctrl(ctrl)
             self.mj_step(nstep=1)
-            self.gym.update_data()
+            # Euler 体系：mj_step 内部已刷新 mjData，DataView 自动反映新数据，
+            # update_data 在 Euler 无等价公共方法（原为 Local 私有），无需调用。
         
         # 更新观察
         obs = self._get_obs()
@@ -320,10 +336,10 @@ class ZQSA01Env(OrcaGymEulerEnv):
         
         # 重置关节到默认位置
         joint_pos_dict = {
-            self.joint_names[i]: self.default_dof_pos[i] 
+            self.joint_names[i]: self.default_dof_pos[i]
             for i in range(12)
         }
-        self.set_joint_qpos(joint_pos_dict)
+        self._apply_joint_qpos_dict(joint_pos_dict)
         
         # 前进一步
         self.mj_forward()

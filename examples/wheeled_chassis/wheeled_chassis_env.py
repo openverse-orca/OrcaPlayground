@@ -8,7 +8,7 @@ from orca_gym.devices.xbox_joystick import XboxJoystickManager
 from orca_gym.devices.keyboard import KeyboardInput, KeyboardInputSourceType
 import orca_gym.adapters.robosuite.utils.transform_utils as transform_utils
 from orca_gym.environment.orca_gym_env import RewardType
-from orca_gym.environment.orca_gym_local_env import OrcaGymLocalEnv
+from orca_gym.environment.euler.orca_gym_euler_env import OrcaGymEulerEnv
 
 # 抑制 pygame 启动 banner
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
@@ -53,7 +53,10 @@ class WheeledChassisEnv(OrcaGymEulerEnv):
         self._actuator_forcerange = self._get_actuator_forcerange()
         self._actuator_dir = {self.actuator("M_wheel_r"): 1.0, self.actuator("M_wheel_l"): -1.0}
         # print("Actuator ctrl range: ", self._actuator_forcerange)
-        _, _, self._last_xquat= self.get_body_xpos_xmat_xquat([self._base_name])
+        # Euler 体系返回 dict[body_name -> {"xpos","xmat","xquat"}]，非元组。
+        # .copy() 防止引用 MuJoCo 内部数组被下一步仿真原地修改。
+        _base_pose = self.get_body_xpos_xmat_xquat([self._base_name])[self._base_name]
+        self._last_xquat = np.asarray(_base_pose["xquat"], dtype=np.float64).copy()
 
         self._keyboard = KeyboardInput(KeyboardInputSourceType.ORCASTUDIO, orcagym_addr)
 
@@ -209,7 +212,10 @@ class WheeledChassisEnv(OrcaGymEulerEnv):
         """
         DRIFT_THRESHOLD = 0.002 * self.dt
 
-        _, _, current_xquat = self.get_body_xpos_xmat_xquat([self._base_name])
+        # Euler 体系返回 dict[body_name -> {"xpos","xmat","xquat"}]，非元组。
+        # 此处需 .copy() 防止 self._last_xquat 引用 MuJoCo 内部数组被下一步仿真原地修改。
+        _base_pose = self.get_body_xpos_xmat_xquat([self._base_name])[self._base_name]
+        current_xquat = np.asarray(_base_pose["xquat"], dtype=np.float64).copy()
         current_angle_z = rotations.quat2euler(current_xquat)[2]
         last_angle_z = rotations.quat2euler(self._last_xquat)[2]
         self._last_xquat = current_xquat

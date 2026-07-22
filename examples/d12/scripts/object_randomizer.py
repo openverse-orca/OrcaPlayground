@@ -168,7 +168,7 @@ def apply_object_randomization(env, rand_spec: dict) -> dict[str, np.ndarray]:
         joint_qpos_updates[joint_name] = qpos
 
     if joint_qpos_updates:
-        env.set_joint_qpos(joint_qpos_updates)
+        env.apply_joint_qpos_dict(joint_qpos_updates)
         env.mj_forward()
         for joint_name, qpos in joint_qpos_updates.items():
             quat_xyzw = qpos[[4, 5, 6, 3]]

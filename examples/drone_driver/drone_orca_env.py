@@ -10,7 +10,7 @@ from gymnasium import spaces
 from .drone_aero_config import DEFAULT_DRONE_MODEL, get_drone_model_profile
 from orca_gym.devices.keyboard import KeyboardInput, KeyboardInputSourceType
 from orca_gym.devices.xbox_joystick import XboxJoystick, XboxJoystickManager
-from orca_gym.environment.orca_gym_local_env import OrcaGymLocalEnv
+from orca_gym.environment.euler.orca_gym_euler_env import OrcaGymEulerEnv
 from orca_gym.log.orca_log import get_orca_logger
 from orca_gym.utils import rotations
 
@@ -552,7 +552,7 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
             self._full_mode_filt_vxy[:] = 0.0
             self._full_mode_thrust_lpf = float(self._hover_thrust)
         # Orca 同步偶发在 mj_forward 后写回非零关节速度，再清一次 free
-        self.set_joint_qvel({self._free_joint: np.zeros(6, dtype=np.float64)})
+        self.apply_joint_qvel_dict({self._free_joint: np.zeros(6, dtype=np.float64)})
         self.mj_forward()
         self.gym.update_data()
         self._takeoff_z_ref = float(self.data.body_xpos(self._frame_body)[2])
@@ -663,7 +663,7 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
             dtype=np.float64,
         )
         if np.max(np.abs(clipped - qv)) > 1e-9:
-            self.set_joint_qvel({self._free_joint: clipped})
+            self.apply_joint_qvel_dict({self._free_joint: clipped})
             self.mj_forward()
 
     def _read_keyboard_command(self) -> tuple[np.ndarray, bool]:
@@ -838,7 +838,7 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
             new_q[3:7] = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float64)
         else:
             new_q[3:7] = self._initial_free_qpos[3:7]
-        self.set_joint_qpos({self._free_joint: new_q})
+        self.apply_joint_qpos_dict({self._free_joint: new_q})
         qv = np.asarray(self.gym._mjData.qvel[lo:hi], dtype=np.float64).reshape(6)
         new_v = np.zeros(6, dtype=np.float64)
         new_v[2] = float(qv[2])
@@ -853,7 +853,7 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
                     s = vcap / hxy
                     new_v[0] *= s
                     new_v[1] *= s
-        self.set_joint_qvel({self._free_joint: new_v})
+        self.apply_joint_qvel_dict({self._free_joint: new_v})
         self.mj_forward()
 
     def _maybe_log_takeoff_first_vz_spike(self) -> None:

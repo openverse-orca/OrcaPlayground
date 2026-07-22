@@ -356,8 +356,8 @@ class WaterJugTrajectoryController:
 
         t = sim_t - self._t0
         qpos, qvel = self._sample(t)
-        env.set_joint_qpos({self.kettle_joint: qpos})
-        env.set_joint_qvel({self.kettle_joint: qvel})
+        env.apply_joint_qpos_dict({self.kettle_joint: qpos})
+        env.apply_joint_qvel_dict({self.kettle_joint: qvel})
         env.mj_forward()
         if hasattr(env.gym, "update_data"):
             env.gym.update_data()

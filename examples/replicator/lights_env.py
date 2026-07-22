@@ -3,7 +3,7 @@ import numpy as np
 import time
 from typing import Optional
 from gymnasium import spaces
-from orca_gym.environment.orca_gym_local_env import OrcaGymLocalEnv
+from orca_gym.environment.euler.orca_gym_euler_env import OrcaGymEulerEnv
 from orca_gym.scene.orca_gym_scene import LightInfo
 from orca_gym.scene.orca_gym_scene_runtime import OrcaGymSceneRuntime
 import orca_gym.utils.rotations as rotations
@@ -191,16 +191,20 @@ class LightsEnv(OrcaGymEulerEnv):
             return
 
         body_names = [light["body_name"] for light in self._rotatable_lights]
-        current_xpos, _, current_rotation = self.get_body_xpos_xmat_xquat(body_names)
+        # Euler 体系 get_body_xpos_xmat_xquat 返回 dict[body_name -> {"xpos","xmat","xquat"}]，
+        # 与 Local 体系的 (xpos, xmat, xquat) 元组契约不一致，因此不能直接解构。
+        body_poses = self.get_body_xpos_xmat_xquat(body_names)
         mocap_updates = {}
-        for batch_index, light in enumerate(self._rotatable_lights):
+        for light in self._rotatable_lights:
             light_index = light["index"]
+            body_name = light["body_name"]
             rotation_delta = rotations.euler2quat(self._light_rotation_delta[light_index])
-            pos = current_xpos[batch_index * 3 : (batch_index + 1) * 3]
-            quat = current_rotation[batch_index * 4 : (batch_index + 1) * 4]
-            mocap_updates[light["body_name"]] = {
-                "pos": pos,
-                "quat": rotations.quat_mul(quat, rotation_delta),
+            pose = body_poses[body_name]
+            mocap_updates[body_name] = {
+                "pos": np.asarray(pose["xpos"], dtype=np.float64),
+                "quat": rotations.quat_mul(
+                    np.asarray(pose["xquat"], dtype=np.float64), rotation_delta
+                ),
             }
 
         self.set_mocap_pos_and_quat(mocap_updates)
