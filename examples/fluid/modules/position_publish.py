@@ -113,21 +113,21 @@ class PositionPublishModule:
             # 3. 批量查询位姿 + 世界系线速度
             xvel_list = None
             if hasattr(self.env, 'get_body_xpos_xmat_xquat_xvel'):
-                xpos_flat, xmat_flat, xquat_flat, xvel_list = self.env.get_body_xpos_xmat_xquat_xvel(body_names)
+                _poses = self.env.get_body_xpos_xmat_xquat_xvel(body_names)
             else:
-                xpos_flat, xmat_flat, xquat_flat = self.env.get_body_xpos_xmat_xquat(body_names)
+                _poses = self.env.get_body_xpos_xmat_xquat(body_names)
             
-            # 4. 解析扁平数组
+            # 4. 解析扁平数组（Euler 返回 dict[body_name -> {"xpos", "xmat", "xquat", ...}]）
             num_bodies = len(body_names)
-            xpos_list = xpos_flat.reshape(num_bodies, 3)
-            xquat_list = xquat_flat.reshape(num_bodies, 4)
+            xpos_list = np.array([_poses[b]["xpos"] for b in body_names]).reshape(num_bodies, 3)
+            xquat_list = np.array([_poses[b]["xquat"] for b in body_names]).reshape(num_bodies, 4)
             
             # 5. 转换为 OrcaLink 格式
             for i, body_name in enumerate(body_names):
                 object_id = body_to_object_id.get(body_name, body_name)
                 pos = xpos_list[i]
                 quat = xquat_list[i]
-                lin_vel = xvel_list[i] if xvel_list is not None else np.zeros(3, dtype=np.float64)
+                lin_vel = np.asarray(_poses[body_name]["xvel"], dtype=np.float64).reshape(3) if "xvel" in _poses[body_name] else np.zeros(3, dtype=np.float64)
                 
                 # Convert to position data structure
                 try:

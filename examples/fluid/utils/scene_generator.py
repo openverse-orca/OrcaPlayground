@@ -440,9 +440,10 @@ class SceneGenerator:
                 start = (center - half).tolist()
                 end = (center + half).tolist()
                 # 直接查询 body 世界坐标，不依赖 _sph_geom_cache（FluidBlock body 无 SPH connector geom）
-                xpos_flat, _, _ = self.env.get_body_xpos_xmat_xquat([body_name])
-                if xpos_flat is not None and len(xpos_flat) >= 3:
-                    position = np.array(xpos_flat[:3])
+                _body_pose = self.env.get_body_xpos_xmat_xquat([body_name])[body_name]
+                xpos = np.asarray(_body_pose["xpos"], dtype=float).reshape(-1)
+                if xpos is not None and len(xpos) >= 3:
+                    position = np.array(xpos[:3])
                 else:
                     logger.warning(f"Could not get position for body '{body_name}', using zero")
                     position = np.zeros(3)
@@ -660,7 +661,7 @@ class SceneGenerator:
             
             # 2. 使用 get_body_xpos_xmat_xquat 获取世界坐标（需要先调用 mj_forward 更新数据）
             self.env.mj_forward()
-            xpos_flat, _, _ = self.env.get_body_xpos_xmat_xquat(mocap_body_names)
+            _poses = self.env.get_body_xpos_xmat_xquat(mocap_body_names)
             
             # 3. 构造返回列表，包含 world_position (MuJoCo 坐标系，未转换)
             for i, mocap_body_name in enumerate(mocap_body_names):
@@ -671,8 +672,8 @@ class SceneGenerator:
                 except ValueError:
                     continue
                 
-                # 获取世界坐标位置（xpos_flat 是扁平化的数组，每个 body 3个元素）
-                world_pos_mj = xpos_flat[i*3:(i+1)*3]
+                # 获取世界坐标位置（Euler 返回 dict，每个 body 的 xpos 是 (3,) 数组）
+                world_pos_mj = np.asarray(_poses[mocap_body_name]["xpos"], dtype=float).reshape(-1)
                 
                 mocap_info_list.append({
                     'mocap_name': mocap_body_name,
@@ -778,17 +779,19 @@ class SceneGenerator:
             # 获取 body ID
             body_id = model.body_name2id(body_name)
             
-            # 获取位置和旋转 - 返回扁平数组，需要提取单个 body 数据
-            xpos_flat, _, xquat_flat = self.env.get_body_xpos_xmat_xquat([body_name])
+            # 获取位置和旋转（Euler 返回 dict[body_name -> {"xpos", "xmat", "xquat"}]）
+            _body_pose = self.env.get_body_xpos_xmat_xquat([body_name])[body_name]
             
             # 提取单个 body 的数据
-            if xpos_flat is not None and len(xpos_flat) >= 3:
-                xpos = np.array(xpos_flat[:3])
+            _xpos = np.asarray(_body_pose["xpos"], dtype=float).reshape(-1)
+            if _xpos is not None and len(_xpos) >= 3:
+                xpos = np.array(_xpos[:3])
             else:
                 xpos = np.array([0.0, 0.0, 0.0])
             
-            if xquat_flat is not None and len(xquat_flat) >= 4:
-                xquat = np.array(xquat_flat[:4])
+            _xquat = np.asarray(_body_pose["xquat"], dtype=float).reshape(-1)
+            if _xquat is not None and len(_xquat) >= 4:
+                xquat = np.array(_xquat[:4])
             else:
                 xquat = np.array([1.0, 0.0, 0.0, 0.0])
             

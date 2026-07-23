@@ -684,7 +684,7 @@ def _start_orcalink_if_configured(ctx: FluidSimulationContext) -> None:
     logger.info("🚀 步骤 3: 启动 OrcaLink Server...")
 
     orcalink_bin = _resolve_cli_binary(
-        "orcalink",
+        config["orcalink"].get("command", "orcalink"),
         "Please ensure orca-link is installed: pip install -e /path/to/OrcaLink",
     )
 

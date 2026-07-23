@@ -52,11 +52,12 @@ class ConfigGenerator:
             site_dict = self.model.get_site_dict()
             geom_dict = self.model.get_geom_dict()
             
-            # 第1层：SPH_SITE 标记的动态体
-            for site_name in site_dict.keys():
-                if "SPH_SITE" in site_name:
-                    body_name = site_name.split("_SPH_SITE_")[0]
-                    if body_name in body_names:
+            # 第1层：SPH_SITE 标记的动态体（通过 BodyID 关联，兼容 Euler 下 site 名与 body 名不一致）
+            for site_name, site_info in site_dict.items():
+                if "SPH_SITE" in site_name and "SPH_MOCAP_SITE" not in site_name:
+                    body_id = site_info.get("BodyID")
+                    body_name = self.model.body_id2name(body_id) if body_id is not None else None
+                    if body_name and body_name in body_names:
                         sph_bodies.add(body_name)
                         logger.debug(f"Identified SPH body via SPH_SITE: {body_name}")
             
@@ -89,10 +90,14 @@ class ConfigGenerator:
     def extract_sites_for_body(self, body_name: str) -> Dict[str, List[str]]:
         """
         为指定 body 提取所有 SPH_SITE 和 SPH_MOCAP_SITE
-        
+
+        SPH_SITE 通过 BodyID 关联到 body；
+        SPH_MOCAP_SITE 挂在独立 mocap body 上，通过 SPH_SITE 的名称前缀
+        （将 _SPH_SITE_ 替换为 _SPH_MOCAP_SITE_）匹配对应项。
+
         Args:
             body_name: MuJoCo body 名称
-        
+
         Returns:
             Dict with keys:
                 - 'sph_sites': List of SPH_SITE names (sorted by index)
@@ -100,20 +105,24 @@ class ConfigGenerator:
         """
         sph_sites = []
         mocap_sites = []
-        
+
         try:
-            # 使用 OrcaGymModel API 获取所有 site 的字典
             site_dict = self.model.get_site_dict()
-            
-            # 遍历所有 site 名称
-            for site_name in site_dict.keys():
-                # 检查是否是该 body 的 SPH_SITE
-                if site_name.startswith(f"{body_name}_SPH_SITE_"):
+            body_id = self.model.body_name2id(body_name)
+
+            # 第1步：通过 BodyID 收集属于该 body 的 SPH_SITE
+            for site_name, site_info in site_dict.items():
+                if site_info.get("BodyID") != body_id:
+                    continue
+                if "SPH_SITE" in site_name and "SPH_MOCAP_SITE" not in site_name:
                     sph_sites.append(site_name)
-                
-                # 检查是否是该 body 的 SPH_MOCAP_SITE
-                if site_name.startswith(f"{body_name}_SPH_MOCAP_SITE_"):
-                    mocap_sites.append(site_name)
+
+            # 第2步：通过名称前缀匹配对应的 SPH_MOCAP_SITE
+            # e.g. [id]_bodyjoint_SPH_SITE_000 -> [id]_bodyjoint_SPH_MOCAP_SITE_000
+            for sph_site_name in sph_sites:
+                mocap_site_name = sph_site_name.replace("_SPH_SITE_", "_SPH_MOCAP_SITE_")
+                if mocap_site_name in site_dict:
+                    mocap_sites.append(mocap_site_name)
             
             # 按索引排序
             def extract_index(name: str) -> int:

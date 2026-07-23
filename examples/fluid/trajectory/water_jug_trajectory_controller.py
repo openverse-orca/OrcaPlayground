@@ -274,8 +274,14 @@ class WaterJugTrajectoryController:
             self._block_rel_rot = None
             return
         try:
-            jug_pos, jug_mat, jug_quat = env.get_body_xpos_xmat_xquat([jug_body])
-            block_pos, block_mat, block_quat = env.get_body_xpos_xmat_xquat([block])
+            _jug_pose = env.get_body_xpos_xmat_xquat([jug_body])[jug_body]
+            jug_pos = np.asarray(_jug_pose["xpos"], dtype=np.float64).reshape(3)
+            jug_mat = np.asarray(_jug_pose["xmat"], dtype=np.float64).reshape(3, 3)
+            jug_quat = np.asarray(_jug_pose["xquat"], dtype=np.float64).reshape(4)
+            _block_pose = env.get_body_xpos_xmat_xquat([block])[block]
+            block_pos = np.asarray(_block_pose["xpos"], dtype=np.float64).reshape(3)
+            block_mat = np.asarray(_block_pose["xmat"], dtype=np.float64).reshape(3, 3)
+            block_quat = np.asarray(_block_pose["xquat"], dtype=np.float64).reshape(4)
         except Exception as e:
             logger.warning("fluidblock 相对位姿采集失败: %s", e)
             self._block_rel_pos = None
