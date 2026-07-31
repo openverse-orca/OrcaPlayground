@@ -4,6 +4,16 @@
 包内自带三个可直接运行的 Checkpoint 示例，不需要克隆OrcaLocomotion 仓库。
 更多训练、资产和源码说明见 [OrcaLocomotion](https://github.com/openverse-orca/OrcaLocomotion/tree/dev)。
 
+> [!IMPORTANT]
+> **运行方式说明**
+>
+> **是否需要手动将资产拖入 OrcaLab 布局：否。** 三个示例均会通过运行脚本自动加载所需场景和机器人，但仍需按下文订阅对应的资产包。
+
+> [!NOTE]
+> **版本与依赖说明（免责声明）**
+>
+> 为保证版本及依赖包的稳定性，本示例当前将 OrcaLab 保持在 `26.5.1`。其他依赖版本以安装包中的设定为准，无需手动调整；该版本固定不会影响三个示例的正常使用。
+
 | 仿真 | 实机 |
 | --- | --- |
 | <img src="output.gif" alt="OrcaLocomotion simulation preview" width="480"> | <img src="physical.gif" alt="OrcaLocomotion physical preview" width="480"> |
@@ -17,7 +27,7 @@ conda create -n orcalab python=3.12
 conda activate orcalab
 
 ## 安装 OrcaLab
-pip install orca-lab 
+pip install orca-lab==26.5.1
 
 ## 安装 OrcaLocomotion 包
 pip install --extra-index-url https://py.mujoco.org --extra-index-url https://pypi.nvidia.com orca-locomotion==0.1.6
@@ -89,6 +99,8 @@ bash orca_locomotion_example/play_g1_flat.sh
 Go2 粗糙地形速度跟踪策略，当前示例模型专注于通过碎石崎岖路面，示例中位于左上侧的地形可用于测试。
 如果需要其他策略，如带有跨越、可通过性、斜坡、楼梯等能力的策略，请参照 OrcaLocomotion 里的训练部分自行训练并导入。
 这个示例带键盘控制：按住方向键或小键盘方向键才会发送速度命令，松开后速度归零。
+
+**键盘按键由运行脚本所在的终端接收。运行期间请保持该终端窗口打开，并确保窗口处于焦点状态。**
 
 ```bash
 bash orca_locomotion_example/play_go2_rough.sh

@@ -231,7 +231,7 @@ DRONE_MODEL_PROFILES: dict[str, DroneModelProfile] = {
         display_name="Drone_ver_1.0",
         full_mode=FullModeControlConfig(
             planar_forward_axis_body=(-1.0, 0.0, 0.0),
-            planar_right_axis_body=(0.0, -1.0, 0.0),
+            planar_right_axis_body=(0.0, 1.0, 0.0),
             # 小无人机惯量 ~1e-4，CTBR 不乘 body_J，Kp 直接为力矩/角速率误差
             ctbr_Kp=0.012,
             ctbr_use_inertia_scaling=False,
@@ -252,7 +252,7 @@ DRONE_MODEL_PROFILES: dict[str, DroneModelProfile] = {
             thrust_max_over_hover=1.6,
             max_tilt_deg=12.0,
             planar_forward_axis_body=(-1.0, 0.0, 0.0),
-            planar_right_axis_body=(0.0, -1.0, 0.0),
+            planar_right_axis_body=(0.0, 1.0, 0.0),
             # x2 惯量 ~0.02，CTBR 不乘 body_J，Kp 直接为力矩/角速率误差
             ctbr_Kp=0.08,
             ctbr_use_inertia_scaling=False,

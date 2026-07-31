@@ -20,7 +20,7 @@
 
 ## 🔧 手动拖入资产进行调试
 
-为了增添多场景物理交互，请先在 OrcaStudio / OrcaLab 的布局中手动拖入对应 actor，再启动脚本。推荐操作如下：
+为了增添多场景物理交互，请先在 OrcaStudio/OrcaLab 的布局中手动拖入对应 actor，再启动脚本。推荐操作如下：
 
 1. 在资产面板里搜索中文名称，例如Lite3或对应型号。
 2. 将 actor 拖入布局，并先摆好初始位置、朝向和与地形/障碍物的相对关系。
@@ -46,7 +46,7 @@ pip install -r requirements.txt
 pip install -r examples/legged_gym/requirements.txt
 ```
 
-> ⚠️ **`requirements.txt` 中已注释掉 `torch`，需要手动安装**。因为 `pip install torch` 默认安装 CUDA 12.8 版本，如果你的 NVIDIA 驱动较旧会报错 `RuntimeError: The NVIDIA driver on your system is too old`。请根据下方的驱动兼容表选择正确的安装命令。
+> ⚠️ **`requirements.txt` 中已注释掉 `torch`，需要手动安装**。因为 `pip install torch` 默认安装最新版本，其 CUDA 版本可能不兼容你的 NVIDIA 驱动，导致报错 `RuntimeError: The NVIDIA driver on your system is too old`。请根据下方的说明选择正确的安装命令。
 
 ### NVIDIA 驱动与 PyTorch 兼容性
 
@@ -59,13 +59,7 @@ nvidia-smi | head -3
 
 然后根据驱动版本选择对应的 PyTorch 安装命令：
 
-| NVIDIA 驱动版本 | 支持的最高 CUDA | PyTorch 安装命令 |
-|---|---|---|
-| ≥ 570 | 12.8+ | `pip install torch>=2.7.0` |
-| ≥ 560 | 12.6+ | `pip install torch>=2.7.0 --index-url https://download.pytorch.org/whl/cu126` |
-| ≥ 550 | 12.4+ | `pip install "torch>=2.6.0,<2.7" --index-url https://download.pytorch.org/whl/cu124` |
-| ≥ 530 | 12.1+ | `pip install "torch>=2.3.0,<2.5" --index-url https://download.pytorch.org/whl/cu121` |
-| ≥ 520 | 11.8+ | `pip install "torch>=2.3.0,<2.5" --index-url https://download.pytorch.org/whl/cu118` |
+**推荐方式**：访问 [PyTorch 官网安装页面](https://pytorch.org/get-started/locally/)，选择你的 CUDA 版本获取最新兼容的安装命令。
 
 > 💡 **原则**：驱动版本决定了你能使用的最高 CUDA 版本。高版本驱动向下兼容低版本 CUDA，但低版本驱动无法运行高版本 CUDA。安装 PyTorch 时选择的 CUDA 版本不能超过驱动支持的最高 CUDA 版本。
 
@@ -75,7 +69,7 @@ nvidia-smi | head -3
 python -c "import torch; print(f'PyTorch {torch.__version__}, CUDA {torch.version.cuda}, GPU available: {torch.cuda.is_available()}')"
 ```
 
-如果 `GPU available: False`，说明 PyTorch 编译的 CUDA 版本高于驱动支持的最高版本，请按上表重新安装匹配的版本。
+如果 `GPU available: False`，说明 PyTorch 编译的 CUDA 版本高于驱动支持的最高版本，请访问 [PyTorch 官网](https://pytorch.org/get-started/locally/) 重新选择匹配的安装命令。
 
 如需使用 RLlib APPO 分布式训练，额外安装：
 
@@ -227,7 +221,7 @@ python examples/legged_gym/run_legged_rl.py \
     --config examples/legged_gym/configs/rllib_appo_config.yaml \
     --train --visualize
 
-# 指定远程 OrcaStudio
+# 指定远程 OrcaStudio/OrcaLab
 python examples/legged_gym/run_legged_rl.py \
     --config examples/legged_gym/configs/rllib_appo_config.yaml \
     --train --remote 192.168.1.100:50051
@@ -275,7 +269,7 @@ training:
 
 **模式 1：扫描模式**（`use_robot_locator: false`，默认）
 
-- 启动时扫描 OrcaStudio 场景中已拖入的机器人
+- 启动时扫描 OrcaStudio/OrcaLab 场景中已拖入的机器人
 - 自动获取机器人名称和数量，覆盖配置中的 `agents_per_env`
 - 适用于大多数场景，与 SB3 操作方式一致
 
@@ -563,7 +557,7 @@ envs/legged_gym/                       # 环境核心代码（两条链路共享
 - `--test`：测试模式
 - `--play`：交互式运行模式
 - `--ckpt`：模型检查点路径（测试/运行模式必需）
-- `--remote`：OrcaStudio 远程地址（可选，默认：localhost:50051）
+- `--remote`：OrcaStudio/OrcaLab 远程地址（可选，默认：localhost:50051）
 - `--visualize`：可视化训练过程（可选）
 
 ## 💻 Windows 与 Linux 差异说明（简述）
@@ -583,14 +577,14 @@ envs/legged_gym/                       # 环境核心代码（两条链路共享
 
 ### Q: 报错 `RuntimeError: The NVIDIA driver on your system is too old` 怎么办？
 
-这是 PyTorch 编译的 CUDA 版本高于你的 NVIDIA 驱动支持的版本导致的。例如驱动版本 550（支持 CUDA 12.4），但 `pip install torch` 默认安装了 CUDA 12.8 版本。
+这是 PyTorch 编译的 CUDA 版本高于你的 NVIDIA 驱动支持的版本导致的。例如驱动版本 550（支持 CUDA 12.4），但 `pip install torch` 默认安装了更高 CUDA 版本。
 
 解决方法：
 
 1. 查看驱动版本：`nvidia-smi | head -3`
-2. 根据上方的 **NVIDIA 驱动与 PyTorch 兼容性** 表格，选择匹配的安装命令重新安装 PyTorch
+2. 访问 [PyTorch 官网安装页面](https://pytorch.org/get-started/locally/)，选择与你的 CUDA 版本匹配的安装命令
 3. 卸载旧版本：`pip uninstall torch`
-4. 按表格安装对应版本，例如驱动 550：`pip install "torch>=2.6.0,<2.7" --index-url https://download.pytorch.org/whl/cu124`
+4. 按官网指引安装对应版本
 5. 验证：`python -c "import torch; print(torch.cuda.is_available())"` 应输出 `True`
 
 ### Q: SB3 和 RLlib 可以共存吗？
@@ -607,7 +601,7 @@ envs/legged_gym/                       # 环境核心代码（两条链路共享
 
 ### Q: 如何使用动态发现模式？
 
-1. 在 OrcaStudio 中拖入机器人
+1. 在 OrcaStudio/OrcaLab 中拖入机器人
 2. 配置 `use_robot_locator: true`
 3. 设置 `robot_model_name` 为目标型号（如 `Lite3`）
 4. 脚本会自动扫描场景并匹配

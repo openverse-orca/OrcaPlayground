@@ -1,0 +1,27 @@
+# Euler 倒立摆课程示例依赖
+# ⚠️ PyTorch 安装说明：
+#   pip install torch 默认安装 CUDA 12.8 版本，需要 NVIDIA 驱动 ≥ 570。
+#   如果你的驱动较旧，请根据下表选择对应的安装命令：
+#
+#   NVIDIA 驱动版本    最低 CUDA 版本    安装命令
+#   ──────────────────────────────────────────────────────────────────────────
+#   ≥ 570             CUDA 12.8         pip install torch>=2.7.0
+#   ≥ 560             CUDA 12.6         pip install torch>=2.7.0 --index-url https://download.pytorch.org/whl/cu126
+#   ≥ 550             CUDA 12.4         pip install torch>=2.6.0,<2.7 --index-url https://download.pytorch.org/whl/cu124
+#   ≥ 530             CUDA 12.1         pip install torch>=2.3.0,<2.5 --index-url https://download.pytorch.org/whl/cu121
+#   ≥ 520             CUDA 11.8         pip install torch>=2.3.0,<2.5 --index-url https://download.pytorch.org/whl/cu118
+#
+#   查看驱动版本：nvidia-smi | head -3
+#   查看当前 CUDA 版本：python -c "import torch; print(torch.version.cuda)"
+#
+# ⚠️ 不要直接 pip install torch，请参考上方表格根据驱动版本选择安装命令
+#   注：Euler 倒立摆使用 MLP 策略，CPU 训练通常比 GPU 更快（详见 SB3 issue #1245），
+#       因此即使没有 GPU 也能正常训练。
+# torch>=2.3.0
+
+# SB3 PPO 强化学习（第 3 课 train_ppo.py 需要，第 1/2 课不需要）
+stable-baselines3>=2.8.0
+
+# 数值计算与 Gymnasium API（orca_gym 已附带，此处仅声明）
+# numpy>=1.24.0
+# gymnasium>=0.29.0

@@ -2,7 +2,7 @@
 
 ## 🔧 布局中的 actor 准备
 
-在使用本目录策略文件前，建议先在 OrcaStudio / OrcaLab 中把 XBot 对应 actor 手动拖到布局中。
+在使用本目录策略文件前，建议先在 OrcaStudio/OrcaLab 中把 XBot 对应 actor 手动拖到布局中。
 
 - **是否需要手动拖动到布局中**：**是**
 - **UI 操作建议**：在资产面板中搜索 `XBot-L_usda` 或 `Xbot_usda`，拖入布局后点击“资产详情”确认实际路径

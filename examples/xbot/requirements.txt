@@ -1,16 +1,9 @@
  # ⚠️ PyTorch 安装说明：
-#   pip install torch 默认安装 CUDA 12.8 版本，需要 NVIDIA 驱动 ≥ 570。
-#   如果你的驱动较旧，请根据下表选择对应的安装命令：
-#
-#   NVIDIA 驱动版本    最低 CUDA 版本    安装命令
-#   ──────────────────────────────────────────────────────────────────────────
-#   ≥ 570             CUDA 12.8         pip install torch>=2.7.0
-#   ≥ 560             CUDA 12.6         pip install torch>=2.7.0 --index-url https://download.pytorch.org/whl/cu126
-#   ≥ 550             CUDA 12.4         pip install torch>=2.6.0,<2.7 --index-url https://download.pytorch.org/whl/cu124
-#   ≥ 530             CUDA 12.1         pip install torch>=2.3.0,<2.5 --index-url https://download.pytorch.org/whl/cu121
-#   ≥ 520             CUDA 11.8         pip install torch>=2.3.0,<2.5 --index-url https://download.pytorch.org/whl/cu118
+#   pip install torch 默认安装最新版本，其 CUDA 版本可能不兼容你的 NVIDIA 驱动。
+#   请根据你的驱动版本，在 PyTorch 官网选择对应的安装命令：
+#     https://pytorch.org/get-started/locally/
 #
 #   查看驱动版本：nvidia-smi | head -3
 #   查看当前 CUDA 版本：python -c "import torch; print(torch.version.cuda)"
-# ⚠️ 不要直接 pip install torch，请参考上方表格根据驱动版本选择安装命令
-# torch>=2.3.0
+# ⚠️ 不要直接 pip install torch，请参考上方说明根据驱动版本选择安装命令
+# torch (需手动安装，版本取决于驱动，见上方说明)

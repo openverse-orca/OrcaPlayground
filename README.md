@@ -14,11 +14,11 @@ OrcaGym 示例代码仓库，已集成 OrcaLab 支持。
 pip install orca-lab
 ```
 
-#### 步骤 2：激活 OrcaLab 的 conda 环境并安装基础依赖
+#### 步骤 2：激活 orca conda 环境并安装基础依赖
 
 ```bash
-# 激活 OrcaLab 的 conda 环境（根据你的环境名称调整）
-conda activate orcalab  # 或你的 OrcaLab 环境名称
+# 激活 orca 环境（本项目推荐的环境名称）
+conda activate orca
 
 # 进入项目目录
 cd /path/to/OrcaPlayground
@@ -151,7 +151,7 @@ OrcaPlayground/
 > 
 > 每个示例都需要相应的 3D 资产才能正常运行。**请务必查看各示例目录下的 README.md 文件**，了解：
 > - 📦 所需资产的下载地址
-> - 🔧 需要手动在 OrcaStudio / OrcaLab 中把对应 actor 拖动到布局
+> - 🔧 需要手动在 OrcaStudio/OrcaLab 中把对应 actor 拖动到布局
 > - 📝 对应的模型名称
 > 
 > 资产下载地址：https://simassets.orca3d.cn/
@@ -164,7 +164,7 @@ OrcaPlayground 依赖 **OrcaPlaygroundAssets** 资产库中的资源。若您需
 
 为了增添多场景物理交互，请在运行前先把对应模型手动拖动到布局中，再启动脚本。当前仓库中的机器人/角色主线示例都按“场景中已有 actor，脚本只做扫描和绑定”的思路组织。
 
-1. **打开资产面板**：在 OrcaStudio / OrcaLab 的资产窗口中搜索资产名称，例如Lite3,Remy，Hummer。
+1. **打开资产面板**：在 OrcaStudio/OrcaLab 的资产窗口中搜索资产名称，例如Lite3,Remy，Hummer。
 2. **拖入布局**：将对应 actor 拖入布局或大纲，并调整到你希望的初始位置与朝向。
 3. **查看资产详情**：选中该资产后打开“资产详情”，确认路径与示例 README 中给出的路径一致。
 4. **再启动脚本**：脚本会扫描场景中的 joint / actuator / body 等后缀并自动绑定；如果拖错模型或匹配不完整，会直接报错退出。
@@ -221,11 +221,11 @@ pip install -e ".[fluid]"        # 流体仿真（orca-sph）
 pip install -e ".[all]"
 ```
 
-> **注意**：`franka_rl`、`ant_rl`、`legged_gym`、`xbot` 依赖 PyTorch，但各示例 `requirements.txt` 中的 `torch` 均已注释，需根据 NVIDIA 驱动版本手动安装对应的 CUDA 版本（详见各示例的 `requirements.txt` 顶部说明）。
+> **注意**：`franka_rl`、`ant_rl`、`legged_gym`、`xbot` 依赖 PyTorch，但各示例 `requirements.txt` 中的 `torch` 均已注释，需根据 NVIDIA 驱动版本手动安装对应的 CUDA 版本。请访问 [PyTorch 官网](https://pytorch.org/get-started/locally/) 选择安装命令，或查看各示例 `requirements.txt` 顶部的已验证配置。
 
 ### 运行要求
 
-1. **OrcaStudio**：确保 OrcaStudio 正在运行（默认地址：`localhost:50051`）
+1. **OrcaStudio/OrcaLab**：确保 OrcaStudio/OrcaLab 正在运行（默认地址：`localhost:50051`）
 2. **Python 版本**：Python >= 3.10（见 `setup.py` 的 `python_requires`）
 3. **场景配置**：运行前请先把对应 actor 手动拖入布局；详细说明见上方 [手动拖动资产（运行前必做）](#-手动拖动资产运行前必做)
 

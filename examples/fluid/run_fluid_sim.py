@@ -87,7 +87,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 【运行前提】
-  1. 已启动 OrcaStudio/OrcaLab 并加载场景（live / record）
+  1. 已启动 OrcaStudio 并加载场景（live / record）
   2. 场景中包含带 SPH 标记的刚体（live / record）
 
 【运行模式】

@@ -257,7 +257,7 @@ training_episode: 200
 
 ### Q: 场景帧率为 0
 
-**原因**：`render_mode` 设为 `"none"` 时不会同步状态到 OrcaStudio。
+**原因**：`render_mode` 设为 `"none"` 时不会同步状态到 OrcaStudio/OrcaLab。
 
 **解决**：训练配置中设置 `render_mode: "human"`。
 

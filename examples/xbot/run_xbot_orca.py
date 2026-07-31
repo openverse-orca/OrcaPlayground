@@ -131,7 +131,7 @@ def load_xbot_policy(policy_path: str, device: str = "cpu"):
         if not torch.cuda.is_available():
             _logger.warning(f"[WARNING] CUDA not available. Falling back to CPU.")
             _logger.warning(f"[WARNING] Install CUDA-enabled PyTorch to use GPU:")
-            _logger.info(f"         pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118")
+            _logger.info(f"         Visit https://pytorch.org/get-started/locally/ to choose the right install command for your driver")
             device = "cpu"
         else:
             _logger.info(f"[INFO] Using GPU (CUDA)")

@@ -1,12 +1,12 @@
 # Fluid-MuJoCo 耦合仿真示例
 
-SPH 流体与 MuJoCo 刚体耦合，经 OrcaLink 与 OrcaLab / OrcaStudio 通信。
+SPH 流体与 MuJoCo 刚体耦合，经 OrcaLink 与 OrcaStudio/OrcaLab 通信。
 
 ## 入口脚本（三场景）
 
 | 脚本 | 默认配置 | 用途 |
 |------|----------|------|
-| `run_fluid_sim.py` | `fluid_sim_config.json` | 全链路标准仿真（连 OrcaStudio **50051**） |
+| `run_fluid_sim.py` | `fluid_sim_config.json` | 全链路标准仿真（连 OrcaStudio/OrcaLab **50051**） |
 | `run_fluid_sim_auto.py` | `fluid_sim_config_auto.json` | 全链路 + 水壶自动轨迹（`water_jug_trajectory`） |
 | `run_fluid_sim_auto_shortChain.py` | `fluid_sim_config_short_chain.json` | 短链（无 Studio；固定 `SPH_bug/scene_3chain`） |
 
@@ -29,7 +29,7 @@ SPH 流体与 MuJoCo 刚体耦合，经 OrcaLink 与 OrcaLab / OrcaStudio 通信
 
 - **操作系统**：Ubuntu（未针对 Windows 验证）
 - **GPU**：CUDA 12.1+ 的 NVIDIA 显卡及匹配驱动
-- **OrcaLab / OrcaStudio**：全链路需加载含 SPH 标记的场景并 **Play**
+- **OrcaStudio/OrcaLab**：全链路需加载含 SPH 标记的场景并 **Play**
 - **OrcaLink、OrcaSPH**：`pip install` 后由脚本自动拉起（`--manual-mode` 可关）
 
 ## 安装
@@ -57,4 +57,4 @@ python run_fluid_sim_auto_shortChain.py --gui --mujoco-gui
 python run_fluid_sim_auto_shortChain.py --config fluid_sim_config_short_chain.release.json
 ```
 
-OrcaStudio 自动开场景脚本见 `examples/tools/auto_start_scene.py`（`ORCA_LEVEL_NAME` 可覆盖关卡名）。
+OrcaStudio/OrcaLab 自动开场景脚本见 `examples/tools/auto_start_scene.py`（`ORCA_LEVEL_NAME` 可覆盖关卡名）。
