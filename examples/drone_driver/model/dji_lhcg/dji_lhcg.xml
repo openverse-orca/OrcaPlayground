@@ -63,8 +63,8 @@
 
     <body name="drone_frame" pos="0 0 0">
       <joint name="drone_free" type="free"/>
-      <body name="camera" pos="-5 0 0" euler="0 0 -1.570796">
-        <camera name="indi_eye_camera" pos="0 0 0" fovy="90"/>
+      <body name="camera" pos="0.182 1.814 1.323" euler="0.523599 0 -3.141593">
+        <camera name="indi_eye_camera"  fovy="90"/>
       </body>
 
       <body name="Drone" childclass="dji_lhcg" pos="0 0 0">

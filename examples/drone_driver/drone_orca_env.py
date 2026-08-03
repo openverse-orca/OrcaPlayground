@@ -659,12 +659,17 @@ class DroneOrcaEnv(OrcaGymEulerEnv):
             command = self._build_autoplay_command()
         else:
             planar_scale = 0.5
+            # pos_ctrl["y"] 已对 pygame 上推取反为 +1，但键盘约定 ws_cmd = S - W
+            # （W = -0.5 = 前进，因 CTBR 中 cmd_xy_w = -ws_cmd * fwd_ref_w）。
+            # 故此处再取反，使左摇杆前推得到负 ws_cmd，与 W 键一致。
+            # rot_ctrl["yaw"] = RightStickX：右推=+1，但 CTBR 中 omega_z>0=逆时针(左转)，
+            # 故取反使右推=右转，与键盘 E 键（右转=-1→omega_z<0）一致。
             command = np.array(
                 [
-                    planar_scale * float(pos_ctrl["y"]),
+                    -planar_scale * float(pos_ctrl["y"]),
                     planar_scale * float(pos_ctrl["x"]),
                     float(pos_ctrl["z"]),
-                    float(rot_ctrl["yaw"]),
+                    -float(rot_ctrl["yaw"]),
                 ],
                 dtype=np.float32,
             )
