@@ -164,6 +164,24 @@ class Character():
 
         self._env.apply_joint_qpos_dict(ctrl_qpos)
 
+    def on_close(self):
+        """仿真退出时清零所有控制状态，防止角色残留运动。
+
+        根因：Remy 资产的 Slide_X/Y/Z 关节 damping=1.0 且无 frictionloss，
+        速度衰减极慢。停止仿真时若 qvel 非零，物理会驱动角色持续滑行。
+        同时布尔参数若未清零，动画图会继续播放行走动画。故退出前必须清零两通道。
+        """
+        stop_qvel = {
+            self._joint_names["Move_X"] : [0],
+            self._joint_names["Move_Y"] : [0],
+            self._joint_names["Rotate_Z"] : [0],
+        }
+        self._env.apply_joint_qvel_dict(stop_qvel)
+        self._set_anim_param_bool("Forward", False)
+        self._set_anim_param_bool("Backward", False)
+        self._set_anim_param_bool("TurnLeft", False)
+        self._set_anim_param_bool("TurnRight", False)
+
 
     def _set_anim_param_bool(self, param_name: str, value: bool):
         """安全地设置动画参数，检查 scene_runtime 是否存在"""

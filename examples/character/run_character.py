@@ -151,11 +151,13 @@ def run_simulation(orcagym_addr : str,
 
 
     except KeyboardInterrupt:
-        print("Simulation stopped")        
+        print("Simulation stopped")
         if env is not None:
             env.close()
-    except ValueError:
-        _logger.error("仿真出错")
+    except Exception:
+        _logger.error("仿真出错", exc_info=True)
+        if env is not None:
+            env.close()
 
 
 if __name__ == "__main__":

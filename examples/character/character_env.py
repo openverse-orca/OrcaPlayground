@@ -89,6 +89,12 @@ class CharacterEnv(OrcaGymEulerEnv):
         else:
             raise ValueError("Invalid render mode")
 
+    def close(self) -> None:
+        """关闭环境前清零角色控制状态，防止退出后残留运动。"""
+        if hasattr(self, '_character_remy'):
+            self._character_remy.on_close()
+        super().close()
+
     def step(self, action) -> tuple:
 
         ctrl = np.zeros(self.nu, dtype=np.float32)
