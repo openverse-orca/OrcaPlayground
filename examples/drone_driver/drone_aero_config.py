@@ -253,6 +253,8 @@ DRONE_MODEL_PROFILES: dict[str, DroneModelProfile] = {
             thrust_max_over_hover=1.6,
             max_tilt_deg=12.0,
             # 机头朝 +X（相机在 +X 侧）；right = forward × up = (+X)×(+Z) = -Y
+            # 保留 HEAD 版本：2026-08-03 经右手法则验证 x2 right=(0,-1,0) 为正确值，
+            # 并反转 forward 至 +X；dev 的 2479765 仅改 right 未改 forward，方向相反，不采纳。
             planar_forward_axis_body=(1.0, 0.0, 0.0),
             planar_right_axis_body=(0.0, -1.0, 0.0),
             # x2 惯量 ~0.02，CTBR 不乘 body_J，Kp 直接为力矩/角速率误差
