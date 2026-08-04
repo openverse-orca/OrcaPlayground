@@ -14,10 +14,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from examples._common.model_scanner import build_suffix_template, require_complete_matches, scan_scene_for_template
-from examples.drone_driver.drone_aero_config import (
-    DEFAULT_DRONE_MODEL,
-    get_drone_model_profile,
-)
+from examples.drone_driver.drone_aero_config import get_drone_model_profile
 from orca_gym.log.orca_log import get_orca_logger
 from orca_gym.scene.orca_gym_scene import OrcaGymScene
 
@@ -26,10 +23,6 @@ ENV_ENTRY_POINT = "examples.drone_driver.drone_orca_env:DroneOrcaEnv"
 
 DEFAULT_TIME_STEP = 1.0 / 120.0
 DEFAULT_FRAME_SKIP = 1
-# 竖直模式的键盘基准 T/mg；仅在显式切到 vertical_z_only 时使用
-_DEFAULT_DRONE_PROFILE = get_drone_model_profile(DEFAULT_DRONE_MODEL)
-DEFAULT_VERTICAL_KEYBOARD_BASE_TMG = float(_DEFAULT_DRONE_PROFILE.vertical_keyboard_baseline_tmg)
-DEFAULT_VERTICAL_XY_FORCE_FACTOR = float(_DEFAULT_DRONE_PROFILE.vertical_xy_force_factor)
 
 # 场景扫描必选后缀：所有机型都必须具备的关节/site
 DRONE_JOINT_SUFFIXES = [
@@ -158,13 +151,13 @@ def register_env(
     vertical_ramp_duration_s: float = 25.0,
     vertical_lock_quat_world_up: bool = True,
     vertical_fixed_thrust_over_hover: float = -1.0,
-    vertical_keyboard_baseline_tmg: float = DEFAULT_VERTICAL_KEYBOARD_BASE_TMG,
-    vertical_keyboard_xy_force_factor: float = DEFAULT_VERTICAL_XY_FORCE_FACTOR,
+    vertical_keyboard_baseline_tmg: float = 0.0,
+    vertical_keyboard_xy_force_factor: float = 0.0,
     reset_height_offset_m: float = 0.25,
     fullmode_reset_thrust_ramp_s: float = 0.8,
     fullmode_reset_thrust_start_factor: float = 0.2,
     fullmode_reset_minimal_stab_s: float = 0.35,
-    drone_model: str = DEFAULT_DRONE_MODEL,
+    drone_model: str = "",
     diag_logs_enabled: bool = True,
     diag_every_env_steps: int = 0,
     ctrl_device: str = "keyboard",
@@ -218,13 +211,13 @@ def run_simulation(
     vertical_ramp_duration_s: float = 25.0,
     vertical_lock_quat_world_up: bool = True,
     vertical_fixed_thrust_over_hover: float = -1.0,
-    vertical_keyboard_baseline_tmg: float = DEFAULT_VERTICAL_KEYBOARD_BASE_TMG,
-    vertical_keyboard_xy_force_factor: float = DEFAULT_VERTICAL_XY_FORCE_FACTOR,
+    vertical_keyboard_baseline_tmg: float = 0.0,
+    vertical_keyboard_xy_force_factor: float = 0.0,
     reset_height_offset_m: float = 0.25,
     fullmode_reset_thrust_ramp_s: float = 0.8,
     fullmode_reset_thrust_start_factor: float = 0.2,
     fullmode_reset_minimal_stab_s: float = 0.35,
-    drone_model: str = DEFAULT_DRONE_MODEL,
+    drone_model: str = "",
     diag_logs_enabled: bool = True,
     diag_every_env_steps: int = 0,
     ctrl_device: str = "keyboard",
@@ -346,7 +339,7 @@ def run_takeoff_bisection(
     bisect_dz_m: float,
     vertical_lock_quat_world_up: bool,
     reset_height_offset_m: float = 0.0,
-    drone_model: str = DEFAULT_DRONE_MODEL,
+    drone_model: str = "",
     diag_logs_enabled: bool = True,
 ) -> None:
     """竖直模式下对固定 T/(mg) 做二分：假设 lo 不能持续离地、hi 能（见 env 内判据）。"""
@@ -443,8 +436,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--drone-model",
         type=str,
-        default=DEFAULT_DRONE_MODEL,
-        help="无人机参数配置，默认 Drone_ver_1.0，可传 x2 / skydio_x2 等别名",
+        required=True,
+        help="无人机参数配置（必填），可传 drone_v1 / x2 / skydio_x2 / dji_lhcg 等别名",
     )
     parser.add_argument(
         "--ctrl-device",
