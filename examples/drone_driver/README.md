@@ -34,15 +34,18 @@ pip install -r requirements.txt
 
 本示例为基础依赖即可运行，无需额外安装。
 
-### 默认运行（full 四旋翼模式）
+### 默认运行（full 四旋翼模式，请在每次运行前指定机型）
 
 ```bash
-python examples/drone_driver/run_drone_orca.py
+python examples/drone_driver/run_drone_orca.py --drone-model drone_v1
 ```
 
 ### 切换机型
 
 ```bash
+#drone_v1
+python examples/drone_driver/run_drone_orca.py --drone-model drone_v1
+
 # Skydio X2
 python examples/drone_driver/run_drone_orca.py --drone-model x2
 
@@ -53,19 +56,19 @@ python examples/drone_driver/run_drone_orca.py --drone-model dji_lhcg
 ### 启用自动巡航
 
 ```bash
-python examples/drone_driver/run_drone_orca.py --autoplay
+python examples/drone_driver/run_drone_orca.py --drone-model drone_v1 --autoplay
 ```
 
 ### 竖直 Z-only 调试模式
 
 ```bash
-python examples/drone_driver/run_drone_orca.py --vertical-z-only
+python examples/drone_driver/run_drone_orca.py --drone-model drone_v1 --vertical-z-only
 ```
 
 ### 使用 Xbox 手柄控制
 
 ```bash
-python examples/drone_driver/run_drone_orca.py --ctrl-device xbox
+python examples/drone_driver/run_drone_orca.py --drone-model drone_v1 --ctrl-device xbox
 ```
 
 ## 🎮 控制说明
