@@ -18,7 +18,7 @@ import time
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.utils import get_schedule_fn, get_linear_fn
 
-from envs.legged_gym.legged_config import LeggedRobotConfig, LeggedObsConfig, CurriculumConfig, LeggedEnvConfig
+from examples.legged_gym.legged_config import LeggedRobotConfig, LeggedObsConfig, CurriculumConfig, LeggedEnvConfig
 
 from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()

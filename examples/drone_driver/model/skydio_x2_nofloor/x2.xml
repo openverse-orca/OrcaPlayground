@@ -33,7 +33,7 @@
     <light name="spotlight" mode="targetbodycom" target="drone_frame" pos="0 -1 2"/>
     <body name="drone_frame" pos="0 0 0" childclass="x2">
       <joint name="drone_free" type="free"/>
-      <body name="camera" pos="-0.5 0 0" euler="0 0 -1.570796">
+      <body name="camera" pos="0.435 0.025 0.266" euler="0 -0.436332 1.5707963">
       <camera name="indi_eye_camera"  pos="0 0 0"  fovy="90"/>
       </body>
       <body name="Drone">

@@ -17,7 +17,7 @@ else
     PYTHON="${PYTHON:-python3}"
 fi
 
-CHECKPOINT="${1:-$PROJECT_DIR/envs/d12/checkpoints/act_vision_demo/best_model.pt}"
+CHECKPOINT="${1:-$PROJECT_DIR/examples/d12/checkpoints/act_vision_demo/best_model.pt}"
 NORM_STATS="${2:-}"
 MAX_STEPS="${3:-6300}"
 EPISODES="${4:-1}"

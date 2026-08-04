@@ -91,7 +91,7 @@ conda activate orca
 
 # 连通性测试：扫描场景中的 G1 agent_name
 python -c "
-from envs.euler.g1_base_env import build_g1_template, resolve_g1_agent_name
+from examples.euler.g1_base_env import build_g1_template, resolve_g1_agent_name
 agent_name = resolve_g1_agent_name('127.0.0.1:50051')
 print(f'G1 agent_name: {agent_name}')
 print('环境就绪！')
@@ -119,7 +119,7 @@ conda activate orca
 
 # 5.1 验证 OnlineVerifier
 python -c "
-from envs.euler.online_verifier import OnlineVerifier
+from examples.euler.online_verifier import OnlineVerifier
 v = OnlineVerifier('setup_test')
 v.check('test_pass', 1 == 1, 1, 1)
 v.check_range('height', 0.8, 0.7, 0.9)
@@ -131,7 +131,7 @@ print('OnlineVerifier 验证通过')
 
 # 5.2 验证 G1BaseEnv 可离线实例化
 python -c "
-from envs.euler.g1_base_env import G1BaseEnv
+from examples.euler.g1_base_env import G1BaseEnv
 env = G1BaseEnv(skip_grpc_load=True)
 print(f'G1BaseEnv 离线实例化成功: nq={env.model.nq}, nu={env.model.nu}')
 env.close()
@@ -139,7 +139,7 @@ env.close()
 
 # 5.3 验证 G1Locomotion 可加载 ONNX
 python -c "
-from envs.euler.g1_locomotion import G1Locomotion
+from examples.euler.g1_locomotion import G1Locomotion
 loco = G1Locomotion(agent_name='g1')
 print(f'G1Locomotion 初始化成功: onnx_path={loco.onnx_path}')
 print('G1Locomotion 验证通过')

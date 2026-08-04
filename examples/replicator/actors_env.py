@@ -1,10 +1,10 @@
 import numpy as np
 from typing import Optional
 from gymnasium import spaces
-from orca_gym.environment.orca_gym_local_env import OrcaGymLocalEnv
+from orca_gym.environment.euler.orca_gym_euler_env import OrcaGymEulerEnv
 
 
-class ActorsEnv(OrcaGymLocalEnv):
+class ActorsEnv(OrcaGymEulerEnv):
     """
     A class to represent the ORCA Gym environment for the Replicator scene.
     """

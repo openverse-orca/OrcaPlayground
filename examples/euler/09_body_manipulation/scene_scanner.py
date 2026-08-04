@@ -2,7 +2,7 @@
 
 从 envs/common/model_scanner.py 提取，供 Euler example 独立使用。
 关键改动：探针改用 OrcaGymEulerEnv（Euler 新主路径），替代原 SimEnv
-（依赖 envs.fluid.sim_env → Local 老主路径），避免 Euler 教程反向依赖 Local 体系。
+（依赖 examples.fluid.sim_env → Local 老主路径），避免 Euler 教程反向依赖 Local 体系。
 
 依赖: orca_gym.environment.euler（已安装包）+ numpy + stdlib
 零 envs.* 项目内 import。
@@ -79,7 +79,7 @@ def probe_scene_model(orcagym_addr: str, time_step: float) -> SceneModelNames:
     """探针 env：用 OrcaGymEulerEnv 连接 Studio，读取场景模型名表。
 
     用 OrcaGymEulerEnv（Euler 新主路径）替代原 model_scanner 的 SimEnv
-    （依赖 envs.fluid.sim_env → Local 老主路径），避免 Euler 教程反向依赖 Local 体系。
+    （依赖 examples.fluid.sim_env → Local 老主路径），避免 Euler 教程反向依赖 Local 体系。
     仅调用 model.get_* 方法，与探针基类无关。
     """
     probe = OrcaGymEulerEnv(

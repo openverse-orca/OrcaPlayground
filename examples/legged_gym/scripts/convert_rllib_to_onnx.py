@@ -7,7 +7,7 @@ from ray.rllib.core import DEFAULT_MODULE_ID
 from ray.rllib.core.columns import Columns
 from ray.rllib.utils.numpy import convert_to_numpy
 
-from envs.legged_gym.legged_config import LeggedRobotConfig, LeggedObsConfig, LeggedEnvConfig
+from examples.legged_gym.legged_config import LeggedRobotConfig, LeggedObsConfig, LeggedEnvConfig
 from examples.legged_gym.scripts.rllib_appo_rl import create_demo_env_instance
 
 

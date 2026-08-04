@@ -19,7 +19,7 @@ import io as _io
 import stable_baselines3.common.save_util as _save_util
 import stable_baselines3.common.base_class as _base_class
 
-from envs.franka_rl.franka_config import FrankaRobotConfig, FrankaEnvConfig, FrankaObsConfig, CurriculumConfig, TaskConfig
+from examples.franka_rl.franka_config import FrankaRobotConfig, FrankaEnvConfig, FrankaObsConfig, CurriculumConfig, TaskConfig
 
 
 def _patch_sb3_load_for_pytorch2():

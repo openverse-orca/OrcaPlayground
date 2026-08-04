@@ -24,20 +24,20 @@ if PROJECT_ROOT not in sys.path:
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
-from envs.d12.scripts.pose_resolver import (
+from examples.d12.scripts.pose_resolver import (
     build_segmented_trajectory,
     dump_object_poses,
     load_pose_spec_from_file,
     resolve_pose_spec_for_current_scene,
 )
-from envs.d12.scripts.object_randomizer import (
+from examples.d12.scripts.object_randomizer import (
     advance_rand_spec_seed,
     apply_object_randomization,
     load_rand_spec_from_file,
 )
-from envs.d12.configs.d12_robot_config import d12_robot_config
+from examples.d12.configs.d12_robot_config import d12_robot_config
 
-from envs.d12.d12_env import D12Env
+from examples.d12.d12_env import D12Env
 from orca_gym.log.orca_log import get_orca_logger
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -129,7 +129,7 @@ def setup_osc_controllers(env, agent_conf: dict):
 
     l_config = controller_config.load_config("osc_pose")
     l_config["robot_name"] = "d12"
-    l_config["sim"] = env.gym
+    l_config["sim"] = env
     l_config["eef_name"] = agent_conf["l_arm"]["ee_center_site_name"]
     qpos_offsets, qvel_offsets, _ = env.query_joint_offsets(agent_conf["l_arm"]["joint_names"])
     l_config["joint_indexes"] = {"joints": agent_conf["l_arm"]["joint_names"], "qpos": qpos_offsets, "qvel": qvel_offsets}
@@ -142,7 +142,7 @@ def setup_osc_controllers(env, agent_conf: dict):
 
     r_config = controller_config.load_config("osc_pose")
     r_config["robot_name"] = "d12"
-    r_config["sim"] = env.gym
+    r_config["sim"] = env
     r_config["eef_name"] = agent_conf["r_arm"]["ee_center_site_name"]
     qpos_offsets, qvel_offsets, _ = env.query_joint_offsets(agent_conf["r_arm"]["joint_names"])
     r_config["joint_indexes"] = {"joints": agent_conf["r_arm"]["joint_names"], "qpos": qpos_offsets, "qvel": qvel_offsets}
@@ -157,7 +157,9 @@ def setup_osc_controllers(env, agent_conf: dict):
 
 
 def b_to_global(env, base_body: str, pos_b: np.ndarray, quat_xyzw_b: np.ndarray):
-    base_xpos, _, base_xquat = env.get_body_xpos_xmat_xquat([base_body])
+    _base_pose = env.get_body_xpos_xmat_xquat([base_body])[base_body]
+    base_xpos = _base_pose["xpos"]
+    base_xquat = _base_pose["xquat"]
     base_pos = base_xpos.reshape(3)
     base_quat_wxyz = base_xquat.reshape(4)
     base_quat_xyzw = base_quat_wxyz[[1, 2, 3, 0]]
@@ -232,6 +234,10 @@ class ScriptedDriver:
             env.model.actuator_name2id(n) for n in agent_conf["gripper_r"]["actuator_names"]
         ]
         self.all_ctrlrange = env.model.get_actuator_ctrlrange()
+        # Euler 体系 ctrl property 的 getter 返回 actuator_force（只读），
+        # 索引赋值 self.env.ctrl[act_id] = val 不写入 _mjData.ctrl。
+        # 维护本地 ctrl 缓冲区，在主循环 do_simulation 前一次性传入。
+        self._ctrl_buf = np.zeros(env.nu, dtype=np.float32)
 
     def step(self) -> bool:
         if self.t >= self.total:
@@ -256,18 +262,18 @@ class ScriptedDriver:
             r_ctrl = np.array(self.agent_conf["r_arm"]["neutral_joint_values"], dtype=np.float32)
 
         for i, act_id in enumerate(self.l_arm_actuator_ids):
-            self.env.ctrl[act_id] = l_ctrl[i]
+            self._ctrl_buf[act_id] = l_ctrl[i]
         for i, act_id in enumerate(self.r_arm_actuator_ids):
-            self.env.ctrl[act_id] = r_ctrl[i]
+            self._ctrl_buf[act_id] = r_ctrl[i]
 
         l_grip = float(self.l_grip_motor[self.t])
         r_grip = float(self.r_grip_motor[self.t])
         for act_id in self.l_grip_actuator_ids:
             lo, hi = self.all_ctrlrange[act_id]
-            self.env.ctrl[act_id] = np.clip(l_grip, lo, hi)
+            self._ctrl_buf[act_id] = np.clip(l_grip, lo, hi)
         for act_id in self.r_grip_actuator_ids:
             lo, hi = self.all_ctrlrange[act_id]
-            self.env.ctrl[act_id] = np.clip(r_grip, lo, hi)
+            self._ctrl_buf[act_id] = np.clip(r_grip, lo, hi)
 
         self.t += 1
         return True
@@ -279,32 +285,36 @@ def init_env_state(env, agent_conf: dict):
         default_qpos[name] = np.array([val], dtype=np.float32)
     for name, val in zip(agent_conf["r_arm"]["joint_names"], agent_conf["r_arm"]["neutral_joint_values"]):
         default_qpos[name] = np.array([val], dtype=np.float32)
-    env.set_joint_qpos(default_qpos)
+    env.apply_joint_qpos_dict(default_qpos)
 
+    # Euler 体系 ctrl property getter 返回 actuator_force（只读），
+    # 索引赋值不写入 _mjData.ctrl。用本地缓冲区收集后一次性 set_ctrl。
+    ctrl_buf = np.zeros(env.nu, dtype=np.float32)
     for name, val in zip(agent_conf["l_arm"]["position_names"], agent_conf["l_arm"]["positions_init_ctrl"]):
         try:
             act_id = env.model.actuator_name2id(name)
-            env.ctrl[act_id] = val
+            ctrl_buf[act_id] = val
         except (KeyError, Exception):
             pass
     for name, val in zip(agent_conf["r_arm"]["position_names"], agent_conf["r_arm"]["positions_init_ctrl"]):
         try:
             act_id = env.model.actuator_name2id(name)
-            env.ctrl[act_id] = val
+            ctrl_buf[act_id] = val
         except (KeyError, Exception):
             pass
     for name, val in zip(agent_conf["gripper_l"]["actuator_names"], agent_conf["gripper_l"]["init_ctrl"]):
         try:
             act_id = env.model.actuator_name2id(name)
-            env.ctrl[act_id] = val
+            ctrl_buf[act_id] = val
         except (KeyError, Exception):
             pass
     for name, val in zip(agent_conf["gripper_r"]["actuator_names"], agent_conf["gripper_r"]["init_ctrl"]):
         try:
             act_id = env.model.actuator_name2id(name)
-            env.ctrl[act_id] = val
+            ctrl_buf[act_id] = val
         except (KeyError, Exception):
             pass
+    env.set_ctrl(ctrl_buf)
 
     env.mj_forward()
 
@@ -439,7 +449,7 @@ Examples:
             step_count = 0
             while driver.step():
                 start_time = time.time()
-                env.do_simulation(env.ctrl, env.frame_skip)
+                env.do_simulation(driver._ctrl_buf, env.frame_skip)
                 env.render()
                 step_count += 1
                 if step_count % 100 == 0:

@@ -12,8 +12,8 @@ import time
 import argparse
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 
-from envs.xbot_gym.xbot_simple_env import XBotSimpleEnv
-from envs.common.model_scanner import (
+from examples.xbot.xbot_simple_env import XBotSimpleEnv
+from examples._common.model_scanner import (
     build_suffix_template,
     ordered_match_names,
     require_complete_matches,

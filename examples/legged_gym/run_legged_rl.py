@@ -118,8 +118,8 @@ def patch_orca_logger_for_windows():
 patch_orca_logger_for_windows()
 
 
-from envs.legged_gym.legged_config import LeggedEnvConfig, LeggedRobotConfig
-from envs.legged_gym.robot_locator import locate_scene_robot
+from examples.legged_gym.legged_config import LeggedEnvConfig, LeggedRobotConfig
+from examples.legged_gym.robot_locator import locate_scene_robot
 from orca_gym.utils.dir_utils import create_tmp_dir
 from examples.legged_gym.scripts.scene_util import generate_height_map_file
 
@@ -257,7 +257,7 @@ def run_sb3_ppo_rl(
             subenv_num = 1
 
     terrain_asset_paths = run_mode_config['terrain_asset_paths'][task]
-    entry_point = 'envs.legged_gym.legged_gym_env:LeggedGymEnv'
+    entry_point = 'examples.legged_gym.legged_gym_env:LeggedGymEnv'
 
     if task == 'rough_terrain' or task == 'no_action' or task == 'flat_terrain':
         max_episode_steps = int(1 / (TIME_STEP * FRAME_SKIP * ACTION_SKIP) * EPISODE_TIME)

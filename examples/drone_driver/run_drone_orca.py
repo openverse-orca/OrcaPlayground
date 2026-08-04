@@ -13,8 +13,8 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from envs.common.model_scanner import build_suffix_template, require_complete_matches, scan_scene_for_template
-from envs.drone.drone_aero_config import (
+from examples._common.model_scanner import build_suffix_template, require_complete_matches, scan_scene_for_template
+from examples.drone_driver.drone_aero_config import (
     DEFAULT_DRONE_MODEL,
     get_drone_model_profile,
 )
@@ -22,7 +22,7 @@ from orca_gym.log.orca_log import get_orca_logger
 from orca_gym.scene.orca_gym_scene import OrcaGymScene
 
 _logger = get_orca_logger(console_level="WARNING", file_level="INFO", force_reinit=True)
-ENV_ENTRY_POINT = "envs.drone.drone_orca_env:DroneOrcaEnv"
+ENV_ENTRY_POINT = "examples.drone_driver.drone_orca_env:DroneOrcaEnv"
 
 DEFAULT_TIME_STEP = 1.0 / 120.0
 DEFAULT_FRAME_SKIP = 1
@@ -384,10 +384,10 @@ def run_takeoff_bisection(
             raw.set_vertical_fixed_thrust_over_hover(ratio)
             env.reset()
             z0 = raw.get_vertical_takeoff_z_reference()
-            while float(raw.gym._mjData.time) < bisect_hold_s:
+            while float(raw.data.time) < bisect_hold_s:
                 env.step(dummy_action)
                 env.render()
-            z1 = float(raw.gym._mjData.xpos[raw._frame_body_id, 2])
+            z1 = float(raw.data.body_xpos(raw._frame_body)[2])
             return (z1 - z0) >= bisect_dz_m
 
         _logger.warning(

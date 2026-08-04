@@ -13,7 +13,7 @@ from ray.tune import RunConfig, CheckpointConfig
 from ray.rllib.algorithms.appo import APPOConfig
 from ray.tune.registry import register_env
 import torch.version
-from envs.legged_gym.adapters.rllib.metrics_callback import OrcaMetricsCallback
+from examples.legged_gym.adapters.rllib.metrics_callback import OrcaMetricsCallback
 import gymnasium as gym
 import torch
 from datetime import datetime
@@ -26,8 +26,8 @@ import tree
 import time
 import json
 from ray.rllib.env.single_agent_env_runner import SingleAgentEnvRunner
-from envs.legged_gym.adapters.rllib.legged_env_runner import LeggedGymEnvRunner
-from envs.legged_gym.legged_config import LeggedRobotConfig, LeggedObsConfig, CurriculumConfig, LeggedEnvConfig
+from examples.legged_gym.adapters.rllib.legged_env_runner import LeggedGymEnvRunner
+from examples.legged_gym.legged_config import LeggedRobotConfig, LeggedObsConfig, CurriculumConfig, LeggedEnvConfig
 from ray.rllib.core.rl_module.default_model_config import DefaultModelConfig
 from ray.rllib.utils.metrics import (
     ENV_RUNNER_RESULTS,
@@ -39,8 +39,10 @@ from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger()
 
 ENV_ENTRY_POINT = {
-    "LeggedGym": "envs.legged_gym.legged_gym_env:LeggedGymEnv",
-    "Ant_OrcaGymEnv": "envs.mujoco.ant_orcagym:AntOrcaGymEnv",
+    "LeggedGym": "examples.legged_gym.legged_gym_env:LeggedGymEnv",
+    # TODO(cross-ref): legged_gym → ant_rl —— 训练脚本反向注册 ant_rl 的 env 类，与 ant_rl→legged_gym 形成循环依赖。
+    #   解耦方案：ant_rl 自带训练入口，或将 rllib_appo_rl 通用化后由各样例自注册 entry point。
+    "Ant_OrcaGymEnv": "examples.ant_rl.ant_orcagym:AntOrcaGymEnv",
 }
 
 ENV_RUNNER_CLS = {

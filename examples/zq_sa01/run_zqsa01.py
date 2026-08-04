@@ -13,7 +13,7 @@ import os
 from typing import Optional
 from collections import deque
 
-from envs.common.model_scanner import (
+from examples._common.model_scanner import (
     build_suffix_template,
     require_complete_matches,
     scan_scene_for_template,
@@ -31,7 +31,7 @@ _logger = get_orca_logger(name="ZQSA01", log_file="zqsa01.log", file_level="INFO
 
 # 环境注册
 ENV_ENTRY_POINT = {
-    "ZQSA01": "envs.zq_sa01.zq_sa01_env:ZQSA01Env",
+    "ZQSA01": "examples.zq_sa01.zq_sa01_env:ZQSA01Env",
 }
 
 # 仿真参数

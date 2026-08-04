@@ -19,7 +19,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from envs.common.model_scanner import (
+from examples._common.model_scanner import (
     build_suffix_template,
     require_complete_matches,
     scan_scene_for_template,
@@ -31,18 +31,18 @@ try:
 except ImportError:
     ONNX_AVAILABLE = False
 
-from envs.g1.rl_policy.base_policy import KeyboardInputMode
-from envs.g1.rl_policy.deepmimic_dec_loco_height import MotionTrackingDecLocoHeightPolicy
+from examples.g1.rl_policy.base_policy import KeyboardInputMode
+from examples.g1.rl_policy.deepmimic_dec_loco_height import MotionTrackingDecLocoHeightPolicy
 import threading
 
-from envs.g1.share_state import LowCommand, ShareState
+from examples.g1.share_state import LowCommand, ShareState
 from orca_gym.log.orca_log import get_orca_logger
 _logger = get_orca_logger(name="G1", log_file="g1.log", file_level="INFO", console_level="WARNING", force_reinit=True)
 
 
 # 环境注册
 ENV_ENTRY_POINT = {
-    "G1": "envs.g1.g1_env:G1Env",
+    "G1": "examples.g1.g1_env:G1Env",
 }
 
 # 仿真参数

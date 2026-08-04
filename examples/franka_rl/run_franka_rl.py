@@ -20,8 +20,8 @@ project_root = os.path.dirname(os.path.dirname(current_file_dir))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from envs.franka_rl.franka_config import FrankaRobotConfig, FrankaEnvConfig, TaskConfig
-from envs.franka_rl.franka_robot_locator import locate_scene_franka
+from examples.franka_rl.franka_config import FrankaRobotConfig, FrankaEnvConfig, TaskConfig
+from examples.franka_rl.franka_robot_locator import locate_scene_franka
 from orca_gym.utils.dir_utils import create_tmp_dir
 
 TIME_STEP = FrankaEnvConfig["TIME_STEP"]
@@ -171,7 +171,7 @@ def run_franka_rl(
     else:
         render_mode = run_mode_config.get("render_mode", "none")
 
-    entry_point = "envs.franka_rl.franka_gym_env:FrankaGymEnv"
+    entry_point = "examples.franka_rl.franka_gym_env:FrankaGymEnv"
 
     scene_binding = process_scene(
         orcagym_addresses=orcagym_addresses,

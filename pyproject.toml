@@ -11,7 +11,28 @@ exclude = []
 select = ["E", "F", "W", "I", "SLF001"]
 
 [tool.ruff.lint.per-file-ignores]
-# Test files allow white-box access
+# Test files allow white-space access
 "tests/**" = ["SLF001"]
 # __init__.py allows re-export
 "**/__init__.py" = ["SLF001", "F401"]
+# Protobuf 自动生成文件
+"**/*_pb2.py" = ["SLF001"]
+"**/grpc_stubs/**" = ["SLF001"]
+"**/proto/**" = ["SLF001"]
+# TODO(euler-migration): drone_driver 涉及 actuator_ctrlrange/jnt_qposadr/xfrc_applied/contact 等
+# Euler 体系未委托的 API，待 OrcaGym 侧扩展后移除
+"examples/drone_driver/**" = ["SLF001"]
+# TODO(euler-migration): fluid trajectory/run_simulation 需要 mjModel/mjData 用于
+# MuJoCo passive viewer / geom 遍历 / contact 诊断，待 OrcaGym 侧扩展后移除
+"examples/fluid/trajectory/water_jug_trajectory_controller.py" = ["SLF001"]
+"examples/fluid/launch/run_simulation.py" = ["SLF001"]
+# TODO: 既有跨类私有访问（agent/state_processor/keyboard 内部属性），待重构类接口后移除
+"examples/legged_gym/**" = ["SLF001"]
+"examples/g1/**" = ["SLF001"]
+"examples/wheeled_chassis/**" = ["SLF001"]
+"examples/zq_sa01/run_zqsa01.py" = ["SLF001"]
+# franka_rl 已回滚到 OrcaGymAsyncEnv，FrankaAgent 跨类私有访问恢复，待 Euler 异步路径就绪后统一重构
+"examples/franka_rl/**" = ["SLF001"]
+# TODO(euler-migration): d12 demo OSC 控制器需要 mj_fullM（Euler 未暴露 qM），
+# 待 OrcaGym 侧在 OrcaGymEuler/MuJoCoSimCore 添加 mj_fullM 公共方法后移除
+"examples/d12/**" = ["SLF001"]

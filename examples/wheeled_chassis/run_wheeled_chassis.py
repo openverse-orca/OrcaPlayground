@@ -12,7 +12,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from envs.common.model_scanner import (
+from examples._common.model_scanner import (
     build_suffix_template,
     require_complete_matches,
     scan_scene_for_template,
@@ -22,7 +22,7 @@ _logger = get_orca_logger(console_level="WARNING", file_level="INFO", force_rein
 
 
 ENV_ENTRY_POINT = {
-    "WheeledChassis": "envs.wheeled_chassis.wheeled_chassis_env:WheeledChassisEnv",
+    "WheeledChassis": "examples.wheeled_chassis.wheeled_chassis_env:WheeledChassisEnv",
 }
 
 TIME_STEP = 0.001

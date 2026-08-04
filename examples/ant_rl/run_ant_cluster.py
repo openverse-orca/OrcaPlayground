@@ -19,6 +19,9 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_file_path
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+# TODO(cross-ref): ant_rl → legged_gym —— ant_rl 复用 legged_gym 的 RLlib 训练框架。
+#   注意：legged_gym/scripts/rllib_appo_rl.py 反向注册了 ant_rl.ant_orcagym:AntOrcaGymEnv，形成循环依赖。
+#   解耦方案：将 rllib_appo_rl 的通用训练逻辑提取到 examples/_common 或独立训练框架包。
 import examples.legged_gym.scripts.rllib_appo_rl as rllib_rl
 from ray.tune.registry import register_env
 
