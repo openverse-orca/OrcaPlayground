@@ -19,7 +19,7 @@
 #       因此即使没有 GPU 也能正常训练。
 # torch>=2.3.0
 
-# SB3 PPO 强化学习（第 3 课 train_ppo.py 需要，第 1/2 课不需要）
+# SB3 PPO 强化学习（第 4 课 train_ppo.py 需要，第 1/2 课不需要）
 stable-baselines3>=2.8.0
 
 # 数值计算与 Gymnasium API（orca_gym 已附带，此处仅声明）
