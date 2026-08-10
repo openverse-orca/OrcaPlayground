@@ -1,7 +1,7 @@
 """2.2.2 (7) 入口脚本：光照系统配置。
 
 用法:
-    python examples/scene_building/02_scene/run_lighting_setup.py
+    python examples/scene_building/02_scene/07_lighting_setup/run_lighting_setup.py
 """
 
 from __future__ import annotations

@@ -25,7 +25,7 @@ from typing import Any
 
 import numpy as np
 
-_COMMON_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "_common")
+_COMMON_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "_common")
 if _COMMON_DIR not in sys.path:
     sys.path.insert(0, _COMMON_DIR)
 

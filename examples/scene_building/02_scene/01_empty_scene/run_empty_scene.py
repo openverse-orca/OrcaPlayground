@@ -1,9 +1,9 @@
 """2.2.2 (1) 入口脚本：最简 spawnable 场景。
 
 用法:
-    python examples/scene_building/02_scene/run_empty_scene.py
-    python examples/scene_building/02_scene/run_empty_scene.py --box-pos 0 0 2
-    python examples/scene_building/02_scene/run_empty_scene.py --gravity 0 0 -2
+    python examples/scene_building/02_scene/01_empty_scene/run_empty_scene.py
+    python examples/scene_building/02_scene/01_empty_scene/run_empty_scene.py --box-pos 0 0 2
+    python examples/scene_building/02_scene/01_empty_scene/run_empty_scene.py --gravity 0 0 -2
 """
 
 from __future__ import annotations

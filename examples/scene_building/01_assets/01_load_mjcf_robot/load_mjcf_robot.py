@@ -6,11 +6,14 @@
     t=5s:  go2            @ ( 0,        0, 0)   ← 中间
     t=10s: h1             @ ( spacing,  0, 0)
 
-范式说明（参考 examples/replicator/run_actors.py）:
-    OrcaGymScene 的 publish_scene() 会用"当前累积的 actor 池"替换 Studio 场景，
-    且每次 publish 后 actor 池被清空。因此"时序增量显示"不能简单地在每次 add 后
-    调用 publish（那样会抹除前序 actor），而需在每个时序点**重建完整场景**：
-    清空 → add 所有已积累的 robot → publish 一次。
+范式说明:
+    使用 append_scene() 增量 spawn —— 仅 spawn m_addActorMap 中的新 Actor，
+    不销毁已 spawn 的实体（跳过 OnDestroyScene）。每个时序点只需 add_actor 新机器人
+    + append_scene，前序机器人保持不变。
+
+    与 publish_scene() 的区别：
+    - publish_scene: 销毁全部已 spawn 实体 → 重建 m_addActorMap 中的 Actor → 清空 map
+    - append_scene:  不销毁 → 重建 m_addActorMap 中的 Actor → 清空 map
 
 模式：在线（需 OrcaStudio/OrcaLab + OrcaPlaygroundAssets 资产包）
 资产来源：OrcaStudio 资产库 https://simassets.orca3d.cn/
@@ -23,7 +26,6 @@
 
 参见:
     03_示例开发计划.md §2.1.1
-    examples/replicator/run_actors.py（基本逻辑参考）
 """
 
 from __future__ import annotations
@@ -108,25 +110,6 @@ def clear_scene(addr: str) -> None:
     _log("场景已清空")
 
 
-def rebuild_scene(addr: str, specs: list[RobotSpec]) -> OrcaGymScene:
-    """清空并重建场景：add 所有 spec 后 publish 一次。
-
-    Args:
-        addr: OrcaStudio gRPC 地址
-        specs: 需要出现在场景中的全部 RobotSpec
-
-    Returns:
-        新的 OrcaGymScene 实例（已 publish，视口可见）
-    """
-    clear_scene(addr)
-    scene = OrcaGymScene(addr)
-    for spec in specs:
-        scene.add_actor(_make_actor(spec))
-        _log(f"已经添加 {spec.name} @ {spec.pos}")
-    scene.publish_scene()
-    return scene
-
-
 def spawn_robot_sequence(
     addr: str,
     spacing: float = SPACING,
@@ -134,8 +117,8 @@ def spawn_robot_sequence(
 ) -> OrcaGymScene:
     """时序 spawn 三个机器人，每个间隔 interval 秒。
 
-    每个 时序点都重建完整场景（清空 → add 全部已积累 robot → publish），
-    确保 Studio 视口实时显示增量结果，且前序 robot 不被抹除。
+    使用 append_scene() 增量 spawn：每个时序点只需 add_actor + append_scene，
+    前序机器人不被销毁。
 
     顺序: g1_omnipicker → (interval) → go2 → (interval) → h1
     布局: 以 (0,0,0) 为中心并排，go2 在中间。
@@ -149,21 +132,21 @@ def spawn_robot_sequence(
         最终的 OrcaGymScene 实例（保持运行，调用方负责 close）
     """
     all_specs = build_robot_specs(spacing)
-    accumulated: list[RobotSpec] = []
-    scene: OrcaGymScene | None = None
+
+    # 清空场景一次（后续用 append_scene 增量添加，无需重复清空）
+    clear_scene(addr)
+
+    scene = OrcaGymScene(addr)
 
     for i, spec in enumerate(all_specs):
-        accumulated.append(spec)
         _log(f"[{i + 1}/{len(all_specs)}] 开始 spawn: {spec.name}")
-        # 关闭上一个 scene 实例（避免 gRPC 连接泄漏）
-        if scene is not None:
-            scene.close()
-        scene = rebuild_scene(addr, accumulated)
-        _log(f"  本轮添加完毕，当前场景共 {len(accumulated)} 个机器人")
+        scene.add_actor(_make_actor(spec))
+        _log(f"已经添加 {spec.name} @ {spec.pos}")
+        scene.append_scene()
+        _log(f"  本轮添加完毕，当前场景共 {i + 1} 个机器人")
         if i < len(all_specs) - 1:
             _log(f"  等待 {interval:.1f}s 后 spawn 下一个...")
             time.sleep(interval)
 
     _log("本次添加完毕所有模型，如需退出请在当前终端中断或者在OrcaLab退出运行时模式")
-    assert scene is not None  # 至少执行一次循环
     return scene

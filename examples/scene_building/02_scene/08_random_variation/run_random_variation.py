@@ -1,7 +1,7 @@
 """2.2.2 (8) 入口脚本：场景随机变体（批量 spawn）。
 
 用法:
-    python examples/scene_building/02_scene/run_random_variation.py --seed 42 --num-objects 20
+    python examples/scene_building/02_scene/08_random_variation/run_random_variation.py --seed 42 --num-objects 20
 """
 
 from __future__ import annotations

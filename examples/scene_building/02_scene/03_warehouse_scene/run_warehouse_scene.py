@@ -1,7 +1,7 @@
 """2.2.2 (3) 入口脚本：仓库货架场景。
 
 用法:
-    python examples/scene_building/02_scene/run_warehouse_scene.py --rows 3 --cols 5
+    python examples/scene_building/02_scene/03_warehouse_scene/run_warehouse_scene.py --rows 3 --cols 5
 """
 
 from __future__ import annotations

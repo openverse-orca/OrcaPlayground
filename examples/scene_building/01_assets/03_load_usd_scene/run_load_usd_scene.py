@@ -1,28 +1,30 @@
-"""2.1.1 入口脚本：时序 spawn 三个机器人并保持场景。
+"""2.1.3 入口脚本：从场景 JSON 批量加载（d12.json）。
 
-时序 spawn g1_omnipicker → go2 → h1，以原点为中心并排，go2 居中。
+从 OrcaStudio 场景导出的 JSON 文件批量加载多 actor 场景。
 spawn 完成后保持场景运行，按 Ctrl+C 退出。
 
 用法:
-    # 默认：间距 1.0m，间隔 5s
-    python examples/scene_building/01_assets/run_load_mjcf_robot.py
+    # 默认：加载同目录 d12.json
+    python examples/scene_building/01_assets/03_load_usd_scene/run_load_usd_scene.py
 
-    # 自定义间距与间隔
-    python examples/scene_building/01_assets/run_load_mjcf_robot.py --spacing 1.5 --interval 3
+    # 指定 JSON 文件
+    python examples/scene_building/01_assets/03_load_usd_scene/run_load_usd_scene.py --json /path/to/scene.json
+
+    # 自定义间隔
+    python examples/scene_building/01_assets/03_load_usd_scene/run_load_usd_scene.py --interval 2.0
 
     # 指定 Studio 地址
-    python examples/scene_building/01_assets/run_load_mjcf_robot.py --addr 192.168.1.100:50051
+    python examples/scene_building/01_assets/03_load_usd_scene/run_load_usd_scene.py --addr 192.168.1.100:50051
 
 前置条件:
     1. OrcaStudio/OrcaLab 已启动并监听 --addr
-    2. 已订阅 OrcaPlaygroundAssets 资产包（含 g1_omnipicker / go2 / h1）
+    2. 已订阅 d12 相关资产包（d12_waist / table_green_03 / cardboardbox_01 / barcode_01 / c12c）
     3. 加载一个空关卡，点击运行
 
 验证点:
-    1. t=0s 视口出现 g1_omnipicker（左侧）
-    2. t=5s 视口出现 g1_omnipicker + go2（中间）
-    3. t=10s 视口出现 g1_omnipicker + go2 + h1（右侧）
-    4. 三机器人并排，go2 居中
+    1. JSON 正确解析出 5 个 AssetActor
+    2. 5 个 actor 依次 spawn，前序不被销毁
+    3. transform 的 position / rotation / scale 正确应用
 """
 
 from __future__ import annotations
@@ -40,11 +42,7 @@ _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if _SCRIPT_DIR not in sys.path:
     sys.path.insert(0, _SCRIPT_DIR)
 
-from load_mjcf_robot import (  # noqa: E402
-    SPAWN_INTERVAL,
-    SPACING,
-    spawn_robot_sequence,
-)
+from load_usd_scene import SPAWN_INTERVAL, load_usd_scene  # noqa: E402
 
 _logger = get_orca_logger()
 
@@ -80,26 +78,30 @@ def sceneinfo(addr: str, stage: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="时序 spawn 三个机器人（g1_omnipicker → go2 → h1），go2 居中"
+        description="从 Studio 场景 JSON 文件批量加载 AssetActor"
     )
     parser.add_argument("--addr", type=str, default="localhost:50051", help="OrcaStudio gRPC 地址")
-    parser.add_argument("--spacing", type=float, default=SPACING, help="机器人间距（米，沿 x 轴）")
+    parser.add_argument(
+        "--json",
+        type=str,
+        default=None,
+        help="场景 JSON 文件路径（默认使用同目录 d12.json）",
+    )
     parser.add_argument(
         "--interval", type=float, default=SPAWN_INTERVAL, help="spawn 间隔（秒）"
     )
     args = parser.parse_args()
 
+    json_desc = args.json if args.json else "d12.json (默认)"
     _log(
-        f"时序 spawn 三机器人 @ {args.addr}（间距 {args.spacing:.2f}m，间隔 {args.interval:.1f}s）"
+        f"加载 USD 场景 @ {args.addr}（JSON: {json_desc}, 间隔 {args.interval:.1f}s）"
     )
 
     # 1. Studio rundata：开始
     sceneinfo(args.addr, "beginscene")
 
-    # 2. 时序 spawn（每个时序点独立发布周期：add 全部累积 + publish + sleep 3s + close）
-    spawn_robot_sequence(
-        addr=args.addr, spacing=args.spacing, interval=args.interval
-    )
+    # 2. 从 JSON 批量加载场景（append_scene 增量 spawn）
+    load_usd_scene(addr=args.addr, json_path=args.json, interval=args.interval)
 
     # 3. Studio rundata：完成
     sceneinfo(args.addr, "endscene")
@@ -116,4 +118,12 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as exc:
+        import traceback
+        tb = traceback.format_exc()
+        _logger.error(f"脚本异常退出: {exc}\n{tb}")
+        print(f"[ERROR] 脚本异常退出: {exc}", file=sys.stderr, flush=True)
+        print(tb, file=sys.stderr, flush=True)
+        sys.exit(1)

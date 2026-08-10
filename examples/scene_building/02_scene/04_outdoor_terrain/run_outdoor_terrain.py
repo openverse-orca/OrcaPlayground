@@ -1,7 +1,7 @@
 """2.2.2 (4) 入口脚本：户外地形。
 
 用法:
-    python examples/scene_building/02_scene/run_outdoor_terrain.py --size 20 --resolution 64
+    python examples/scene_building/02_scene/04_outdoor_terrain/run_outdoor_terrain.py --size 20 --resolution 64
 """
 
 from __future__ import annotations

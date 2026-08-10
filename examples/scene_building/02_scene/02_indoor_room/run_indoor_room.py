@@ -1,7 +1,7 @@
 """2.2.2 (2) 入口脚本：程序化室内房间。
 
 用法:
-    python examples/scene_building/02_scene/run_indoor_room.py --width 5 --height 3
+    python examples/scene_building/02_scene/02_indoor_room/run_indoor_room.py --width 5 --height 3
 """
 
 from __future__ import annotations
