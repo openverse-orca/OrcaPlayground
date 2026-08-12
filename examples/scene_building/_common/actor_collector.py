@@ -173,22 +173,28 @@ class ActorCollector:
     def spawn_all(self, scene: Any) -> None:
         """一次性调用 scene.add_actor 批量提交所有 Actor。
 
+        使用 scene.add_actor(Actor(...)) 构造 Actor 对象提交到 OrcaGymScene。
+        提交后需调用 scene.publish_scene() 或 scene.append_scene() 发布到 Studio。
+
         Args:
             scene: OrcaGymScene 实例
         """
-        for actor in self._actors:
-            # TODO: 确认 OrcaGymScene.add_actor 的完整签名（asset_type/material/scale 参数）
-            # TODO: 确认命名空间隔离机制（多源 actor name 冲突处理）
-            scene.add_actor(
-                name=actor.name,
-                spawnable_path=actor.spawnable_path,
-                pos=actor.pos,
-                quat=actor.quat,
+        # 延迟导入 Actor，避免循环依赖
+        from orca_gym.scene.orca_gym_scene import Actor
+        import numpy as np
+
+        for spec in self._actors:
+            actor = Actor(
+                name=spec.name,
+                asset_path=spec.spawnable_path,
+                position=np.array(spec.pos, dtype=np.float64),
+                rotation=np.array(spec.quat, dtype=np.float64),
+                scale=spec.scale,
             )
-            # TODO: 若 actor.material 非空，调用 scene.set_material_info 设置 PBR 材质
+            scene.add_actor(actor)
 
         for light in self._lights:
-            # TODO: 确认 OrcaGymScene 光源 API（API 缺口，待 OrcaGym 扩展）
+            # OrcaGymScene 光源 API 缺口，待 OrcaGym 扩展
             _logger.warning(
                 "光源 %s 暂未 spawn，OrcaGym 光源 API 缺口，待 PR 扩展", light.name
             )

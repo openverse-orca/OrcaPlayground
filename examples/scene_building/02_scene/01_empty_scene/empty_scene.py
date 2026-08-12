@@ -3,17 +3,20 @@
 搭建最简场景：地面 + 重力 + 一个自由落体方块 spawnable，演示世界坐标系。
 
 模式：在线（需 OrcaStudio + 方块 spawnable 资产）
-资产来源：OrcaStudio 资产库 https://simassetest.orca3d.cn/
+资产来源：OrcaStudio 资产库 https://simassets.orca3d.cn/
+
+重力说明:
+    spawn 接口（AddActor/PublishScene）proto 中不携带 gravity 字段，
+    ActorCollector.set_world(gravity=) 仅收集意图，不通过 spawn 下发。
+    实际重力由 run_empty_scene.py 创建 Euler env 后通过
+    env.sim_config.gravity 应用（SetOptConfig 路径，作用于 mjModel.opt.gravity）。
 
 验证点:
     1. add_actor spawn 成功
     2. publish_scene 后 Studio 视口可见
-    3. 方块自由落体
+    3. 方块自由落体（env.sim_config.gravity 驱动）
     4. 修改 gravity 观察下落加速度
     5. 坐标系方向
-
-参见:
-    03_示例开发计划.md §2.2.2 (1)
 """
 
 from __future__ import annotations
@@ -28,9 +31,11 @@ if _COMMON_DIR not in sys.path:
 
 from actor_collector import ActorCollector  # noqa: E402
 
-# 方块 spawnable 资产路径（参考资产库 simassetest.orca3d.cn）
-# TODO: 确认方块 spawnable 资产在资产库的路径
-_BOX_SPAWNABLE_PATH = "<方块 spawnable 路径，待确认>"
+# 方块 spawnable 资产路径（OrcaStudio 资产库 cube）
+_BOX_SPAWNABLE_PATH = "assets/816f95ce16021282/default_project/prefabs/cube_usda"
+
+# spawn 时使用的 actor 名，run_empty_scene 据此在 env 中查找 body
+BOX_ACTOR_NAME = "falling_box"
 
 
 def build_empty_scene(
@@ -38,20 +43,24 @@ def build_empty_scene(
     box_pos: tuple[float, float, float] = (0, 0, 1),
     gravity: tuple[float, float, float] = (0, 0, -9.81),
 ) -> ActorCollector:
-    """搭建最简 spawnable 场景：地面 + 自由落体方块。
+    """搭建最简 spawnable 场景：自由落体方块。
+
+    重力通过 ``collector.set_world(gravity=)`` 收集，但**不通过 spawn 下发**。
+    调用方（run_empty_scene.py）应在创建 Euler env 后读取
+    ``collector.world.gravity`` 并写入 ``env.sim_config.gravity``。
 
     Args:
         scene: OrcaGymScene 实例
         box_pos: 方块初始位置
-        gravity: 重力加速度
+        gravity: 重力加速度（收集到 collector.world，由调用方通过 env.sim_config 应用）
 
     Returns:
-        ActorCollector 实例
+        ActorCollector 实例（包含 world.gravity 供调用方读取）
     """
     collector = ActorCollector()
     collector.set_world(gravity=gravity)
     collector.add_actor(
-        name="falling_box",
+        name=BOX_ACTOR_NAME,
         spawnable_path=_BOX_SPAWNABLE_PATH,
         pos=box_pos,
         asset_type="xml",
