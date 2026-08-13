@@ -10,6 +10,10 @@
     2. SceneSpec → ActorSpec → add_actor 链路
     3. publish_scene 后 Studio 可见
 
+注意:
+    本样例只处理 actor（spawnable 资产），不处理光源。
+    光源配置见样例 7（07_lighting_setup）。
+
 参见:
     03_示例开发计划.md §2.2.2 (5)
     01_架构设计.md §5.1（SceneSpec/ActorSpec 数据结构）
@@ -28,7 +32,7 @@ _COMMON_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.pa
 if _COMMON_DIR not in sys.path:
     sys.path.insert(0, _COMMON_DIR)
 
-from actor_collector import ActorCollector, ActorSpec, LightSpec, MaterialInfo, SceneSpec, WorldSpec  # noqa: E402
+from actor_collector import ActorCollector, ActorSpec, MaterialInfo, SceneSpec, WorldSpec  # noqa: E402
 
 
 def parse_yaml(path: str | Path) -> SceneSpec:
@@ -48,11 +52,6 @@ def parse_yaml(path: str | Path) -> SceneSpec:
             spawnable_path: <path>
             asset_type: usdz
             pos: [1, 0, 0]
-        lights:
-          - name: point_light
-            light_type: point
-            pos: [2, 2, 3]
-            intensity: 100
 
     Args:
         path: YAML 文件路径
@@ -93,19 +92,7 @@ def parse_yaml(path: str | Path) -> SceneSpec:
             )
         )
 
-    lights: list[LightSpec] = []
-    for light_data in data.get("lights", []):
-        lights.append(
-            LightSpec(
-                name=light_data["name"],
-                light_type=light_data["light_type"],
-                pos=tuple(light_data["pos"]),
-                intensity=light_data.get("intensity", 100.0),
-                color=tuple(light_data.get("color", (1, 1, 1))),
-            )
-        )
-
-    return SceneSpec(world=world, actors=actors, lights=lights)
+    return SceneSpec(world=world, actors=actors)
 
 
 def build_scene_from_yaml(scene: Any, config_path: str | Path) -> ActorCollector:
@@ -135,15 +122,6 @@ def build_scene_from_yaml(scene: Any, config_path: str | Path) -> ActorCollector
             material=actor.material,
             scale=actor.scale,
             asset_type=actor.asset_type,
-        )
-
-    for light in spec.lights:
-        collector.add_light(
-            name=light.name,
-            light_type=light.light_type,
-            pos=light.pos,
-            intensity=light.intensity,
-            color=light.color,
         )
 
     collector.spawn_all(scene)

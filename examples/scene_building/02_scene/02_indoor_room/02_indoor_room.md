@@ -201,8 +201,3 @@ scene.append_scene()   # actor2 出现，actor1 保留
 **解决**：升级 `orca_gym` 到开发版（`pip install -e /path/to/OrcaGym`）。
 
 ---
-
-## 9. 参见
-
-- 设计文档：`03_示例开发计划.md §2.2.2 (2)`
-- 第 1 课（01_assets）：`01_load_mjcf_robot/01_load_mjcf_robot.md`（spawn 范式相同）
