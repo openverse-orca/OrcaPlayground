@@ -63,7 +63,7 @@ _BUILTIN_BODIES: frozenset[str] = frozenset({
 def _find_box_body_name(env: OrcaGymEulerEnv) -> str:
     """在 env 场景中查找方块 body 名。
 
-    OrcaStudio 在线模式将 spawn 的 actor 转换为 MJCF body 时，命名规则因资产
+    OrcaLab 在线模式将 spawn 的 actor 转换为 MJCF body 时，命名规则因资产
     类型而异且不可预测：
         - prefab 类: ``<actor_name>_<asset_name>`` (如 falling_box_obstacle_box)
         - 静态 mesh: ``[<instance_id>]_<asset_name>_<suffix>`` (如 [1050012748861]_cup_06_only_a)
@@ -111,7 +111,7 @@ def _create_env_with_retry(
     检测到 "not been initialized" 错误时等待重试，其他异常直接抛出。
 
     Args:
-        addr: OrcaStudio gRPC 地址。
+        addr: OrcaLab gRPC 地址。
         agent_names: agent 名列表。
         time_step: 仿真步长。
         max_retries: 最多重试次数。
@@ -155,7 +155,7 @@ def _create_env_with_retry(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="最简 spawnable 场景（方块自由落体）")
-    parser.add_argument("--addr", type=str, default="localhost:50051", help="OrcaStudio gRPC 地址")
+    parser.add_argument("--addr", type=str, default="localhost:50051", help="OrcaLab gRPC 地址")
     parser.add_argument("--box-pos", type=float, nargs=3, default=[0, 0, 1], help="方块初始位置")
     parser.add_argument("--gravity", type=float, nargs=3, default=[0, 0, -9.81], help="重力加速度")
     parser.add_argument("--sim-steps", type=int, default=500, help="物理仿真步数")

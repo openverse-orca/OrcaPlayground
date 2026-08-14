@@ -1,6 +1,6 @@
 # 第 3 课：从场景 JSON 批量加载（d12.json）
 
-> 场景构建子系统第 3 课。本课从 OrcaStudio 场景导出的 JSON 文件批量加载多 actor 场景，
+> 场景构建子系统第 3 课。本课从 OrcaLab 场景导出的 JSON 文件批量加载多 actor 场景，
 > 验证 `append_scene()` 对复杂场景的适用性。
 
 ---
@@ -16,7 +16,7 @@
 | 3 | 批量 spawn | `add_actor + append_scene` 循环 | 5 个 actor 依次 spawn |
 | 4 | 前序保留 | `append_scene` 不销毁 | 5 个 actor 全部保留 |
 
-> **核心能力**：从 OrcaStudio 场景导出格式（GroupActor + AssetActor 树）加载场景，
+> **核心能力**：从 OrcaLab 场景导出格式（GroupActor + AssetActor 树）加载场景，
 > 支持 transform 的 position / rotation / scale 完整字段。
 
 ---
@@ -24,9 +24,12 @@
 ## 2. 前置条件
 
 - ✅ conda `orca` 环境可用
-- ✅ OrcaStudio/OrcaLab 已启动并监听 `--addr`
-- ✅ 已订阅 d12 相关资产包（d12_waist / table_green_03 / cardboardbox_01 / barcode_01 / c12c）
-- ✅ 加载一个空关卡并点击运行
+- ✅ OrcaLab 已启动
+- ✅ 已在 OrcaLab 资产库中订阅 **d12_openpi_pick** 和 **d12_waist** 资产包
+- ✅ 在 OrcaLab 中加载一个空关卡
+
+> **场景 JSON**：`d12.json`，包含桌子 + d12 机器人 + 3 个任务物体（C12C、Barcode_01、Cardboardbox_01）；
+> 脚本启动时会解析 JSON 并依次 `append_scene` 增量 spawn，无需手动拖动到布局中。
 
 ---
 
@@ -107,7 +110,7 @@ spawn 完成，保持场景运行，按 Ctrl+C 退出
 
 ### JSON 格式
 
-OrcaStudio 场景导出格式（GroupActor + AssetActor 树）：
+OrcaLab 场景导出格式（GroupActor + AssetActor 树）：
 
 ```json
 {
@@ -155,7 +158,7 @@ for spec in all_specs:
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `--addr` | `localhost:50051` | OrcaStudio gRPC 地址 |
+| `--addr` | `localhost:50051` | OrcaLab gRPC 地址 |
 | `--json` | `d12.json`（同目录） | 场景 JSON 文件路径 |
 | `--interval` | `1.0` | spawn 间隔（秒） |
 
@@ -173,7 +176,7 @@ for spec in all_specs:
 
 ### Q2：JSON 解析失败
 
-**原因**：JSON 格式不符合 OrcaStudio 场景导出格式。
+**原因**：JSON 格式不符合 OrcaLab 场景导出格式。
 
 **解决**：
 1. 确认 JSON 顶层 `type` 为 `"GroupActor"`
@@ -184,7 +187,7 @@ for spec in all_specs:
 
 **原因**：未订阅对应资产包。
 
-**解决**：确认 OrcaStudio 已订阅 d12.json 中所有 `asset_path` 引用的资产包。
+**解决**：确认 OrcaLab 已订阅 d12.json 中所有 `asset_path` 引用的资产包。
 
 ---
 

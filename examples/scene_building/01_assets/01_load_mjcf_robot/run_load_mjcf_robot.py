@@ -14,7 +14,7 @@ spawn 完成后保持场景运行，按 Ctrl+C 退出。
     python examples/scene_building/01_assets/run_load_mjcf_robot.py --addr 192.168.1.100:50051
 
 前置条件:
-    1. OrcaStudio/OrcaLab 已启动并监听 --addr
+    1. OrcaLab 已启动并监听 --addr
     2. 已订阅 OrcaPlaygroundAssets 资产包（含 g1_omnipicker / go2 / h1）
     3. 加载一个空关卡，点击运行
 
@@ -62,7 +62,7 @@ def sceneinfo(addr: str, stage: str) -> None:
     调用 get_rundata + set_image_enabled 后立即 close。
 
     Args:
-        addr: OrcaStudio gRPC 地址
+        addr: OrcaLab gRPC 地址
         stage: "beginscene" | "endscene"
     """
     scene = OrcaGymScene(addr)
@@ -82,7 +82,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="时序 spawn 三个机器人（g1_omnipicker → go2 → h1），go2 居中"
     )
-    parser.add_argument("--addr", type=str, default="localhost:50051", help="OrcaStudio gRPC 地址")
+    parser.add_argument("--addr", type=str, default="localhost:50051", help="OrcaLab gRPC 地址")
     parser.add_argument("--spacing", type=float, default=SPACING, help="机器人间距（米，沿 x 轴）")
     parser.add_argument(
         "--interval", type=float, default=SPAWN_INTERVAL, help="spawn 间隔（秒）"

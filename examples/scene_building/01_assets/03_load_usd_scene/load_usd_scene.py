@@ -1,6 +1,6 @@
 """2.1.3 加载 USD 场景（从 Studio JSON 场景描述文件批量加载）。
 
-从 OrcaStudio 场景导出的 JSON 文件（GroupActor + AssetActor 树结构）批量加载场景。
+从 OrcaLab 场景导出的 JSON 文件（GroupActor + AssetActor 树结构）批量加载场景。
 
 JSON 格式参考（examples/d12/demo/d12.json）:
     {
@@ -24,8 +24,8 @@ JSON 格式参考（examples/d12/demo/d12.json）:
     使用 append_scene() 增量 spawn —— 仅 spawn m_addActorMap 中的新 Actor，
     不销毁已 spawn 的实体。每个 actor 添加后立即 append_scene。
 
-模式：在线（需 OrcaStudio/OrcaLab）
-资产来源：OrcaStudio 资产库 https://simassetest.orca3d.cn/
+模式：在线（需 OrcaLab）
+资产来源：OrcaLab 资产库 https://simassets.orca3d.cn/
 
 验证点:
     1. 从 JSON 文件批量加载所有 AssetActor
@@ -95,7 +95,7 @@ def _parse_vec(s: str, n: int) -> tuple[float, ...]:
 
 
 def parse_scene_json(json_path: str | Path) -> list[SceneActorSpec]:
-    """从 OrcaStudio 场景 JSON 解析 AssetActor 列表。
+    """从 OrcaLab 场景 JSON 解析 AssetActor 列表。
 
     递归遍历 GroupActor 的 children，收集所有 AssetActor。
 
@@ -183,7 +183,7 @@ def load_usd_scene(
     前序 actor 不被销毁。
 
     Args:
-        addr: OrcaStudio gRPC 地址
+        addr: OrcaLab gRPC 地址
         json_path: 场景 JSON 文件路径。None 则使用 d12.json 作为示例
         interval: actor 之间的 spawn 间隔（秒）
 
@@ -241,7 +241,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="从 Studio 场景 JSON 文件批量加载 AssetActor"
     )
-    parser.add_argument("--addr", type=str, default="localhost:50051", help="OrcaStudio gRPC 地址")
+    parser.add_argument("--addr", type=str, default="localhost:50051", help="OrcaLab gRPC 地址")
     parser.add_argument(
         "--json",
         type=str,

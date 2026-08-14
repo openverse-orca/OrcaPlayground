@@ -1,6 +1,6 @@
 """2.1.3 入口脚本：从场景 JSON 批量加载（d12.json）。
 
-从 OrcaStudio 场景导出的 JSON 文件批量加载多 actor 场景。
+从 OrcaLab 场景导出的 JSON 文件批量加载多 actor 场景。
 spawn 完成后保持场景运行，按 Ctrl+C 退出。
 
 用法:
@@ -17,8 +17,8 @@ spawn 完成后保持场景运行，按 Ctrl+C 退出。
     python examples/scene_building/01_assets/03_load_usd_scene/run_load_usd_scene.py --addr 192.168.1.100:50051
 
 前置条件:
-    1. OrcaStudio/OrcaLab 已启动并监听 --addr
-    2. 已订阅 d12 相关资产包（d12_waist / table_green_03 / cardboardbox_01 / barcode_01 / c12c）
+    1. OrcaLab 已启动并监听 --addr
+    2. 已订阅 d12_openpi_pick 和 d12_waist 资产包
     3. 加载一个空关卡，点击运行
 
 验证点:
@@ -60,7 +60,7 @@ def sceneinfo(addr: str, stage: str) -> None:
     调用 get_rundata + set_image_enabled 后立即 close。
 
     Args:
-        addr: OrcaStudio gRPC 地址
+        addr: OrcaLab gRPC 地址
         stage: "beginscene" | "endscene"
     """
     scene = OrcaGymScene(addr)
@@ -80,7 +80,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="从 Studio 场景 JSON 文件批量加载 AssetActor"
     )
-    parser.add_argument("--addr", type=str, default="localhost:50051", help="OrcaStudio gRPC 地址")
+    parser.add_argument("--addr", type=str, default="localhost:50051", help="OrcaLab gRPC 地址")
     parser.add_argument(
         "--json",
         type=str,

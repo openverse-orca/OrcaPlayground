@@ -97,7 +97,7 @@ def _create_env_with_retry(
     检测到 "not been initialized" 错误时等待重试，其他异常直接抛出。
 
     Args:
-        addr: OrcaStudio gRPC 地址。
+        addr: OrcaLab gRPC 地址。
         agent_name: agent 名。
         max_retries: 最多重试次数。
         interval: 重试间隔（秒）。
@@ -185,7 +185,7 @@ def main() -> None:
         description="光照系统配置（spawn spotlight + set_light_info + 仿真）"
     )
     parser.add_argument(
-        "--addr", type=str, default="localhost:50051", help="OrcaStudio/OrcaLab gRPC 地址"
+        "--addr", type=str, default="localhost:50051", help="OrcaLab gRPC 地址"
     )
     parser.add_argument(
         "--light-count",

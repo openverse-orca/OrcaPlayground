@@ -79,7 +79,7 @@ _BUILTIN_BODIES: frozenset[str] = frozenset({
 
 
 def sceneinfo(addr: str, stage: str) -> None:
-    """向 OrcaStudio/OrcaLab 报告脚本运行阶段（rundata 记录）。"""
+    """向 OrcaLab 报告脚本运行阶段（rundata 记录）。"""
     scene = OrcaGymScene(addr)
     try:
         script_name = os.path.basename(sys.argv[0]) if sys.argv else os.path.basename(__file__)
@@ -263,7 +263,7 @@ def main() -> None:
         default=str(_DEFAULT_CONFIG),
         help=f"YAML 配置文件路径（默认: { _DEFAULT_CONFIG.name}）",
     )
-    parser.add_argument("--addr", type=str, default="localhost:50051", help="OrcaStudio/OrcaLab gRPC 地址")
+    parser.add_argument("--addr", type=str, default="localhost:50051", help="OrcaLab gRPC 地址")
     parser.add_argument(
         "--gravity",
         type=float,

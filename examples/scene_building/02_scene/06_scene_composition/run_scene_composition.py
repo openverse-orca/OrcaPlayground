@@ -69,8 +69,8 @@ def _log(msg: str) -> None:
 
 def _check_asset_pack() -> None:
     """提醒用户检查所需资产包是否已订阅。"""
-    _log(f"[资产检查] 本示例需在 OrcaStudio 资产库中订阅: {_REQUIRED_ASSET_PACK}")
-    _log(f"  若未订阅，请在 OrcaStudio 资产库搜索 {_REQUIRED_ASSET_PACK} 并点击订阅")
+    _log(f"[资产检查] 本示例需在 OrcaLab 资产库中订阅: {_REQUIRED_ASSET_PACK}")
+    _log(f"  若未订阅，请在 OrcaLab 资产库搜索 {_REQUIRED_ASSET_PACK} 并点击订阅")
     _log(f"  并在 OrcaLab 中加载 {_REQUIRED_ASSET_PACK} 关卡，点击「运行」按钮进入运行模式")
 
 
@@ -86,7 +86,7 @@ def _create_env_with_retry(
     检测到 "not been initialized" 错误时等待重试，其他异常直接抛出。
 
     Args:
-        addr: OrcaStudio gRPC 地址。
+        addr: OrcaLab gRPC 地址。
         agent_name: 机器人 agent 名。
         max_retries: 最多重试次数。
         interval: 重试间隔（秒）。
@@ -173,7 +173,7 @@ def main() -> None:
         description="机器人厨房助手（g1_pick + kitchen_Night_2 多源合并）"
     )
     parser.add_argument(
-        "--addr", type=str, default="localhost:50051", help="OrcaStudio/OrcaLab gRPC 地址"
+        "--addr", type=str, default="localhost:50051", help="OrcaLab gRPC 地址"
     )
     parser.add_argument(
         "--state",

@@ -19,8 +19,8 @@
 ## 2. 前置条件
 
 - conda `orca` 环境可用
-- OrcaStudio/OrcaLab 已启动
-- 已订阅仓库资产包 room
+- OrcaLab 已启动
+- 已订阅仓库资产包 **PlayGroundScene**
 
 ---
 
@@ -109,7 +109,7 @@ for r in range(rows):
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `--addr` | `localhost:50051` | OrcaStudio/OrcaLab gRPC 地址 |
+| `--addr` | `localhost:50051` | OrcaLab gRPC 地址 |
 | `--rows` | `3` | 货架行数（X 方向，推荐 2 或 3） |
 | `--cols` | `4` | 货架列数（Y 方向，推荐 3 或 4） |
 | `--interval` | `0.5` | spawn 间隔（秒） |

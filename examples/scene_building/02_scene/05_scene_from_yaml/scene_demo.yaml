@@ -5,7 +5,7 @@
 #   - reference_desk: 办公桌，静态参考物
 #   - reference_basket: 购物篮，静态参考物
 #
-# 资产来源：examples/replicator（OrcaStudio 资产库）
+# 资产来源：examples/replicator（OrcaLab 资产库）
 #
 # 用法:
 #   python examples/scene_building/02_scene/05_scene_from_yaml/run_scene_from_yaml.py --config scene_demo.yaml

@@ -20,9 +20,9 @@
 
 ## 2. 前置条件
 
-- ✅ conda `orca` 环境可用
-- ✅ OrcaStudio/OrcaLab 已启动并监听 `--addr`
-- ✅ 加载一个空关卡并点击运行
+- conda `orca` 环境可用
+- 已订阅**PlayGroundScene** 和**bar_stool_usdz** 资产包
+- 加载一个空关卡并点击运行
 
 ### 资产说明
 
@@ -34,7 +34,7 @@
 | floor | `assets/816f95ce16021282/default_project/prefabs/floor_usda` | 地板 |
 | desk_2 | `assets/b819e2ae5bc79b02/default_projectsim/prefabs/desk_2_usda` | 桌子 |
 
-> 注：spawnable name = 文件路径去掉扩展名。OrcaStudio/OrcaLab 只识别 `.spawnable` 后缀资产。
+> 注：spawnable name = 文件路径去掉扩展名。OrcaLab 只识别 `.spawnable` 后缀资产。
 
 ---
 
@@ -164,7 +164,7 @@ scene.append_scene()   # actor2 出现，actor1 保留
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `--addr` | `localhost:50051` | OrcaStudio/OrcaLab gRPC 地址 |
+| `--addr` | `localhost:50051` | OrcaLab gRPC 地址 |
 | `--width` | `5.0` | 房间宽度（米，墙长度） |
 | `--height` | `5.0` | 房间高度（米，墙高度） |
 | `--interval` | `1.0` | spawn 间隔（秒） |
@@ -187,12 +187,12 @@ scene.append_scene()   # actor2 出现，actor1 保留
 
 ### Q3：Spawnable name not found
 
-**原因**：资产路径错误或未注册到 OrcaStudio/OrcaLab。
+**原因**：资产路径错误或未注册到 OrcaLab。
 
 **解决**：
 1. 确认 spawnable 文件后缀为 `.spawnable`（不是 `.prefab`）
 2. 确认路径格式为 `assets/<hash>/<project>/prefabs/<name>`（去掉扩展名）
-3. 在 OrcaStudio/OrcaLab 中刷新资产目录
+3. 在 OrcaLab 中刷新资产目录
 
 ### Q4：前序 actor 在新 actor spawn 时消失
 

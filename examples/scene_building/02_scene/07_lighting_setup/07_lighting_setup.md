@@ -21,8 +21,8 @@
 ## 2. 前置条件
 
 - conda `orca` 环境可用
-- OrcaStudio/OrcaLab 已启动并监听 `--addr`
-- 已订阅资产包：**OrcaPlaygroundAssets + run_light_night**（同 `examples/replicator`）
+- OrcaLab 已启动并监听 `--addr`
+- 已订阅资产包：**OrcaPlaygroundAssets + run_light_night**
   - 资产订阅地址：https://simassets.orca3d.cn/
   - 是否需要手动拖动到布局中：**否**
 
@@ -49,7 +49,7 @@ examples/scene_building/02_scene/07_lighting_setup/
 | office_desk | `assets/e071469a36d3c8aa/default_project/prefabs/office_desk_7_mb_usda` | 桌子（被照亮对象） |
 | spotlight | `assets/e071469a36d3c8aa/default_project/prefabs/spotlight` | 聚光灯（×10） |
 
-> 注：spawnable name = 文件路径去掉扩展名。OrcaStudio/OrcaLab 只识别 `.spawnable` 后缀资产。
+> 注：spawnable name = 文件路径去掉扩展名。OrcaLab 只识别 `.spawnable` 后缀资产。
 
 ---
 
@@ -65,7 +65,7 @@ python examples/scene_building/02_scene/07_lighting_setup/run_lighting_setup.py
 # 自定义光源数量
 python examples/scene_building/02_scene/07_lighting_setup/run_lighting_setup.py --light-count 5
 
-# 自定义 OrcaStudio 地址
+# 自定义 OrcaLab 地址
 python examples/scene_building/02_scene/07_lighting_setup/run_lighting_setup.py --addr localhost:50051
 ```
 
@@ -155,6 +155,6 @@ spotlight 资产 spawn 后，Studio 端的 O3DE 光源实体与 MuJoCo mocap bod
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `--addr` | `localhost:50051` | OrcaStudio/OrcaLab gRPC 地址 |
+| `--addr` | `localhost:50051` | OrcaLab gRPC 地址 |
 | `--light-count` | `10` | 光源数量 |
 

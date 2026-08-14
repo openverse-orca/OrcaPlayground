@@ -24,8 +24,8 @@
 ## 2. 前置条件
 
 - ✅ conda `orca` 环境可用
-- ✅ OrcaStudio/OrcaLab 已启动并监听 `--addr`
-- ✅ 已订阅 OrcaPlaygroundAssets 资产包（含 g1_omnipicker / go2 / h1）
+- ✅ OrcaLab 已启动并监听 `--addr`
+- ✅ 已订阅 **PlayGroundScene**资产包
 - ✅ 加载一个空关卡并点击运行
 
 ---
@@ -123,7 +123,7 @@ for i, spec in enumerate(all_specs):
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `--addr` | `localhost:50051` | OrcaStudio gRPC 地址 |
+| `--addr` | `localhost:50051` | OrcaLab gRPC 地址 |
 | `--spacing` | `1.0` | 机器人间距（米，沿 x 轴） |
 | `--interval` | `5.0` | spawn 间隔（秒） |
 
@@ -150,10 +150,10 @@ python examples/scene_building/01_assets/01_load_mjcf_robot/run_load_mjcf_robot.
 
 ### Q3：gRPC 连接失败
 
-**原因**：OrcaStudio/OrcaLab 未启动，或地址端口错误。
+**原因**：OrcaLab 未启动，或地址端口错误。
 
 **解决**：
-1. 确认 OrcaStudio/OrcaLab 已启动
+1. 确认 OrcaLab 已启动
 2. 确认监听端口（默认 50051）
 3. 加载一个空关卡并点击运行
 

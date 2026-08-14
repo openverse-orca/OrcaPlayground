@@ -68,7 +68,7 @@ def _log(msg: str) -> None:
 
 
 def sceneinfo(addr: str, stage: str) -> None:
-    """向 OrcaStudio/OrcaLab 报告脚本运行阶段（rundata 记录）。"""
+    """向 OrcaLab 报告脚本运行阶段（rundata 记录）。"""
     scene = OrcaGymScene(addr)
     try:
         script_name = os.path.basename(sys.argv[0]) if sys.argv else os.path.basename(__file__)
@@ -232,16 +232,17 @@ def _run_simulation(env: gym.Env) -> None:
 
 
 def main() -> None:
+    terrain_choices = ", ".join(f"{k}={v['desc']}" for k, v in TERRAIN_CONFIGS.items())
     parser = argparse.ArgumentParser(
         description="程序化 spawn 户外地形（全部/指定 + 球体滚落仿真）"
     )
-    parser.add_argument("--addr", type=str, default="localhost:50051", help="OrcaStudio/OrcaLab gRPC 地址")
+    parser.add_argument("--addr", type=str, default="localhost:50051", help="OrcaLab gRPC 地址")
     parser.add_argument(
         "--terrain",
         type=str,
         choices=list(TERRAIN_CONFIGS.keys()),
         default=None,
-        help=f"地形类型: {', '.join(f'{k}={v['desc']}' for k, v in TERRAIN_CONFIGS.items())}。"
+        help=f"地形类型: {terrain_choices}。"
         "不指定则 spawn 全部三种（沿 X 轴排列）",
     )
     parser.add_argument(

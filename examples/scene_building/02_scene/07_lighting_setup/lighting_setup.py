@@ -3,8 +3,8 @@
 程序化 spawn 多盏 spotlight 资产，并通过 set_light_info 配置光源颜色/强度，
 演示多光源组合照明。env 步进时持续旋转光源 body 并刷新 light info，实现动态光照。
 
-模式：在线（需 OrcaStudio + spotlight/cup_of_coffee/office_desk 资产）
-资产来源：OrcaStudio 资产库 https://simassets.orca3d.cn/
+模式：在线（需 OrcaLab + spotlight/cup_of_coffee/office_desk 资产）
+资产来源：OrcaLab 资产库 https://simassets.orca3d.cn/
 资产包：OrcaPlaygroundAssets + run_light_night（同 examples/replicator）
 
 验证点:

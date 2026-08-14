@@ -20,8 +20,10 @@
 ## 2. 前置条件
 
 - conda `orca` 环境可用
-- OrcaStudio/OrcaLab 已启动
-- 已订阅资产包（含 cup_of_coffee + office_desk + cart_basket，与 examples/replicator 相同）
+- OrcaLab 已启动
+- 已订阅资产包：**OrcaPlaygroundAssets**
+  - 资产订阅地址：https://simassets.orca3d.cn/
+  - 是否需要手动拖动到布局中：**否**
 
 ---
 
@@ -163,5 +165,5 @@ MuJoCo 物理仿真
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
 | `--config` | `scene_demo.yaml` | YAML 配置文件路径（相对路径基于脚本目录） |
-| `--addr` | `localhost:50051` | OrcaStudio/OrcaLab gRPC 地址 |
+| `--addr` | `localhost:50051` | OrcaLab gRPC 地址 |
 | `--gravity` | None | 覆盖 YAML 中的重力（X Y Z）。不指定则用 YAML 值 |

@@ -10,7 +10,7 @@
 | # | 验证点 | API | 期望 |
 |---|--------|-----|------|
 | 1 | add_actor spawn 成功 | `ActorCollector.add_actor` | 视口出现方块 |
-| 2 | publish_scene 后可见 | `OrcaGymScene.publish_scene` | OrcaStudio/OrcaLab 视口渲染方块 |
+| 2 | publish_scene 后可见 | `OrcaGymScene.publish_scene` | OrcaLab 视口渲染方块 |
 | 3 | 方块自由落体 | `env.sim_config.gravity` | 方块按重力下落 |
 | 4 | 修改 gravity 观察加速度 | `--gravity 0 0 -2` | 弱重力下方块下落变慢 |
 | 5 | 坐标系方向 | z 轴向上 | 方块从 z=1 落到 z=0 |
@@ -20,8 +20,8 @@
 ## 2. 前置条件
 
 - conda `orca` 环境可用
-- OrcaStudio/OrcaLab 已启动并监听 `--addr`
-- 已订阅方块 spawnable 资产包
+- OrcaLab 已启动并监听 `--addr`
+- 已订阅**PlayGroundScene** 资产包
 - 加载一个空关卡并点击运行
 
 ---
@@ -56,8 +56,8 @@ python examples/scene_building/02_scene/01_empty_scene/run_empty_scene.py --grav
 ```
 
 运行流程：
-1. 脚本 spawn 方块到 OrcaStudio/OrcaLab
-2. 在 OrcaStudio/OrcaLab 中点击「运行」按钮进入运行模式
+1. 脚本 spawn 方块到 OrcaLab
+2. 在 OrcaLab 中点击「运行」按钮进入运行模式
 3. 脚本自动创建 Euler env 并步进物理，方块开始自由落体
 
 ---
@@ -72,7 +72,7 @@ python examples/scene_building/02_scene/01_empty_scene/run_empty_scene.py --grav
 | `spawn_all(scene)` | 批量调用 `scene.add_actor` 并 `publish_scene` |
 | `env.sim_config.gravity` | 通过 Euler env 的 SimConfig 应用重力到本地 mjModel |
 | `env.do_simulation` | 步进本地物理仿真 |
-| `env.render()` | 将本地 mjData 状态推送到 OrcaStudio/OrcaLab 视口 |
+| `env.render()` | 将本地 mjData 状态推送到 OrcaLab 视口 |
 
 ---
 
@@ -80,7 +80,7 @@ python examples/scene_building/02_scene/01_empty_scene/run_empty_scene.py --grav
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `--addr` | `localhost:50051` | OrcaStudio/OrcaLab gRPC 地址 |
+| `--addr` | `localhost:50051` | OrcaLab gRPC 地址 |
 | `--box-pos` | `0 0 1` | 方块初始位置 |
 | `--gravity` | `0 0 -9.81` | 重力加速度 |
 | `--sim-steps` | `500` | 仿真步数 |

@@ -2,8 +2,8 @@
 
 搭建最简场景：地面 + 重力 + 一个自由落体方块 spawnable，演示世界坐标系。
 
-模式：在线（需 OrcaStudio + 方块 spawnable 资产）
-资产来源：OrcaStudio 资产库 https://simassets.orca3d.cn/
+模式：在线（需 OrcaLab + 方块 spawnable 资产）
+资产来源：OrcaLab 资产库 https://simassets.orca3d.cn/
 
 重力说明:
     spawn 接口（AddActor/PublishScene）proto 中不携带 gravity 字段，
@@ -31,7 +31,7 @@ if _COMMON_DIR not in sys.path:
 
 from actor_collector import ActorCollector  # noqa: E402
 
-# 方块 spawnable 资产路径（OrcaStudio 资产库 cube）
+# 方块 spawnable 资产路径（OrcaLab 资产库 cube）
 _BOX_SPAWNABLE_PATH = "assets/816f95ce16021282/default_project/prefabs/cube_usda"
 
 # spawn 时使用的 actor 名，run_empty_scene 据此在 env 中查找 body

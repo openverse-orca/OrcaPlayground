@@ -35,7 +35,7 @@ def _log(msg: str) -> None:
 
 
 def sceneinfo(addr: str, stage: str) -> None:
-    """向 OrcaStudio/OrcaLab 报告脚本运行阶段（rundata 记录）。
+    """向 OrcaLab 报告脚本运行阶段（rundata 记录）。
 
     优雅降级：若 OrcaGymScene 不存在 get_rundata / set_image_enabled 方法，
     则跳过并 warning，不影响核心 spawn 流程。
@@ -71,7 +71,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="程序化 spawn 仓库货架场景（10×10 地面 + rows×cols 货架阵列）"
     )
-    parser.add_argument("--addr", type=str, default="localhost:50051", help="OrcaStudio/OrcaLab gRPC 地址")
+    parser.add_argument("--addr", type=str, default="localhost:50051", help="OrcaLab gRPC 地址")
     parser.add_argument("--rows", type=int, default=DEFAULT_ROWS, help="货架行数（X 方向，推荐 2 或 3）")
     parser.add_argument("--cols", type=int, default=DEFAULT_COLS, help="货架列数（Y 方向，推荐 3 或 4）")
     parser.add_argument("--interval", type=float, default=SPAWN_INTERVAL, help="spawn 间隔（秒）")

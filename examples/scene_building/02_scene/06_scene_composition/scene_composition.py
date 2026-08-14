@@ -4,8 +4,8 @@
 厨房场景与厨具由用户在 OrcaLab 手动加载 kitchen_Night_2 关卡，本脚本只 spawn
 机器人 g1_pick 到指定工位（做菜/清理），通过命名空间前缀 robot_ 体现多源隔离。
 
-模式：在线（需 OrcaStudio + kitchen_Night_2 资产 + g1_pick spawnable）
-资产来源：OrcaStudio 资产库 https://simassets.orca3d.cn/
+模式：在线（需 OrcaLab + kitchen_Night_2 资产 + g1_pick spawnable）
+资产来源：OrcaLab 资产库 https://simassets.orca3d.cn/
 
 验证点:
     1. g1_pick 机器人正确 spawn 到厨房场景
@@ -287,12 +287,12 @@ def place_utensils_in_sink(env: OrcaGymEulerEnv) -> dict[str, dict[str, Any]]:
         if tip_over:
             qpos[adr + 3 : adr + 7] = np.array(TIP_OVER_QUAT, dtype=np.float64)
 
-        # 清零速度
+        # 清零速度（freejoint 可能无 dofadr，记录后跳过）
         try:
             dof_adr = env.jnt_dofadr(jname)
             qvel[dof_adr : dof_adr + 6] = 0.0
-        except Exception:
-            pass
+        except Exception as exc:
+            _logger.debug(f"跳过 {jname} 速度清零（无 dofadr）: {exc}")
 
         report[jname] = {"body_name": body_name, "action": label, "new_pos": new_pos_arr}
 

@@ -17,8 +17,8 @@
 ## 2. 前置条件
 
 - conda `orca` 环境可用
-- OrcaStudio/OrcaLab 已启动
-- 已订阅仓库资产包 room（含 terrain_slope + terrain_stairs + terrain_gentle + sphere）
+- OrcaLab 已启动
+- 已订阅仓库资产包 **PlayGroundScene**
 
 ---
 
@@ -127,7 +127,7 @@ scene.publish_scene()
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `--addr` | `localhost:50051` | OrcaStudio/OrcaLab gRPC 地址 |
+| `--addr` | `localhost:50051` | OrcaLab gRPC 地址 |
 | `--terrain` | None（全部） | 地形类型: `slope`(杂乱) / `stairs`(阶梯) / `gentle`(平整)。不指定则 spawn 全部三种（沿 X 轴排列，间距 10m） |
 | `--sphere-pos` | `0 0 2.5` | 测试球体初始位置（X Y Z） |
 | `--interval` | `1.0` | spawn 间隔（秒） |

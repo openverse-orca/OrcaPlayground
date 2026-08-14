@@ -24,9 +24,9 @@
 ## 2. 前置条件
 
 - ✅ conda `orca` 环境可用
-- ✅ OrcaStudio/OrcaLab 已启动并监听 `--addr`
-- ✅ 已订阅 desk 系列资产包（desk / desk_1 / desk_2）
-- ✅ 加载一个空关卡并点击运行
+- ✅ OrcaLab 已启动
+- ✅ 已在 OrcaLab 资产库中订阅 **bar_stool_usdz** 资产包
+- ✅ 在 OrcaLab 中加载一个空关卡
 
 ---
 
@@ -124,7 +124,7 @@ def _make_actor(spec: DeskSpec) -> Actor:
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `--addr` | `localhost:50051` | OrcaStudio gRPC 地址 |
+| `--addr` | `localhost:50051` | OrcaLab gRPC 地址 |
 | `--spacing` | `2.0` | 桌子间距（米，沿 x 轴） |
 | `--interval` | `3.0` | spawn 间隔（秒） |
 
@@ -134,10 +134,10 @@ def _make_actor(spec: DeskSpec) -> Actor:
 
 ### Q1：桌子未出现
 
-**原因**：未订阅 desk 资产包，或资产路径错误。
+**原因**：未订阅 desk 系列资产包，或资产路径错误。
 
 **解决**：
-1. 确认 OrcaStudio 已订阅 desk / desk_1 / desk_2 资产包
+1. 确认 OrcaLab 已订阅 desk / desk_1 / desk_2 资产包
 2. 确认资产路径 `assets/b819e2ae5bc79b02/default_projectsim/prefabs/desk_*_usda` 正确
 
 ### Q2：桌子重叠

@@ -24,10 +24,10 @@
 ## 2. 前置条件
 
 - ✅ conda `orca` 环境可用
-- ✅ OrcaStudio/OrcaLab 已启动
-- ✅ 已在 OrcaStudio 资产库中订阅 **kitchen_Night_2** 资产包
-- ✅ 已订阅 **g1_pick** 机器人 spawnable（资产库 `816f95ce16021282`）
-- ✅ 在 OrcaLab 中加载 kitchen_Night_2 关卡并点击「运行」按钮进入运行模式
+- ✅ OrcaLab 已启动
+- ✅ 已在 OrcaLab 资产库中订阅 **kitchen_Night_2** 资产包
+- ✅ 已订阅 **g1_pick** 和 **kitchen_Night_2** 机器人 spawnable
+
 
 ---
 
@@ -95,7 +95,7 @@ env.render()     # 推送状态到 O3DE
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `--addr` | `localhost:50051` | OrcaStudio/OrcaLab gRPC 地址 |
+| `--addr` | `localhost:50051` | OrcaLab gRPC 地址 |
 | `--state` | `cooking` | 机器人工位状态（`cooking` / `cleaning`） |
 | `--sim-steps` | `0` | 仿真步数（<=0 表示无限循环直至 Ctrl+C） |
 

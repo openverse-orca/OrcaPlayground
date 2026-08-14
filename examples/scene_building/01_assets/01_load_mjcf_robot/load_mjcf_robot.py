@@ -15,8 +15,8 @@
     - publish_scene: 销毁全部已 spawn 实体 → 重建 m_addActorMap 中的 Actor → 清空 map
     - append_scene:  不销毁 → 重建 m_addActorMap 中的 Actor → 清空 map
 
-模式：在线（需 OrcaStudio/OrcaLab + OrcaPlaygroundAssets 资产包）
-资产来源：OrcaStudio 资产库 https://simassets.orca3d.cn/
+模式：在线（需 OrcaLab + OrcaPlaygroundAssets 资产包）
+资产来源：OrcaLab 资产库 https://simassets.orca3d.cn/
 
 验证点:
     1. t=0s 视口出现 g1_omnipicker（左侧）
@@ -47,7 +47,7 @@ def _log(msg: str) -> None:
     print(msg, flush=True)
 
 # 机器人 spawnable 资产路径（OrcaPlaygroundAssets 资产包，需在 Studio 中订阅）
-G1_OMNIPICKER_PATH = "assets/e071469a36d3c8aa/default_project/prefabs/g1_omnipicker_usda"
+G1_OMNIPICKER_PATH = "assets/816f95ce16021282/default_project/prefabs/g1_pick_usda"
 GO2_PATH = "assets/e071469a36d3c8aa/default_project/prefabs/go2_usda"
 H1_PATH = "assets/e071469a36d3c8aa/unitree_robots/prefabs/h1_usda"
 
@@ -124,7 +124,7 @@ def spawn_robot_sequence(
     布局: 以 (0,0,0) 为中心并排，go2 在中间。
 
     Args:
-        addr: OrcaStudio gRPC 地址
+        addr: OrcaLab gRPC 地址
         spacing: 机器人间距（米，沿 x 轴）
         interval: spawn 间隔（秒）
 

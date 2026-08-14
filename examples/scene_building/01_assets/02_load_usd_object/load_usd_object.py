@@ -9,8 +9,8 @@
     使用 append_scene() 增量 spawn —— 仅 spawn m_addActorMap 中的新 Actor，
     不销毁已 spawn 的实体。每个时序点只需 add_actor + append_scene。
 
-模式：在线（需 OrcaStudio/OrcaLab）
-资产来源：OrcaStudio 资产库 https://simassetest.orca3d.cn/
+模式：在线（需 OrcaLab）
+资产来源：OrcaLab 资产库 https://simassets.orca3d.cn/
 
 验证点:
     1. 三张桌子并排加载成功
@@ -40,7 +40,7 @@ def _log(msg: str) -> None:
     print(msg, flush=True)
 
 
-# desk 系列资产路径（OrcaStudio 资产库 spawnable）
+# desk 系列资产路径（OrcaLab 资产库 spawnable）
 DESK_PATH = "assets/b819e2ae5bc79b02/default_projectsim/prefabs/desk_usda"
 DESK_1_PATH = "assets/b819e2ae5bc79b02/default_projectsim/prefabs/desk_1_usda"
 DESK_2_PATH = "assets/b819e2ae5bc79b02/default_projectsim/prefabs/desk_2_usda"
@@ -111,7 +111,7 @@ def load_usd_object(
     前序桌子不被销毁。
 
     Args:
-        addr: OrcaStudio gRPC 地址
+        addr: OrcaLab gRPC 地址
         spacing: 桌子间距（米，沿 x 轴）
         interval: spawn 间隔（秒）
 
@@ -162,7 +162,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="加载三张桌子资产（desk / desk_1 / desk_2）并排布局"
     )
-    parser.add_argument("--addr", type=str, default="localhost:50051", help="OrcaStudio gRPC 地址")
+    parser.add_argument("--addr", type=str, default="localhost:50051", help="OrcaLab gRPC 地址")
     parser.add_argument("--spacing", type=float, default=SPACING, help="桌子间距（米，沿 x 轴）")
     parser.add_argument("--interval", type=float, default=SPAWN_INTERVAL, help="spawn 间隔（秒）")
     args = parser.parse_args()

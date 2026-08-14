@@ -2,8 +2,8 @@
 
 从 YAML 声明式描述 spawn 场景，演示配置驱动开发。
 
-模式：在线（需 OrcaStudio + spawnable 资产）
-资产来源：OrcaStudio 资产库 https://simassetest.orca3d.cn/
+模式：在线（需 OrcaLab + spawnable 资产）
+资产来源：OrcaLab 资产库 https://simassets.orca3d.cn/
 
 验证点:
     1. YAML 解析正确

@@ -7,8 +7,8 @@
       发布到 Studio
     - from_yaml 支持声明式描述，解析 YAML 为 Actor 规格列表（SceneSpec → ActorSpec）
 
-资产路径统一指向 OrcaStudio 资产库 spawnable（XML/USDZ/资产包）：
-    https://simassetest.orca3d.cn/
+资产路径统一指向 OrcaLab 资产库 spawnable（XML/USDZ/资产包）：
+    https://simassets.orca3d.cn/
 
 参见：
     03_示例开发计划.md §2.2.1
@@ -196,7 +196,7 @@ class ActorCollector:
         for light in self._lights:
             # OrcaGymScene 光源 API 缺口，待 OrcaGym 扩展
             _logger.warning(
-                "光源 %s 暂未 spawn，OrcaGym 光源 API 缺口，待 PR 扩展", light.name
+                f"光源 {light.name} 暂未 spawn，OrcaGym 光源 API 缺口，待 PR 扩展"
             )
 
     @property

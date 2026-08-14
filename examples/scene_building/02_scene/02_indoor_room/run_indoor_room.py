@@ -71,7 +71,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="程序化 spawn 室内房间（地板 + 3 面墙 + 桌子）"
     )
-    parser.add_argument("--addr", type=str, default="localhost:50051", help="OrcaStudio gRPC 地址")
+    parser.add_argument("--addr", type=str, default="localhost:50051", help="OrcaLab gRPC 地址")
     parser.add_argument("--width", type=float, default=WIDTH, help="房间宽度（米）")
     parser.add_argument("--height", type=float, default=HEIGHT, help="房间高度（米）")
     parser.add_argument("--interval", type=float, default=SPAWN_INTERVAL, help="spawn 间隔（秒）")
