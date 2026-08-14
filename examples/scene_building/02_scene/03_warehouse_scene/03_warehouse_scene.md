@@ -18,9 +18,10 @@
 
 ## 2. 前置条件
 
-- conda `orca` 环境可用
-- OrcaLab 已启动
-- 已订阅仓库资产包 **PlayGroundScene**
+- ✅ conda `orca` 环境可用
+- ✅ OrcaLab 已启动
+- ✅ 已在 OrcaLab 资产库中订阅 **PlayGroundScene** 资产包
+- ✅ 在 OrcaLab 中加载 **orcalab_day** 关卡
 
 ---
 

@@ -20,9 +20,10 @@
 
 ## 2. 前置条件
 
-- conda `orca` 环境可用
-- 已订阅资产包：**OrcaPlaygroundAssets + run_light_night**
-- 已经加载了 run_light_night 关卡
+- ✅ conda `orca` 环境可用
+- ✅ OrcaLab 已启动
+- ✅ 已在 OrcaLab 资产库中订阅 **OrcaPlaygroundAssets** 和 **run_light_night** 资产包
+- ✅ 在 OrcaLab 中加载 **run_light_night** 关卡
 
 ---
 

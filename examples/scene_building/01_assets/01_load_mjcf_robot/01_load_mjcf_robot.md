@@ -24,9 +24,9 @@
 ## 2. 前置条件
 
 - ✅ conda `orca` 环境可用
-- ✅ OrcaLab 已启动并监听 `--addr`
-- ✅ 已订阅 **PlayGroundScene**和**OrcaPlaygroundAssets**资产包
-- ✅ 加载一个空关卡并点击运行
+- ✅ OrcaLab 已启动
+- ✅ 已在 OrcaLab 资产库中订阅 **PlayGroundScene** 和 **OrcaPlaygroundAssets** 资产包
+- ✅ 在 OrcaLab 中加载 **orcalab_day** 关卡
 
 ---
 

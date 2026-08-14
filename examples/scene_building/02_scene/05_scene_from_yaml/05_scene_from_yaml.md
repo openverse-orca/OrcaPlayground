@@ -19,11 +19,10 @@
 
 ## 2. 前置条件
 
-- conda `orca` 环境可用
-- OrcaLab 已启动
-- 已订阅资产包：**OrcaPlaygroundAssets**
-  - 资产订阅地址：https://simassets.orca3d.cn/
-  - 是否需要手动拖动到布局中：**否**
+- ✅ conda `orca` 环境可用
+- ✅ OrcaLab 已启动
+- ✅ 已在 OrcaLab 资产库中订阅 **OrcaPlaygroundAssets** 资产包
+- ✅ 在 OrcaLab 中加载 **orcalab_day** 关卡
 
 ---
 

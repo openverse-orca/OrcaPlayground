@@ -26,11 +26,7 @@
 - ✅ conda `orca` 环境可用
 - ✅ OrcaLab 已启动
 - ✅ 已在 OrcaLab 资产库中订阅 **d12_openpi_pick** 和 **d12_waist** 资产包
-- ✅ 在 OrcaLab 中加载一个空关卡
-
-> **场景 JSON**：`d12.json`，包含桌子 + d12 机器人 + 3 个任务物体（C12C、Barcode_01、Cardboardbox_01）；
-> 脚本启动时会解析 JSON 并依次 `append_scene` 增量 spawn，无需手动拖动到布局中。
-
+- ✅ 在 OrcaLab 中加载 **orcalab_day** 关卡
 ---
 
 ## 3. 目录结构（自包含）

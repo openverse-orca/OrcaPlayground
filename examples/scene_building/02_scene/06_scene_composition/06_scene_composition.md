@@ -25,8 +25,8 @@
 
 - ✅ conda `orca` 环境可用
 - ✅ OrcaLab 已启动
-- ✅ 已在 OrcaLab 资产库中订阅 **PlayGroundScene** 和 **kitchen_Night_2** 资产包
-- ✅ 已经加载了 kitchen_night_2 关卡
+- ✅ 已在 OrcaLab 资产库中订阅 **PlayGroundScene** 和 **Kitchen_Night_2** 资产包
+- ✅ 在 OrcaLab 中加载 **Kitchen_Night_2** 关卡
 
 
 ---

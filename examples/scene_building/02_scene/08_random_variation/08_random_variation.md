@@ -26,7 +26,7 @@
 - ✅ conda `orca` 环境可用
 - ✅ OrcaLab 已启动
 - ✅ 已在 OrcaLab 资产库中订阅 **kitchen_night** 资产包
-- ✅ 在 OrcaLab 中加载一个空关卡
+- ✅ 在 OrcaLab 中加载 **orcalab_day** 关卡
 
 ---
 
