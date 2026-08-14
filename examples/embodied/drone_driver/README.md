@@ -34,15 +34,18 @@ pip install -r requirements.txt
 
 本示例为基础依赖即可运行，无需额外安装。
 
-### 默认运行（full 四旋翼模式）
+### 默认运行（full 四旋翼模式，请在每次运行前指定机型）
 
 ```bash
-python examples/embodied/drone_driver/run_drone_orca.py
+python examples/embodied/drone_driver/run_drone_orca.py --drone-model drone_v1
 ```
 
 ### 切换机型
 
 ```bash
+#drone_v1
+python examples/embodied/drone_driver/run_drone_orca.py --drone-model drone_v1
+
 # Skydio X2
 python examples/embodied/drone_driver/run_drone_orca.py --drone-model x2
 
@@ -53,19 +56,19 @@ python examples/embodied/drone_driver/run_drone_orca.py --drone-model dji_lhcg
 ### 启用自动巡航
 
 ```bash
-python examples/embodied/drone_driver/run_drone_orca.py --autoplay
+python examples/embodied/drone_driver/run_drone_orca.py --drone-model drone_v1 --autoplay
 ```
 
 ### 竖直 Z-only 调试模式
 
 ```bash
-python examples/embodied/drone_driver/run_drone_orca.py --vertical-z-only
+python examples/embodied/drone_driver/run_drone_orca.py --drone-model drone_v1 --vertical-z-only
 ```
 
 ### 使用 Xbox 手柄控制
 
 ```bash
-python examples/embodied/drone_driver/run_drone_orca.py --ctrl-device xbox
+python examples/embodied/drone_driver/run_drone_orca.py --drone-model drone_v1 --ctrl-device xbox
 ```
 
 ## 🎮 控制说明
@@ -266,7 +269,7 @@ def _compute_reward(self) -> float:
 
 #### 方案 3：多环境并行训练
 
-参考仓库中 `franka_rl`（SB3 + HER）和 `ant_rl`（RLlib APPO）的并行训练架构：
+参考 `release/26.7.1` 分支中 `franka_rl`（SB3 + HER）和 `ant_rl`（RLlib APPO）的并行训练架构：
 
 ```
 RL 算法 (SB3 PPO / RLlib APPO)
@@ -309,6 +312,8 @@ OrcaGymAsyncSubprocVecEnv          # 多进程向量化环境
 | 内环控制器 | CTBR | PD position | 无 | PD position |
 | RL 就绪 | 需替换控制源 | ✅ 原生支持 | ✅ 原生支持 | ✅ 原生支持 |
 | 训练框架 | 待接入 | SB3 + HER | RLlib APPO | SB3 PPO / RLlib APPO |
+
+> **注**：Franka RL / Ant RL / Legged Gym 已从主分支移除，请参考 [`examples/LEGACY_RL.md`](../LEGACY_RL.md) 或切换到 `release/26.7.1` 分支获取。
 
 ## 📋 参数说明
 
