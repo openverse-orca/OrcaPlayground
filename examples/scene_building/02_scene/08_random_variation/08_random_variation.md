@@ -11,9 +11,12 @@
 |---|--------|-----|------|
 | 1 | 不同 seed 生成不同布局 | `np.random.default_rng(seed)` | seed 变化 → 布局变化 |
 | 2 | 同 seed 可复现 | 固定 seed | 两次运行结果一致 |
-| 3 | 物体参数在合理范围 | `_POS_RANGE` / `_COLOR_RANGE` | 位置/颜色在预设范围 |
+| 3 | 物体落在台面有效区域 | `ZONES` / `COUNTER_TOP_Z` | 位置在台面范围内，不穿模/不掉地 |
+| 4 | 固定物体保持原位 | `FIXED_OBJECTS` | 锅盖 + 对应锅不动 |
+| 5 | 隐藏物体不可见 | `HIDDEN_KEYWORDS` | 篮子移到远处 |
 
-> **当前状态**：骨架（TODO 未实现）。物体路径 `_OBJECT_SPAWNABLE_PATH` 待确认。
+> **实现说明**：本课采用 freejoint 位置随机化范式（操作已有场景物体），
+> 区别于 spawn 范式（`random_variation.py` 骨架，待实现）。
 
 ---
 
@@ -21,7 +24,8 @@
 
 - ✅ conda `orca` 环境可用
 - ✅ OrcaStudio/OrcaLab 已启动
-- ✅ 已订阅物体 spawnable 资产包
+- ✅ 已在 OrcaStudio 资产库中订阅 **kitchen_Night_2** 资产包
+- ✅ 在 OrcaLab 中加载 kitchen_Night_2 关卡并点击「运行」按钮进入运行模式
 
 ---
 
@@ -30,8 +34,8 @@
 ```
 examples/scene_building/02_scene/08_random_variation/
 ├── 08_random_variation.md ← 本教程
-├── random_variation.py     ← 核心逻辑（build_random_variation）
-└── run_random_variation.py ← 脚本入口（骨架，argparse + TODO）
+├── random_variation.py     ← spawn 范式骨架（待实现，本课未使用）
+└── run_random_variation.py ← 入口脚本（freejoint 位置随机化，已实现）
 ```
 
 ---
@@ -42,7 +46,11 @@ examples/scene_building/02_scene/08_random_variation/
 cd /path/to/OrcaPlayground
 conda activate orca
 
-python examples/scene_building/02_scene/08_random_variation/run_random_variation.py --seed 42 --num-objects 20
+# 默认真随机
+python examples/scene_building/02_scene/08_random_variation/run_random_variation.py
+
+# 指定 seed 可复现
+python examples/scene_building/02_scene/08_random_variation/run_random_variation.py --seed 42 --steps 300
 ```
 
 ---
@@ -51,28 +59,26 @@ python examples/scene_building/02_scene/08_random_variation/run_random_variation
 
 | 概念 | 说明 |
 |------|------|
-| 域随机化 | 随机扰动物体参数，增强 sim-to-real 鲁棒性 |
-| `np.random.default_rng(seed)` | 可复现的随机数生成器 |
-| `_POS_RANGE` | 位置随机范围：x/y ∈ [-5, 5]，z ∈ [0.5, 2] |
-| `_COLOR_RANGE` | 颜色随机范围：RGB ∈ [0, 1] |
+| freejoint 位置随机化 | 操作已有场景 freejoint 的 qpos，重置物体位置 |
+| `np.random.default_rng(seed)` | 可复现的随机数生成器（seed=None 时真随机） |
+| `ZONES` | 有效放置区域：A-盘架区 / B-灶台右侧（沿主台面 y 轴划分） |
+| `COUNTER_TOP_Z` | 台面顶部高度 0.985，物体统一放置到此高度上方 |
+| `FIXED_OBJECTS` | 固定不动的物体（锅盖 Pot_02_b + 对应锅 Pot_02_a） |
+| `HIDDEN_KEYWORDS` | 隐藏物体关键词（Basket_Kitchen 移到 z=-1000） |
 
 ### 代码解析
 
 ```python
 rng = np.random.default_rng(seed)
-for i in range(num_objects):
-    pos = (
-        float(rng.uniform(*(_POS_RANGE[0]))),  # x: [-5, 5]
-        float(rng.uniform(*(_POS_RANGE[1]))),  # y: [-5, 5]
-        float(rng.uniform(*(_POS_RANGE[2]))),  # z: [0.5, 2]
-    )
-    rgba = (
-        float(rng.uniform(*_COLOR_RANGE)),
-        float(rng.uniform(*_COLOR_RANGE)),
-        float(rng.uniform(*_COLOR_RANGE)),
-        1.0,
-    )
-    collector.add_actor(name=f"obj_{i}", spawnable_path=_OBJECT_PATH, pos=pos, material=MaterialInfo(base_color=rgba))
+for jname, adr in free_joints.items():
+    # 固定/隐藏检查略
+    zone = rng.choice(ZONES)
+    new_x = float(rng.uniform(*zone["x"]))
+    new_y = float(rng.uniform(*zone["y"]))
+    new_z = COUNTER_TOP_Z + float(rng.uniform(0.02, 0.05))
+    qpos[adr : adr + 3] = [new_x, new_y, new_z]
+env.set_joint_qpos(qpos)
+env.mj_forward()
 ```
 
 ---
@@ -81,13 +87,13 @@ for i in range(num_objects):
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `--addr` | `localhost:50051` | OrcaStudio gRPC 地址 |
-| `--seed` | `42` | 随机种子（可复现） |
-| `--num-objects` | `20` | 物体数量 |
+| `--addr` | `localhost:50051` | OrcaStudio/OrcaLab gRPC 地址 |
+| `--seed` | `None` | 随机种子（None=真随机，指定值可复现） |
+| `--steps` | `500` | 扰动后仿真步数 |
 
 ---
 
 ## 7. 参见
 
 - 设计文档：`03_示例开发计划.md §2.2.2 (8)`
-- 复用：第 9 课 `generate_obstacle_layout` 随机布局逻辑（改为 spawnable 路径）
+- spawn 范式骨架：`random_variation.py`（待实现，本课未使用）
