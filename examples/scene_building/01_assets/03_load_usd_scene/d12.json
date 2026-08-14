@@ -31,7 +31,7 @@
             "is_locked": false,
             "is_parent_locked": false,
             "type": "AssetActor",
-            "asset_path": "assets/e071469a36d3c8aa/default_project/prefabs/d12_waist_usda",
+            "asset_path": "assets/e071469a36d3c8aa/robot_project/prefabs/d12_waist_usda",
             "modified_properties": []
         },
         {

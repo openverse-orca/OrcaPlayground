@@ -27,19 +27,19 @@ from orca_gym.scene.orca_gym_scene import Actor, OrcaGymScene
 # 三种地形配置
 TERRAIN_CONFIGS: dict[str, dict] = {
     "slope": {
-        "path": "assets/816f95ce16021282/default_project/prefabs/terrain_slope_usda",
+        "path": "assets/e071469a36d3c8aa/playground/prefabs/terrain_slope_usda",
         "name": "terrain_slope",
         "desc": "杂乱起伏坡地",
         "color_hint": "沙土色",
     },
     "stairs": {
-        "path": "assets/816f95ce16021282/default_project/prefabs/terrain_stairs_usda",
+        "path": "assets/e071469a36d3c8aa/playground/prefabs/terrain_stairs_usda",
         "name": "terrain_stairs",
         "desc": "完整阶梯斜坡",
         "color_hint": "土褐色",
     },
     "gentle": {
-        "path": "assets/816f95ce16021282/default_project/prefabs/terrain_gentle_usda",
+        "path": "assets/e071469a36d3c8aa/playground/prefabs/terrain_gentle_usda",
         "name": "terrain_gentle",
         "desc": "几乎平整",
         "color_hint": "灰蓝色",
@@ -49,7 +49,7 @@ TERRAIN_CONFIGS: dict[str, dict] = {
 TerrainType = Literal["slope", "stairs", "gentle"]
 
 # 球体资产
-_SPHERE_PATH = "assets/816f95ce16021282/default_project/prefabs/sphere_usda"
+_SPHERE_PATH = "assets/e071469a36d3c8aa/playground/prefabs/sphere_usda"
 
 # spawn 时使用的 actor 名，run_outdoor_terrain 据此在 env 中查找球体 body
 SPHERE_ACTOR_NAME = "test_sphere"

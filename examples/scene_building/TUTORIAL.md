@@ -271,19 +271,19 @@ assets/<asset_hash>/default_project/prefabs/<asset_name>
 
 | 课程 | 资产包 |
 |------|--------|
-| 01_assets 第 1 课（加载机器人） | **OrcaPlaygroundAssets** |
+| 01_assets 第 1 课（加载机器人） | **PlayGroundScene** |
 | 01_assets 第 2 课（加载 USD 物体） | **bar_stool_usdz** |
 | 01_assets 第 3 课（加载 USD 场景） | **d12_openpi_pick**、**d12_waist** |
-| 02_scene 第 1 课（最简场景） | **OrcaPlaygroundAssets** |
-| 02_scene 第 2 课（程序化室内） | **OrcaPlaygroundAssets**、**bar_stool_usdz** |
-| 02_scene 第 3 课（仓库货架） | **OrcaPlaygroundAssets** |
-| 02_scene 第 4 课（户外地形） | **OrcaPlaygroundAssets** |
+| 02_scene 第 1 课（最简场景） | **PlayGroundScene** |
+| 02_scene 第 2 课（程序化室内） | **PlayGroundScene**、**bar_stool_usdz** |
+| 02_scene 第 3 课（仓库货架） | **PlayGroundScene** |
+| 02_scene 第 4 课（户外地形） | **PlayGroundScene** |
 | 02_scene 第 5 课（YAML 配置驱动） | **OrcaPlaygroundAssets** |
-| 02_scene 第 6 课（多源合并） | **kitchen_Night_2**、**g1_pick** |
+| 02_scene 第 6 课（多源合并） | **kitchen_Night_2**、**PlayGroundScene**|
 | 02_scene 第 7 课（光照系统） | **OrcaPlaygroundAssets**、**run_light_night** |
 | 02_scene 第 8 课（域随机化） | **kitchen_night** |
 
-> 若要一次跑通全部课程，建议订阅上述所有资产包（去重后共 7 个：**OrcaPlaygroundAssets**、**bar_stool_usdz**、**d12_openpi_pick**、**d12_waist**、**kitchen_Night_2**、**kitchen_night**、**run_light_night**）。
+> 若要一次跑通全部课程，建议订阅上述所有资产包（去重后共 9 个：**PlayGroundScene**、**bar_stool_usdz**、**d12_openpi_pick**、**d12_waist**、**OrcaPlaygroundAssets**、**kitchen_Night_2**、**g1_pick**、**run_light_night**、**kitchen_night**）。
 
 **订阅步骤**：
 
@@ -380,7 +380,7 @@ scene.publish_scene()
 
 **解决**：
 
-1. 确认已订阅 **OrcaPlaygroundAssets** 资产包（见"环境准备"）
+1. 确认已订阅对应课程所需的资产包（见上方"各课程所需资产包"表格）
 2. 等待资产导入完成
 3. 确认源码中 `_*_SPAWNABLE_PATH` 常量与资产库实际路径一致
 

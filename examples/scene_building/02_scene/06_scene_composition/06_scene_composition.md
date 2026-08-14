@@ -25,8 +25,8 @@
 
 - ✅ conda `orca` 环境可用
 - ✅ OrcaLab 已启动
-- ✅ 已在 OrcaLab 资产库中订阅 **kitchen_Night_2** 资产包
-- ✅ 已订阅 **g1_pick** 和 **kitchen_Night_2** 机器人 spawnable
+- ✅ 已在 OrcaLab 资产库中订阅 **PlayGroundScene** 和 **kitchen_Night_2** 资产包
+- ✅ 已经加载了 kitchen_night_2 关卡
 
 
 ---
@@ -112,7 +112,3 @@ env.render()     # 推送状态到 O3DE
 | 粉色咖啡杯（Coffecup） | -4.6 | 0.2 | 0.985 | 池子外侧前，站立（放倒会穿模），和机器人对齐 |
 | 透明杯（Glass） | -4.8 | 0.2 | 0.985 | 池子外侧前，放倒（绕 x 轴 90°） |
 | 瓷杯（Porcelain） | -4.6 | -0.2 | 0.985 | 池子外侧后，放倒，一前一后 |
-
-> 注：洗菜池在 MuJoCo 模型中无独立碰撞体，池子视觉区域内不放任何东西防止穿帮。
-> cleaning 状态下：粉色咖啡杯（Coffecup）站立放置（放倒会穿模），透明杯和瓷杯
-> （Glass/Porcelain）放到池子外侧台面上放倒（绕 x 轴 90°）防止摔落滚动。

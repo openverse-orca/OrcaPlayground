@@ -64,6 +64,7 @@ def _register_env(
     env_index: int,
     agent_name: str,
     max_episode_steps: int,
+    light_count: int = LIGHT_COUNT,
 ) -> tuple[str, dict]:
     """注册 gym 环境（同 run_euler_loop.register_env）。"""
     orcagym_addr_str = orcagym_addr.replace(":", "-")
@@ -74,6 +75,7 @@ def _register_env(
         "orcagym_addr": orcagym_addr,
         "agent_names": agent_names,
         "time_step": TIME_STEP,
+        "light_count": light_count,
     }
     gym.register(
         id=env_id,
@@ -88,6 +90,7 @@ def _register_env(
 def _create_env_with_retry(
     addr: str,
     agent_name: str,
+    light_count: int = LIGHT_COUNT,
     max_retries: int = _READY_RETRY_MAX,
     interval: float = _READY_RETRY_INTERVAL,
 ) -> gym.Env:
@@ -99,6 +102,7 @@ def _create_env_with_retry(
     Args:
         addr: OrcaLab gRPC 地址。
         agent_name: agent 名。
+        light_count: 光源数量，需与 build_lighting_scene 的实际 spawn 数量一致。
         max_retries: 最多重试次数。
         interval: 重试间隔（秒）。
 
@@ -115,6 +119,7 @@ def _create_env_with_retry(
         env_index=0,
         agent_name=agent_name,
         max_episode_steps=sys.maxsize,
+        light_count=light_count,
     )
     _log(f"  Registered environment: {env_id}")
 
@@ -217,7 +222,7 @@ def main() -> None:
 
     env: Optional[gym.Env] = None
     try:
-        env = _create_env_with_retry(addr=args.addr, agent_name="NoRobot")
+        env = _create_env_with_retry(addr=args.addr, agent_name="NoRobot", light_count=args.light_count)
         _run_simulation(env, scene_runtime=scene_runtime)
     finally:
         if env is not None:

@@ -41,9 +41,9 @@ def _log(msg: str) -> None:
 
 
 # desk 系列资产路径（OrcaLab 资产库 spawnable）
-DESK_PATH = "assets/b819e2ae5bc79b02/default_projectsim/prefabs/desk_usda"
-DESK_1_PATH = "assets/b819e2ae5bc79b02/default_projectsim/prefabs/desk_1_usda"
-DESK_2_PATH = "assets/b819e2ae5bc79b02/default_projectsim/prefabs/desk_2_usda"
+DESK_PATH = "assets/e071469a36d3c8aa/playground/prefabs/desk_usda"
+DESK_1_PATH = "assets/e071469a36d3c8aa/playground/prefabs/desk_1_usda"
+DESK_2_PATH = "assets/e071469a36d3c8aa/playground/prefabs/desk_2_usda"
 
 # 并排布局间距（沿 x 轴）
 SPACING: float = 3.0

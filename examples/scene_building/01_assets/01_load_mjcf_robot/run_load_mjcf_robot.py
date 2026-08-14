@@ -15,7 +15,7 @@ spawn 完成后保持场景运行，按 Ctrl+C 退出。
 
 前置条件:
     1. OrcaLab 已启动并监听 --addr
-    2. 已订阅 OrcaPlaygroundAssets 资产包（含 g1_omnipicker / go2 / h1）
+    2. 已订阅 PlayGroundScene 资产包（含 g1_omnipicker / go2 / h1）
     3. 加载一个空关卡，点击运行
 
 验证点:

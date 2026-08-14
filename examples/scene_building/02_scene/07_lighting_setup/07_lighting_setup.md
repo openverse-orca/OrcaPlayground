@@ -21,10 +21,8 @@
 ## 2. 前置条件
 
 - conda `orca` 环境可用
-- OrcaLab 已启动并监听 `--addr`
 - 已订阅资产包：**OrcaPlaygroundAssets + run_light_night**
-  - 资产订阅地址：https://simassets.orca3d.cn/
-  - 是否需要手动拖动到布局中：**否**
+- 已经加载了 run_light_night 关卡
 
 ---
 

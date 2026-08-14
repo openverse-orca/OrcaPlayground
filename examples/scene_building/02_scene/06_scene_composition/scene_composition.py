@@ -28,8 +28,8 @@ from orca_gym.environment.euler.orca_gym_euler_env import OrcaGymEulerEnv
 from orca_gym.log.orca_log import get_orca_logger
 from orca_gym.scene.orca_gym_scene import Actor, OrcaGymScene
 
-# g1_pick 机器人 spawnable 路径（816f95ce16021282 资产库）
-_ROBOT_PATH = "assets/816f95ce16021282/default_project/prefabs/g1_pick_usda"
+
+_ROBOT_PATH = "assets/e071469a36d3c8aa/playground/prefabs/g1_pick_usda"
 
 # 机器人 actor 名（命名空间前缀 robot_ 体现多源隔离）
 ROBOT_ACTOR_NAME = "robot_chef"

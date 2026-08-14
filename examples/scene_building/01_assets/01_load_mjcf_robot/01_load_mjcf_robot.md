@@ -25,7 +25,7 @@
 
 - ✅ conda `orca` 环境可用
 - ✅ OrcaLab 已启动并监听 `--addr`
-- ✅ 已订阅 **PlayGroundScene**资产包
+- ✅ 已订阅 **PlayGroundScene**和**OrcaPlaygroundAssets**资产包
 - ✅ 加载一个空关卡并点击运行
 
 ---
@@ -70,8 +70,8 @@ python examples/scene_building/01_assets/01_load_mjcf_robot/run_load_mjcf_robot.
 加载场景中
 清空现有场景...
 场景已清空
-[1/3] 开始 spawn: g1_omnipicker
-已经添加 g1_omnipicker @ (-1.0, 0.0, 0.0)
+[1/3] 开始 spawn: g1
+已经添加 g1@ (-1.0, 0.0, 0.0)
 本轮添加完毕，当前场景共 1 个机器人
 等待 5.0s 后 spawn 下一个...
 [2/3] 开始 spawn: go2

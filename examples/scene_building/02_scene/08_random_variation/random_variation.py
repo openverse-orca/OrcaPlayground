@@ -27,7 +27,7 @@ from actor_collector import ActorCollector  # noqa: E402
 
 # 厨房资产清单：（资产名, spawnable 路径）
 # 来自 kitchen_night 资产包，同一资产可复制多份（name 加索引区分）
-_KITCHEN_ASSET_PREFIX = "assets/cb9b36b102080fdd/default_project/kitchen_night/prop/prefabs"
+_KITCHEN_ASSET_PREFIX = "assets/e071469a36d3c8aa/kitchen_night_2/kitchen_night/prop/prefabs"
 _KITCHEN_ASSETS: list[tuple[str, str]] = [
     ("turner_wood_01", f"{_KITCHEN_ASSET_PREFIX}/turner_wood_01"),
     ("desk_dinningroom", f"{_KITCHEN_ASSET_PREFIX}/desk_dinningroom"),

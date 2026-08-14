@@ -32,7 +32,7 @@ if _COMMON_DIR not in sys.path:
 from actor_collector import ActorCollector  # noqa: E402
 
 # 方块 spawnable 资产路径（OrcaLab 资产库 cube）
-_BOX_SPAWNABLE_PATH = "assets/816f95ce16021282/default_project/prefabs/cube_usda"
+_BOX_SPAWNABLE_PATH = "assets/e071469a36d3c8aa/playground/prefabs/cube_usda"
 
 # spawn 时使用的 actor 名，run_empty_scene 据此在 env 中查找 body
 BOX_ACTOR_NAME = "falling_box"

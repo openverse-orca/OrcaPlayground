@@ -47,7 +47,7 @@ examples/scene_building/02_scene/08_random_variation/
 cd /path/to/OrcaPlayground
 conda activate orca
 
-# 默认 seed=42
+# 默认
 python examples/scene_building/02_scene/08_random_variation/run_random_variation.py
 
 # 指定 seed 生成不同布局
@@ -114,12 +114,3 @@ scene.publish_scene()
 |------|--------|------|
 | `--addr` | `localhost:50051` | OrcaLab gRPC 地址 |
 | `--seed` | `None` | 随机种子（省略则全随机，指定值可复现） |
-
----
-
-## 7. 参见
-
-- 设计文档：`03_示例开发计划.md §2.2.2 (8)`
-- ActorCollector 工具：`examples/scene_building/_common/actor_collector.py`
-- 第 6 课多源合并：`examples/scene_building/02_scene/06_scene_composition/`（同用 kitchen 资产）
-- 第 1 课资产加载：`examples/scene_building/01_assets/01_load_mjcf_robot/`

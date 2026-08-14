@@ -59,12 +59,6 @@ conda activate orca
 
 # 默认：5m × 5m，墙高 5m，间隔 1s
 python examples/scene_building/02_scene/02_indoor_room/run_indoor_room.py
-
-# 自定义尺寸
-python examples/scene_building/02_scene/02_indoor_room/run_indoor_room.py --width 6 --height 4
-
-# 指定 Studio 地址
-python examples/scene_building/02_scene/02_indoor_room/run_indoor_room.py --addr 192.168.1.100:50051
 ```
 
 ---

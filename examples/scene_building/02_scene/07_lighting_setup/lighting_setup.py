@@ -241,6 +241,7 @@ class LightsEnv(OrcaGymEulerEnv):
         orcagym_addr: str,
         agent_names: list,
         time_step: float,
+        light_count: int = LIGHT_COUNT,
         **kwargs,
     ):
         super().__init__(
@@ -256,12 +257,14 @@ class LightsEnv(OrcaGymEulerEnv):
         self.nv = self.model.nv
 
         # 光源配置（name + body_name，命名同 replicator）
+        # light_count 必须与 build_lighting_scene 实际 spawn 的光源数量一致，
+        # 否则 env 会为未 spawn 的光源调用 set_light_info，OrcaLab 报 "Light actor name not found"。
         self._light_config = [
             {
                 "name": _random_light_name(i),
                 "body_name": f"{_random_light_name(i)}_SpotLight",
             }
-            for i in range(LIGHT_COUNT)
+            for i in range(light_count)
         ]
         light_count = len(self._light_config)
         self.scene_runtime: Optional[OrcaGymSceneRuntime] = None

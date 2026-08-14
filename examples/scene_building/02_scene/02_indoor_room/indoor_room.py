@@ -26,9 +26,9 @@ from orca_gym.log.orca_log import get_orca_logger
 from orca_gym.scene.orca_gym_scene import Actor, OrcaGymScene
 
 # 资产路径（spawnable name = 文件路径去掉扩展名，仅识别 .spawnable 后缀）
-_WALL_PATH = "assets/816f95ce16021282/default_project/prefabs/wall_usda"
-_FLOOR_PATH = "assets/816f95ce16021282/default_project/prefabs/floor_usda"
-_DESK_PATH = "assets/b819e2ae5bc79b02/default_projectsim/prefabs/desk_2_usda"
+_WALL_PATH = "assets/e071469a36d3c8aa/playground/prefabs/wall_usda"
+_FLOOR_PATH = "assets/e071469a36d3c8aa/playground/prefabs/floor_usda"
+_DESK_PATH = "assets/e071469a36d3c8aa/playground/prefabs/desk_2_usda"
 
 # 默认参数（参考 out.xml 中 wall 的实际尺寸 5m × 5m）
 WIDTH: float = 5.0           # 房间宽度（墙长度 = 5m，沿 y 轴跨度）
