@@ -1,8 +1,0 @@
-# `run_legged_sim.py` 会在运行前扫描场景中的 go2，并绑定完整匹配的实例。
-orcagym_addresses: ["localhost:50051"]
-agent_name: "go2"
-
-
-ctrl_device: "keyboard"
-  
-terrain_asset_paths: []
