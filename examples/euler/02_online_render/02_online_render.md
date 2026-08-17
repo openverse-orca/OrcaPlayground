@@ -37,11 +37,11 @@
 examples/euler/02_online_render/
 ├── 02_online_render.md   ← 本教程
 ├── online_render.py      ← 脚本入口
-└── simple_env.py         ← SimpleEulerEnv（资产路径指向 assets/scenes/）
+└── simple_env.py         ← SimpleEulerEnv（资产路径指向 examples/euler/assets/scenes/）
 ```
 
-**资产路径**：`simple_env.py` 顶部通过 `__file__` 上溯 4 层定位项目根，
-指向 `assets/scenes/simple_pendulum.xml`。
+**资产路径**：`simple_env.py` 顶部通过 `__file__` 上溯 2 层定位 `examples/euler/`，
+指向 `examples/euler/assets/scenes/simple_pendulum.xml`。
 
 **依赖**：仅 `orca_gym.environment.euler.*` + `orca_gym.log`，零 Local 体系引用。
 
@@ -52,7 +52,7 @@ examples/euler/02_online_render/
 ### 步骤 1（人工）：启动 OrcaStudio/OrcaLab 并加载 pendulum 场景
 
 1. 打开 OrcaStudio/OrcaLab
-2. 资产搜索 `pendulum` 或导入 `assets/scenes/simple_pendulum.xml`
+2. 资产搜索 `pendulum` 或导入 `examples/euler/assets/scenes/simple_pendulum.xml`
 3. 点击「运行」启动仿真
 
 ### 步骤 2（人工）：运行课程脚本

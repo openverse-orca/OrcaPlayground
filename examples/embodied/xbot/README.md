@@ -1,0 +1,163 @@
+# XBot在OrcaGym中运行
+参考自http://github.com/roboterax/humanoid-gym.git
+
+## ⚠️ 重要：资产准备
+
+> **📦 相关资产**：https://simassets.orca3d.cn/ **OrcaPlayGroundAssets资产包**
+> 
+> **🔧 是否需要手动拖动到布局中**：**是**
+> 
+> **📝 对应模型模板**：`Xbot_usda` / `XBot-L_usda`
+>
+> **🧭 UI 资产详情**：请在资产面板中找到 XBot 对应 actor，拖入布局后点击“资产详情”，以实际显示路径为准；常见名称为 `XBot-L_usda`
+>
+> **运行方式**：脚本会在启动前扫描场景中的 joint / actuator 后缀，自动识别实际机器人名称
+>
+> **失败行为**：如果关节或驱动器没有完全匹配，会直接报错退出
+
+## ✅ 当前状态
+**`run_xbot_orca.py`已经可以在OrcaGym中稳定运行！**
+
+机器人现在可以：
+- ✅ 稳定站立
+- ✅ 平稳行走
+- ✅ 使用humanoid-gym预训练模型
+- ✅ 策略文件集成在项目内（config目录）
+
+## 🚀 使用方法
+
+### 安装依赖
+
+在仓库根目录执行：
+
+```bash
+pip install -r requirements.txt
+pip install -r examples/embodied/xbot/requirements.txt
+```
+
+### 方式 1：使用 OrcaLab 启动（推荐）
+
+在 OrcaLab 中配置了 XBot 仿真启动项，可以直接使用：
+
+配置位置：`.orcalab/config.toml`
+
+```toml
+[[external_programs.programs]]
+name = "xbot_orca"
+display_name = "run_xbot_orca"
+command = "python"
+args = [ "-m", "examples.embodied.xbot.run_xbot_orca",]
+description = "启动XBot仿真"
+```
+
+在 OrcaLab 中选择 `run_xbot_orca` 即可启动 XBot 仿真。
+
+**注意**：使用 OrcaLab 启动时，默认使用 GPU（CUDA）进行推理。如需使用 CPU，请使用命令行方式并添加 `--device cpu` 参数。
+
+### 方式 2：命令行启动
+
+#### 方法 1: 自动运行（固定速度）
+
+```bash
+# 使用 GPU（默认）
+python examples/embodied/xbot/run_xbot_orca.py
+
+# 或使用模块方式
+python -m examples.embodied.xbot.run_xbot_orca
+
+# 使用 CPU
+python examples/embodied/xbot/run_xbot_orca.py --device cpu
+```
+
+**速度调整**: 编辑`run_xbot_orca.py`第154-156行：
+```python
+CMD_VX = 0.4   # 前向速度 (m/s)
+CMD_VY = 0.0   # 侧向速度 (m/s)
+CMD_DYAW = 0.0 # 转向速度 (rad/s)
+```
+
+## 📊 性能指标
+
+使用humanoid-gym预训练模型：
+- Episode长度: 262步 (26.2秒)
+- 行走距离: 1.05m
+- 平均速度: 0.4 m/s
+- 姿态稳定: Roll/Pitch < 5°
+
+## 🔧 核心组件
+
+### 环境
+- **`envs/xbot_gym/xbot_simple_env.py`** - XBot环境实现
+  - 基于`OrcaGymLocalEnv`
+  - 实现PD控制、观察空间、decimation
+
+### 配置和策略
+- **`config/policy_example.pt`** - 预训练策略模型 ⭐
+  - 来自humanoid-gym项目
+  - 已集成在项目内
+  - 无需外部依赖
+
+- **`config/xbot_train_config.yaml`** - 训练配置文件
+
+### 运行脚本
+- **`run_xbot_orca.py`** - 自动运行脚本（固定速度）
+  - 加载预训练策略
+  - 设置固定命令速度
+  - 实时监控和诊断
+
+## 📝 关键配置
+
+```python
+# PD控制参数
+kps = [200, 200, 350, 350, 15, 15, 200, 200, 350, 350, 15, 15]
+kds = [10.0] * 12
+tau_limit = 200.0
+action_scale = 0.25
+
+# 仿真参数
+timestep = 0.001s  # 1ms
+decimation = 10    # 策略100Hz
+frame_stack = 15   # 观察堆叠
+```
+
+## ⚠️ 注意事项
+
+1. **OrcaStudio/OrcaLab 必须先启动**：默认地址为 `localhost:50051`
+2. **场景中需要添加机器人**：确保场景中存在 1 台完整匹配的 XBot 机器人
+3. **名称不需要固定**：机器人实例名不必叫 `XBot-L`，脚本会自动扫描并绑定真实名称
+4. **初始高度约 0.88m**：请在场景中手动摆好位置和姿态
+5. **设备选择**：
+   - 默认使用 GPU（CUDA）进行推理，性能更好
+   - 如果没有 GPU 或遇到 CUDA 问题，使用 `--device cpu` 参数
+6. **策略文件**：预训练策略文件位于 `examples/embodied/xbot/config/policy_example.pt`，已集成在项目内
+
+## 🔧 手动拖入资产进行调试
+
+手动拖动资产的操作方式与通用说明见**项目根目录 [README - 手动拖动资产（运行前必做）](../../README.md#-手动拖动资产运行前必做)**。
+
+为了增添多场景物理交互，建议先把 XBot actor 手动拖到布局中，再围绕障碍物、坡面或其他场景元素调整初始站位。若你的资产包中显示路径不是本文写法，请以 UI 的“资产详情”为准，但应保证拖入的是 XBot 对应 actor。
+
+**本示例修改前样例代码（手动拖入时，不调用 spawn）**：
+
+```python
+# 不调用 publish_xbot_scene(orcagym_addr)，依赖场景中已存在对应名称的 actor
+config = {
+    "frame_skip": 10,
+    "orcagym_addr": "localhost:50051",
+    "agent_names": ["XBot-L"],   # 与大纲中的英文资产名一致；若拖入后为其他名称，请自行修改资产名或此处
+    "time_step": 0.001,
+    "max_episode_steps": 10000,
+    "render_mode": "human",
+}
+env = XBotSimpleEnv(**config)
+```
+
+## 🎯 下一步
+
+- ✅ 核心功能已完成
+- ✅ 可以稳定运行
+- 📈 如需训练自定义模型，可参考humanoid-gym项目
+
+---
+
+**项目状态**: ✅ 可用

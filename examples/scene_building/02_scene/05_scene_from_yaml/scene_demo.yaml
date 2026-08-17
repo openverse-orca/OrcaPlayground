@@ -1,0 +1,38 @@
+# 场景配置样例：咖啡杯 + 办公桌 + 购物篮
+#
+# 演示 YAML 配置驱动 spawn（仅 actor，光源见样例 7）：
+#   - falling_cup: 红色咖啡杯，自由落体
+#   - reference_desk: 办公桌，静态参考物
+#   - reference_basket: 购物篮，静态参考物
+#
+# 资产来源：examples/replicator（OrcaLab 资产库）
+#
+# 用法:
+#   python examples/scene_building/02_scene/05_scene_from_yaml/run_scene_from_yaml.py --config scene_demo.yaml
+
+world:
+  gravity: [0, 0, -9.81]
+  timestep: 0.002
+  integrator: RK4
+
+actors:
+  - name: falling_cup
+    spawnable_path: assets/e071469a36d3c8aa/default_project/prefabs/cup_of_coffee_usda
+    asset_type: usdz
+    pos: [0.0, 0.0, 1.5]
+    quat: [1, 0, 0, 0]
+    scale: 1.0
+
+  - name: reference_desk
+    spawnable_path: assets/e071469a36d3c8aa/default_project/prefabs/office_desk_7_mb_usda
+    asset_type: usdz
+    pos: [0.0, 0.0, 0.0]
+    quat: [1, 0, 0, 0]
+    scale: 1.0
+
+  - name: reference_basket
+    spawnable_path: assets/e071469a36d3c8aa/default_project/prefabs/cart_basket_usda
+    asset_type: usdz
+    pos: [-1.2, 0.0, 0.0]
+    quat: [1, 0, 0, 0]
+    scale: 1.0

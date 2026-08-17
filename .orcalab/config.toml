@@ -1,4 +1,3 @@
-
 # OrcaGym启动配置
 [external_programs]
 
@@ -18,82 +17,61 @@ description = "启动物理仿真循环"
 name = "character"
 display_name = "run_character"
 command = "python"
-args = [ "-m", "examples.character.run_character",]
+args = [ "-m", "examples.embodied.character.run_character",]
 description = "启动动画仿真"
-
-[[external_programs.programs]]
-name = "legged_train"
-display_name = "run_legged_rl_train"
-command = "python"
-args = [ "-m", "examples.legged_gym.run_legged_rl", "--config", "examples/legged_gym/configs/sb3_ppo_config.yaml", "--train"]
-description = "启动legged_gym训练(SB3 PPO)"
-
-[[external_programs.programs]]
-name = "legged_rllib_train"
-display_name = "run_legged_rllib_train"
-command = "python"
-args = [ "-m", "examples.legged_gym.run_legged_rl", "--config", "examples/legged_gym/configs/rllib_appo_config.yaml", "--train"]
-description = "启动legged_gym训练(RLlib APPO)"
 
 [[external_programs.programs]]
 name = "wheeled_chassis"
 display_name = "run_wheeled_chassis"
 command = "python"
-args = [ "-m", "examples.wheeled_chassis.run_wheeled_chassis",]
+args = [ "-m", "examples.embodied.wheeled_chassis.run_wheeled_chassis",]
 description = "启动轮式底盘仿真"
 
 [[external_programs.programs]]
 name = "xbot_orca"
 display_name = "run_xbot_orca"
 command = "python"
-args = [ "-m", "examples.xbot.run_xbot_orca",]
+args = [ "-m", "examples.embodied.xbot.run_xbot_orca",]
 description = "启动XBot仿真"
 
 [[external_programs.programs]]
 name = "run_actors"
 display_name = "run_actors"
 command = "python"
-args = [ "-m", "examples.replicator.run_actors",]
+args = [ "-m", "examples.embodied.replicator.run_actors",]
 description = "启动actor导入"
 
 [[external_programs.programs]]
 name = "run_lights"
 display_name = "run_lights"
 command = "python"
-args = [ "-m", "examples.replicator.run_lights",]
+args = [ "-m", "examples.embodied.replicator.run_lights",]
 description = "启动灯效果"
 
 [[external_programs.programs]]
 name = "anker_chassis"
 display_name = "run_ackerman"
 command = "python"
-args = [ "-m", "examples.wheeled_chassis.run_ackerman",]
+args = [ "-m", "examples.embodied.wheeled_chassis.run_ackerman",]
 description = "启动阿克曼仿真"
 
 [[external_programs.programs]]
 name = "g1"
 display_name = "run_g1"
 command = "python"
-args = [ "-m", "examples.g1.run_g1_sim",]
+args = [ "-m", "examples.embodied.g1.run_g1_sim",]
 description = "启动G1仿真"
 
 [[external_programs.programs]]
 name = "zq_sa01"
 display_name = "zq_sa01"
 command = "python"
-args = [ "-m", "examples.zq_sa01.run_zqsa01",]
+args = [ "-m", "examples.embodied.zq_sa01.run_zqsa01",]
 description = "启动isaacgym行走移植仿真"
 
 [[external_programs.programs]]
 name = "fluid_sim"
 display_name = "run_fluid_sim"
 command = "python"
-args = [ "-m", "examples.fluid.run_fluid_sim",]
+args = [ "-m", "examples.embodied.fluid.run_fluid_sim",]
 description = "启动流体仿真"
-
-[[external_programs.programs]]
-name = "franka_reach_train"
-display_name = "Franka Reach Training"
-command = "python"
-args = [ "-m", "examples.franka_rl.run_franka_rl", "--config", "examples/franka_rl/configs/reach_tqc_config.yaml", "--train", "--visualize"]
-description = "启动Franka多机械臂Reach任务训练(TQC+HER)"

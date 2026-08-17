@@ -1,7 +1,7 @@
 # 阶段四环境搭建教程
 
 本教程指导你搭建 OrcaGym Euler 阶段四在线验证所需的运行环境。
-阶段四（Lesson 4–8）使用 G1 人形机器人在 OrcaStudio/OrcaLab 中进行在线端到端验证。
+阶段四（Lesson 5–10）使用 G1 人形机器人在 OrcaStudio/OrcaLab 中进行在线端到端验证。
 
 > 阶段四总体设计见 [orca_gym_euler_phase4_online_validation_development.md](../../../OrcaGym/docs/design/development/orca_gym_euler_phase4_online_validation_development.md)。
 
@@ -14,7 +14,7 @@
 | conda `orca` 环境 | OrcaGym 推荐环境，已安装全部依赖 | `conda activate orca && python -c "import orca_gym"` |
 | OrcaStudio/OrcaLab | 阶段四在线验证的仿真前端，提供 gRPC 服务 + 视口渲染 | 启动后监听 `127.0.0.1:50051` |
 | G1 机器人资产 | OrcaStudio/OrcaLab 中可搜索到的 G1 人形机器人 | 资产搜索框输入 `g1` |
-| `onnxruntime` | Lesson 7/8 的 ONNX 行走策略推理依赖 | `python -c "import onnxruntime"` |
+| `onnxruntime` | Lesson 8/9 的 ONNX 行走策略推理依赖 | `python -c "import onnxruntime"` |
 
 > **注意**：阶段四使用 conda `orca` 环境（非 OrcaFlow_Flow）。所有脚本均在 `orca` 环境下运行。
 
@@ -40,10 +40,10 @@ envs/euler/robots/
 
 | 元素 | 名称 | 用途 |
 |------|------|------|
-| 摄像头传感器 | `camera_head`（`user="7070 7071"`） | Lesson 7 视频录制（color port 7070, depth port 7071） |
-| Mocap body | `TestMocapAnchor` | Lesson 6/8 mocap 拖拽锚点 |
-| 测试 box | `manipulation_box` | Lesson 8 体操作目标物体 |
-| Weld 约束 | `anchor_box_weld` | Lesson 8 锚点-box 焊接约束 |
+| 摄像头传感器 | `camera_head`（`user="7070 7071"`） | Lesson 9 视频录制（color port 7070, depth port 7071） |
+| Mocap body | `TestMocapAnchor` | Lesson 7/10 mocap 拖拽锚点 |
+| 测试 box | `manipulation_box` | Lesson 10 体操作目标物体 |
+| Weld 约束 | `anchor_box_weld` | Lesson 10 锚点-box 焊接约束 |
 
 ### 2.2 验证资源就位
 
@@ -77,7 +77,7 @@ python -c "import mujoco; m = mujoco.MjModel.from_xml_path('envs/euler/robots/g1
 3. 确认场景中**恰好 1 台** G1（阶段四要求单机器人场景）
 4. 点击「运行」按钮，启动仿真
 
-> **Lesson 6/8 额外要求**：场景需包含 mocap body `TestMocapAnchor`、测试 box `manipulation_box`、weld 约束 `anchor_box_weld`。这些元素已内置在 `g1_29dof_camera.xml` 中，若使用 Studio 自带的 G1 资产，需确认这些元素已加载。
+> **Lesson 7/10 额外要求**：场景需包含 mocap body `TestMocapAnchor`、测试 box `manipulation_box`、weld 约束 `anchor_box_weld`。这些元素已内置在 `g1_29dof_camera.xml` 中，若使用 Studio 自带的 G1 资产，需确认这些元素已加载。
 
 ---
 
@@ -170,7 +170,7 @@ print('G1Locomotion 验证通过')
 
 ### Q3：`ModuleNotFoundError: No module named 'onnxruntime'`
 
-**原因**：`orca` 环境未安装 onnxruntime（Lesson 7/8 需要）。
+**原因**：`orca` 环境未安装 onnxruntime（Lesson 8/9 需要）。
 
 **解决**：
 

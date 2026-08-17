@@ -36,11 +36,11 @@
 examples/euler/01_hello_euler/
 ├── 01_hello_euler.md   ← 本教程
 ├── hello_euler.py      ← 脚本入口
-└── simple_env.py       ← SimpleEulerEnv（资产路径指向 assets/scenes/）
+└── simple_env.py       ← SimpleEulerEnv（资产路径指向 examples/euler/assets/scenes/）
 ```
 
-**资产路径**：`simple_env.py` 顶部通过 `__file__` 上溯 4 层定位项目根，
-指向 `assets/scenes/simple_pendulum.xml`。
+**资产路径**：`simple_env.py` 顶部通过 `__file__` 上溯 2 层定位 `examples/euler/`，
+指向 `examples/euler/assets/scenes/simple_pendulum.xml`。
 
 **依赖**：仅 `orca_gym.environment.euler.*` + `orca_gym.log`，零 Local 体系引用。
 
@@ -155,6 +155,6 @@ python examples/euler/01_hello_euler/hello_euler.py
 
 ### Q2：`FileNotFoundError: simple_pendulum.xml`
 
-**原因**：`assets/scenes/simple_pendulum.xml` 缺失。
+**原因**：`examples/euler/assets/scenes/simple_pendulum.xml` 缺失。
 
-**解决**：确认 `assets/scenes/simple_pendulum.xml` 存在（迁移后资产统一在 `assets/`）。
+**解决**：确认 `examples/euler/assets/scenes/simple_pendulum.xml` 存在（资产统一在 `examples/euler/assets/`）。
