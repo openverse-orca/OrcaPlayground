@@ -4,11 +4,14 @@
 本课聚焦**离线模式**（不需要 OrcaStudio），在线渲染见第 2 课。
 
 用法:
-    # 离线模式（默认）
+    # 离线模式（默认，CPU MuJoCo）
     python examples/euler/01_hello_euler/hello_euler.py
 
     # 指定步数
     python examples/euler/01_hello_euler/hello_euler.py --steps 500
+
+    # GPU 后端（Euler.SolverMujoco，需 CUDA 可用）
+    python examples/euler/01_hello_euler/hello_euler.py --device cuda:0
 
 验证点:
     1. 模型加载（init_simulation）
@@ -42,11 +45,17 @@ def main() -> int:
     parser.add_argument("--steps", type=int, default=200, help="仿真步数")
     parser.add_argument("--time-step", type=float, default=0.002, help="物理时间步长")
     parser.add_argument("--frame-skip", type=int, default=5, help="frame_skip")
+    parser.add_argument(
+        "--device",
+        default="cpu",
+        help="后端选择：cpu=CPU MuJoCo（默认），cuda:0=Euler.SolverMujoco GPU",
+    )
     args = parser.parse_args()
 
     _log("=" * 60)
     _log("第 1 课：Hello Euler — 第一个 OrcaGymEulerEnv 程序")
     _log("  模式: 离线（不需要 OrcaStudio）")
+    _log(f"  后端: {args.device}")
     _log(f"  步数: {args.steps}")
     _log("=" * 60)
 
@@ -56,6 +65,7 @@ def main() -> int:
         time_step=args.time_step,
         frame_skip=args.frame_skip,
         skip_grpc_load=True,
+        device=args.device,
     )
     _log(f"[1/5] 环境创建成功: nq={env.model.nq}, nv={env.model.nv}, nu={env.model.nu}")
 

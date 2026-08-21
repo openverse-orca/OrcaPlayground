@@ -20,6 +20,9 @@
     # 指定 Studio 地址
     python examples/euler/02_online_render/online_render.py --addr 192.168.1.100:50051
 
+    # GPU 后端（Euler.SolverMujoco，需 CUDA 可用）
+    python examples/euler/02_online_render/online_render.py --device cuda:0
+
 验证点:
     1. gRPC 连接 OrcaStudio 成功
     2. render() 将物理状态同步到 Studio 视口
@@ -59,6 +62,11 @@ def main() -> int:
     parser.add_argument("--time-step", type=float, default=0.002, help="物理时间步长")
     parser.add_argument("--frame-skip", type=int, default=5, help="frame_skip")
     parser.add_argument(
+        "--device",
+        default="cpu",
+        help="后端选择：cpu=CPU MuJoCo（默认），cuda:0=Euler.SolverMujoco GPU",
+    )
+    parser.add_argument(
         "--sync-render",
         action="store_true",
         help="同步渲染（每个物理步都渲染，默认按 fps 节流）",
@@ -74,6 +82,7 @@ def main() -> int:
     _log("=" * 60)
     _log("第 2 课：在线渲染与交互 — 连接 OrcaStudio")
     _log(f"  模式: 在线 gRPC（addr={args.addr}）")
+    _log(f"  后端: {args.device}")
     _log(f"  episode 数: {args.loops}，每个 episode 步数: {args.episode}（总步数={args.loops * args.episode}）")
     _log(f"  sync_render: {args.sync_render}（{'同步：每步渲染' if args.sync_render else '异步：按 fps 节流'}）")
     rtf_mode = args.rtf > 0
@@ -88,6 +97,7 @@ def main() -> int:
         skip_grpc_load=False,
         render_mode="human",
         sync_render=args.sync_render,
+        device=args.device,
     )
     _log(f"[1/4] gRPC 连接成功: nq={env.model.nq}, nv={env.model.nv}, nu={env.model.nu}")
 

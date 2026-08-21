@@ -48,6 +48,7 @@ class SimpleEulerEnv(OrcaGymEulerEnv):
         time_step: float = 0.002,
         frame_skip: int = 5,
         skip_grpc_load: bool = True,
+        device: str = "cpu",
         **kwargs,
     ) -> None:
         if agent_names is None:
@@ -59,6 +60,7 @@ class SimpleEulerEnv(OrcaGymEulerEnv):
             time_step=time_step,
             model_xml_path=_SCENE_XML,
             skip_grpc_load=skip_grpc_load,
+            device=device,
             **kwargs,
         )
         self._step_count = 0

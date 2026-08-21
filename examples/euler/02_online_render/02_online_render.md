@@ -75,6 +75,9 @@ python examples/euler/02_online_render/online_render.py --rtf 0.5
 
 # 指定 Studio 地址
 python examples/euler/02_online_render/online_render.py --addr 192.168.1.100:50051
+
+# GPU 后端（Euler.SolverMujoco，需 CUDA 可用）
+python examples/euler/02_online_render/online_render.py --device cuda:0
 ```
 
 ### 步骤 3（人工）：观察 Studio 视口 + UI 交互
@@ -166,6 +169,7 @@ for step in range(args.steps):
 | `--steps` | `50000` | 仿真步数 |
 | `--time-step` | `0.002` | 物理时间步长（秒） |
 | `--frame-skip` | `5` | 每个动作执行的物理步数 |
+| `--device` | `cpu` | 后端选择：`cpu`=CPU MuJoCo（默认），`cuda:0`=Euler.SolverMujoco GPU |
 | `--sync-render` | `False` | 同步渲染（每个物理步都渲染） |
 | `--rtf` | `1.0` | 实时因子（1.0=实时，0 或负值=快进不 sleep） |
 

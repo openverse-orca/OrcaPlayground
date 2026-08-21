@@ -57,6 +57,9 @@ python examples/euler/01_hello_euler/hello_euler.py
 
 # 指定步数
 python examples/euler/01_hello_euler/hello_euler.py --steps 500
+
+# GPU 后端（Euler.SolverMujoco，需 CUDA 可用）
+python examples/euler/01_hello_euler/hello_euler.py --device cuda:0
 ```
 
 ---
@@ -133,6 +136,7 @@ for step in range(args.steps):
 | `--steps` | `200` | 仿真步数 |
 | `--time-step` | `0.002` | 物理时间步长（秒） |
 | `--frame-skip` | `5` | 每个动作执行的物理步数 |
+| `--device` | `cpu` | 后端选择：`cpu`=CPU MuJoCo（默认），`cuda:0`=Euler.SolverMujoco GPU |
 
 ---
 
