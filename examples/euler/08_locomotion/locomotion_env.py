@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import numpy as np
 from g1_base_env import G1BaseEnv, OnlineVerifier
-from g1_locomotion import G1Locomotion
+from common.g1_locomotion import G1Locomotion
 from locomotion_debug_viz import LocomotionDebugVisualizer
 
 # 行走稳定性判定阈值

@@ -107,12 +107,24 @@ OrcaPlayground/examples/euler/assets/g1/models/dec_loco/model_6600.onnx  # 行�
 cd OrcaPlayground
 conda activate orca
 
-# 默认连接 127.0.0.1:50051
+# 默认连接 127.0.0.1:50051，CPU MuJoCo 后端
 python examples/euler/08_locomotion/locomotion.py
+
+# Euler GPU 后端
+python examples/euler/08_locomotion/locomotion.py --device cuda:0
 
 # 指定 Studio 地址
 python examples/euler/08_locomotion/locomotion.py --addr 192.168.1.100:50051
 ```
+
+> **GPU 后端说明**：
+> 1. **ONNX 推理仍在 CPU EP**：`g1_locomotion.py` 用 `onnxruntime` 默认 CPU 执行提供者
+>    生成 `q_target`，`--device cuda:0` 仅切换物理后端，不切换推理设备
+>    （推理输出为 29 维数值，无需 GPU）。
+> 2. **PD 闭环逐物理步同步的性能代价**：`G1BaseEnv.step()` 内 `frame_skip` 次循环，
+>    每步 `_pd_controller` 读 `env.data.qpos/qvel`（host）→ `do_simulation(ctrl, 1)` →
+>    `sync_to_view`。GPU 后端下这带来每物理步 H2D（ctrl）+ D2H（同步）。功能正确但非最优；
+>    性能优化属后续工作（如批量 PD / 减少同步），不在本改造范围。
 
 ### 步骤 3（自动）：脚本驱动 LocomotionEnv 步进 500 帧
 

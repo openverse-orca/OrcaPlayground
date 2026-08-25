@@ -15,6 +15,12 @@ entry_point 字符串要求模块可被 import；本脚本通过 sys.path 注入
     # 2. 运行脚本
     python examples/euler/03_env_register/run_env_register.py
 
+    # CPU MuJoCo 后端（默认）
+    python examples/euler/03_env_register/run_env_register.py
+
+    # Euler GPU 后端
+    python examples/euler/03_env_register/run_env_register.py --device cuda:0
+
     # 指定 Studio 地址
     python examples/euler/03_env_register/run_env_register.py --addr 192.168.1.100:50051
 
@@ -59,10 +65,15 @@ ENV_NAME = "EulerPendulumRegister"
 MAX_EPISODE_STEPS = 200
 
 
-def build_env_id(orcagym_addr: str, env_index: int = 0) -> str:
-    """生成 env ID，格式对齐 run_euler_loop.register_env。"""
+def build_env_id(orcagym_addr: str, env_index: int = 0, device: str = "cpu") -> str:
+    """生成 env ID，格式对齐 run_euler_loop.register_env。
+
+    device 参与 env_id（设备后缀），避免同一进程 registry 内 CPU / GPU 复用
+    同一 env_id 时幂等跳过返回错误后端。
+    """
     addr_str = orcagym_addr.replace(":", "-")
-    return f"{ENV_NAME}-OrcaGym-{addr_str}-{env_index:03d}"
+    dev_str = device.replace(":", "-")
+    return f"{ENV_NAME}-OrcaGym-{addr_str}-{dev_str}-{env_index:03d}"
 
 
 def register_euler_env(
@@ -70,6 +81,7 @@ def register_euler_env(
     env_index: int = 0,
     time_step: float = 0.002,
     frame_skip: int = 5,
+    device: str = "cpu",
 ) -> str:
     """注册 Euler Env 到 gymnasium registry，返回 env_id。
 
@@ -77,7 +89,7 @@ def register_euler_env(
     本课的 RegisterEulerEnv（而非 orca_gym.scripts.sim_euler_env:EulerSimEnv）。
     重复注册同一 env_id 时幂等跳过。
     """
-    env_id = build_env_id(orcagym_addr, env_index)
+    env_id = build_env_id(orcagym_addr, env_index, device)
     if env_id in gym.envs.registry:
         _log(f"  env_id 已注册（幂等跳过）: {env_id}")
         return env_id
@@ -92,6 +104,7 @@ def register_euler_env(
             # 在线模式：连接 OrcaStudio
             "skip_grpc_load": False,
             "render_mode": "human",
+            "device": device,
         },
         max_episode_steps=MAX_EPISODE_STEPS,
         reward_threshold=0.0,
@@ -107,6 +120,11 @@ def main() -> int:
     parser.add_argument("--steps", type=int, default=200, help="仿真步数")
     parser.add_argument("--time-step", type=float, default=0.002, help="物理时间步长")
     parser.add_argument("--frame-skip", type=int, default=5, help="frame_skip")
+    parser.add_argument(
+        "--device",
+        default="cpu",
+        help="后端：cpu=CPU MuJoCo（默认），cuda:0=Euler GPU",
+    )
     args = parser.parse_args()
 
     _log("=" * 60)
@@ -122,6 +140,7 @@ def main() -> int:
         orcagym_addr=args.addr,
         time_step=args.time_step,
         frame_skip=args.frame_skip,
+        device=args.device,
     )
     _log(f"      env_id = {env_id}")
 

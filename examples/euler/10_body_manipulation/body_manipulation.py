@@ -40,6 +40,9 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from g1_base_env import (
     G1_FRAME_SKIP,
@@ -48,7 +51,7 @@ from g1_base_env import (
     G1_TIME_STEP,
 )
 from body_manipulation_env import BodyManipulationEnv
-from online_verifier import OnlineVerifier
+from common.online_verifier import OnlineVerifier
 
 
 def parse_args() -> argparse.Namespace:

@@ -29,9 +29,9 @@ import time
 from typing import Any
 
 import numpy as np
-from online_verifier import OnlineVerifier
+from common.online_verifier import OnlineVerifier
 from orca_gym.environment.euler.orca_gym_euler_env import OrcaGymEulerEnv
-from scene_scanner import (
+from common.scene_scanner import (
     build_suffix_template,
     require_complete_matches,
     scan_scene_for_template,

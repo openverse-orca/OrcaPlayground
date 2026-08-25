@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import numpy as np
 from g1_base_env import G1BaseEnv
-from online_verifier import OnlineVerifier
+from common.online_verifier import OnlineVerifier
 
 # 施加的向上力（N）。G1 整机质量 ~35kg（重 ~343N），零控下 pelvis 自由下落，
 # 500N 净向上 ~157N，足以在 20 控制周期（0.4s）内克服下落动量并使 pelvis 上升。

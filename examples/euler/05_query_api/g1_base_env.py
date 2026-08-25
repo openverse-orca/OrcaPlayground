@@ -29,9 +29,9 @@ import time
 from typing import Any
 
 import numpy as np
-from online_verifier import OnlineVerifier
+from common.online_verifier import OnlineVerifier
 from orca_gym.environment.euler.orca_gym_euler_env import OrcaGymEulerEnv
-from scene_scanner import (
+from common.scene_scanner import (
     build_suffix_template,
     require_complete_matches,
     scan_scene_for_template,
@@ -50,6 +50,13 @@ G1_LOCO_ONNX = os.path.join(_ROBOTS_DIR, "models", "dec_loco", "model_6600.onnx"
 G1_TIME_STEP = 0.001
 G1_FRAME_SKIP = 20
 G1_ORCAGYM_ADDR = "127.0.0.1:50051"
+
+# 性能/RTF 诊断开关：设置环境变量 ORCA_RTF_LOG=1 启用。run_lesson 会在循环中
+# 统计每个控制周期的 step(物理步进)/verify(判定)/render(渲染)/sleep(限速) 分段
+# 耗时，并在结束时打印实际 RTF 与瓶颈分析，用于定位 RTF≠1.0 的原因。
+# 更细的 GPU 阶段拆分（flush H2D / step GPU / sync D2H / view）见
+# mujoco_sim_core_euler.py 的 ORCA_EULER_PERF_LOG=1。
+_RTF_LOG = os.environ.get("ORCA_RTF_LOG") in {"1", "true", "True", "yes"}
 
 # --- G1 关节后缀（30 个：29 旋转 + 1 free base）---
 # 与 run_g1_sim.py 的 G1_JOINT_SUFFIXES 一致，供 model_scanner 场景扫描用
@@ -172,6 +179,44 @@ def resolve_g1_agent_name(orcagym_addr: str, time_step: float = G1_TIME_STEP) ->
         orcagym_addr=orcagym_addr,
     )[0]
     return match.agent_name
+
+
+def _print_rtf_report(
+    num_steps: int, cycle_target: float, perf: dict[str, Any], loop_start: float
+) -> None:
+    """打印 run_lesson 的 RTF/性能诊断报告（ORCA_RTF_LOG=1 时调用）。
+
+    汇总每个控制周期的 step(物理步进+D2H 同步)/verify(判定)/render(渲染)/
+    sleep(限速) 分段耗时，并计算实际 RTF（仿真秒 / 墙钟秒）。当 RTF<1.0 时，
+    通常是 step 或 render 的单周期耗时超过 cycle_target（此时 sleep≈0 且
+    overruns 上升）；当 RTF 接近 1.0 时，sleep 会补齐剩余时长。
+
+    Args:
+        num_steps: 控制周期数。
+        cycle_target: 每个控制周期的目标墙钟时长（秒）= frame_skip * time_step。
+        perf: 分段累计耗时字典（step/verify/render/sleep/overruns）。
+        loop_start: 循环起始 perf_counter 时间戳。
+    """
+    wall = time.perf_counter() - loop_start
+    sim_total = num_steps * cycle_target  # 仿真推进总秒数
+    rtf = sim_total / wall if wall > 0 else float("inf")
+    n = num_steps
+    ms = 1e3
+    overrun_pct = perf["overruns"] / n * 100.0
+    print(
+        "\n===== [RTF 诊断] ====="
+        f"\n  周期数={n}  cycle_target={cycle_target * ms:.1f}ms"
+        f"  仿真总时长={sim_total:.3f}s  墙钟总时长={wall:.3f}s"
+        f"\n  实际 RTF={rtf:.3f}（目标 1.0）"
+        f"\n  单周期均值: step(物理)={perf['step'] / n * ms:.2f}ms"
+        f"  verify(判定)={perf['verify'] / n * ms:.2f}ms"
+        f"  render(渲染)={perf['render'] / n * ms:.2f}ms"
+        f"  sleep(限速)={perf['sleep'] / n * ms:.2f}ms"
+        f"\n  超时周期(计算>{cycle_target * ms:.1f}ms)="
+        f"{perf['overruns']} 次 ({overrun_pct:.1f}%)"
+        "\n=====================",
+        flush=True,
+    )
 
 
 class G1BaseEnv(OrcaGymEulerEnv):
@@ -306,24 +351,51 @@ class G1BaseEnv(OrcaGymEulerEnv):
         # 恢复后后续周期仍按 RTF=1.0 对齐，避免暂停后全速追赶破坏实时性。
         cycle_target = self.frame_skip * self._time_step
 
+        # 性能/RTF 诊断累计器（ORCA_RTF_LOG=1 时启用）
+        if _RTF_LOG:
+            perf = {
+                "step": 0.0,      # compute_ctrl + step(action)（物理步进 + D2H 同步）
+                "verify": 0.0,    # verify_step + observe_step（数值判定/观察）
+                "render": 0.0,    # render()（gRPC 提交视口 + 30fps 节流）
+                "sleep": 0.0,     # 限速睡眠
+                "overruns": 0,    # 计算耗时超出周期目标的次数（此时 RTF<1.0）
+            }
+            loop_start = time.perf_counter()
+
         for step in range(num_steps):
-            cycle_start = time.perf_counter() if real_time else 0.0
+            cycle_start = time.perf_counter() if real_time or _RTF_LOG else 0.0
+            t0 = time.perf_counter() if _RTF_LOG else 0.0
             action = self.compute_ctrl(step)
             # 走 Gymnasium step 接口（架构 §6.4 S5）：内部含 PD 闭环（§6.4 S6）
             # run_lesson 忽略 step 返回的五元组，verifier 直接读 env.data 判定
             self.step(action)
+            t1 = time.perf_counter() if _RTF_LOG else 0.0
             self.verify_step(step, verifier)
             self.observe_step(step, verifier)
+            t2 = time.perf_counter() if _RTF_LOG else 0.0
             self.render()
+            t3 = time.perf_counter() if _RTF_LOG else 0.0
+
+            if _RTF_LOG:
+                perf["step"] += t1 - t0
+                perf["verify"] += t2 - t1
+                perf["render"] += t3 - t2
 
             # 墙钟对齐：若本周期提前完成，睡眠剩余时间以维持 RTF=1.0
             if real_time:
                 remaining = cycle_target - (time.perf_counter() - cycle_start)
                 if remaining > 0:
                     time.sleep(remaining)
+                    if _RTF_LOG:
+                        perf["sleep"] += remaining
+                elif _RTF_LOG:
+                    perf["overruns"] += 1
 
         # 循环后钩子（Lesson 8 用于 stop_save_video + mp4 检查）
         self.after_loop(verifier)
+
+        if _RTF_LOG:
+            _print_rtf_report(num_steps, cycle_target, perf, loop_start)
 
         # 最终判定
         self.verify_final(verifier)
@@ -442,8 +514,14 @@ class G1BaseEnv(OrcaGymEulerEnv):
     def step(self, action: np.ndarray) -> tuple:
         """Gymnasium 标准步进接口（含 PD 闭环骨架，架构 §6.4 S6）。
 
-        以 frame_skip=1 多次调用 do_simulation 实现精细 PD 控制：
-        每物理步通过 _pd_controller 重读 obs 重算 tau，避免开环累积误差导致失稳。
+        以单次 do_simulation(ctrl, frame_skip) 批量步进 frame_skip 个物理步。
+
+        Lesson 5 为零控/直接力矩场景：_pd_controller 默认直接返回 target，
+        ctrl 在 frame_skip 个物理步内保持恒定，故批量步进与逐子步调用等价。
+        批量化让每个控制周期仅触发 1 次 do_simulation 尾部的全量 D2H 同步
+        （sync_to_view），避免 frame_skip 次同步（单次约 8~9.5ms）导致 GPU
+        后端仿真不流畅。若子类需要每物理步重读 obs 重算 tau 的精细 PD（如
+        Locomotion），应覆写本方法为其实现对应步进策略。
 
         Args:
             action: 控制输入。零控场景为 0；Locomotion 场景为 q_target（由
@@ -454,11 +532,8 @@ class G1BaseEnv(OrcaGymEulerEnv):
             run_lesson 忽略返回值，verifier 直接读 env.data 判定。
         """
         action = np.asarray(action, dtype=np.float32).reshape(self.model.nu)
-        # PD 控制内循环：每物理步重读 obs 重算 ctrl（架构 §6.4 S6）
-        # do_simulation(ctrl, 1) 内部：set_ctrl → mj_step(1) → sync_to_view
-        for _ in range(self.frame_skip):
-            ctrl = self._pd_controller(action)
-            self.do_simulation(ctrl, 1)
+        ctrl = self._pd_controller(action)
+        self.do_simulation(ctrl, self.frame_skip)
         obs = self._get_obs()
         reward = self._compute_reward(obs, action)
         terminated = self._is_terminated(obs)

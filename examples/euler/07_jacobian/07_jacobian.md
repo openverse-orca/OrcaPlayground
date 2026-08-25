@@ -67,8 +67,11 @@
 cd /path/to/OrcaPlayground
 conda activate orca
 
-# 默认连接 127.0.0.1:50051
+# 默认连接 127.0.0.1:50051，CPU MuJoCo 后端
 python examples/euler/07_jacobian/jacobian_ik.py
+
+# Euler GPU 后端
+python examples/euler/07_jacobian/jacobian_ik.py --device cuda:0
 
 # 指定 Studio 地址
 python examples/euler/07_jacobian/jacobian_ik.py --addr 192.168.1.100:50051

@@ -25,7 +25,7 @@ import time
 
 import numpy as np
 from g1_base_env import G1BaseEnv, OnlineVerifier
-from g1_locomotion import G1Locomotion
+from common.g1_locomotion import G1Locomotion
 from PIL import Image
 
 # 视频输出目录与截帧目录

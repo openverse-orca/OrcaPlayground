@@ -82,8 +82,11 @@
 cd /path/to/OrcaPlayground
 conda activate orca
 
-# 默认连接 127.0.0.1:50051
+# 默认连接 127.0.0.1:50051，CPU MuJoCo 后端
 python examples/euler/06_force_apply/force_apply.py
+
+# Euler GPU 后端
+python examples/euler/06_force_apply/force_apply.py --device cuda:0
 
 # 指定 Studio 地址
 python examples/euler/06_force_apply/force_apply.py --addr 192.168.1.100:50051

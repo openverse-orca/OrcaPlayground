@@ -36,7 +36,7 @@ from typing import Any
 
 import numpy as np
 from g1_base_env import G1BaseEnv, OnlineVerifier
-from g1_locomotion import G1Locomotion
+from common.g1_locomotion import G1Locomotion
 
 # XML 中定义的 body 后缀（无命名空间前缀，实际名由 initialize_simulation 动态解析）
 # 命名为 TestMocapAnchor 以避免与 Studio 关卡自带的 ActorManipulator 重名

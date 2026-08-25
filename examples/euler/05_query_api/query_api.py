@@ -19,6 +19,9 @@
     # 2. 运行脚本
     python examples/euler/05_query_api/query_api.py
 
+    # Euler GPU 后端
+    python examples/euler/05_query_api/query_api.py --device cuda:0
+
     # 指定 Studio 地址
     python examples/euler/05_query_api/query_api.py --addr 192.168.1.100:50051
 
@@ -46,6 +49,9 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from g1_base_env import (
     G1_FRAME_SKIP,
@@ -53,7 +59,7 @@ from g1_base_env import (
     G1_ORCAGYM_ADDR,
     G1_TIME_STEP,
 )
-from online_verifier import OnlineVerifier
+from common.online_verifier import OnlineVerifier
 from query_api_env import QueryApiEnv
 
 
@@ -72,6 +78,11 @@ def parse_args() -> argparse.Namespace:
         default=100,
         help="控制周期数（默认 100，每周期 {G1_FRAME_SKIP} 物理步）",
     )
+    parser.add_argument(
+        "--device",
+        default="cpu",
+        help="后端：cpu=CPU MuJoCo（默认），cuda:0=Euler GPU",
+    )
     return parser.parse_args()
 
 
@@ -84,6 +95,7 @@ def main() -> None:
         agent_names=["g1"],  # 在线模式由场景扫描覆盖为实际 agent_name
         time_step=G1_TIME_STEP,
         model_xml_path=G1_MODEL_XML,
+        device=args.device,
     )
 
     verifier = OnlineVerifier("Lesson 5: 状态查询 API")

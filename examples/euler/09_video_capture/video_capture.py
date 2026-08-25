@@ -59,6 +59,9 @@ import logging
 import os
 import sys
 import time
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import numpy as np
 
@@ -68,7 +71,7 @@ from g1_base_env import (
     G1_ORCAGYM_ADDR,
     G1_TIME_STEP,
 )
-from online_verifier import OnlineVerifier
+from common.online_verifier import OnlineVerifier
 from video_capture_env import VideoCaptureEnv
 
 # G1 spawnable 配置
