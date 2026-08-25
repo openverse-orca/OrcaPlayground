@@ -31,7 +31,7 @@
 from __future__ import annotations
 
 import numpy as np
-from g1_base_env import G1_ROT_JOINT_SUFFIXES, G1BaseEnv
+from common.g1_base_env import G1_ROT_JOINT_SUFFIXES, G1BaseEnv
 from common.online_verifier import OnlineVerifier
 
 # IK 参数：阻尼最小二乘 + 步长，经探测在 G1 多 body 场景下 80 次迭代收敛（err < 0.02）

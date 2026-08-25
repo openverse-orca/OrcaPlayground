@@ -24,7 +24,7 @@ import os
 import time
 
 import numpy as np
-from g1_base_env import G1BaseEnv, OnlineVerifier
+from common.g1_base_env import G1BaseEnv, OnlineVerifier
 from common.g1_locomotion import G1Locomotion
 from PIL import Image
 
@@ -55,6 +55,9 @@ class VideoCaptureEnv(G1BaseEnv):
         - observe_step: 周期截帧 + 阶段动作切换
         - after_loop: 停止录制 + mp4 检查 + 时间戳 + 提示查看文件
     """
+
+    #: CPU 行走走 host 逐子步闭环（模式 2）；GPU 行走由 _device_pd（模式 3）接管。
+    _per_substep_ctrl: bool = True
 
     def initialize_simulation(self):
         """初始化仿真 + 创建 G1Locomotion 行走策略封装。"""

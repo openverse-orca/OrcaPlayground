@@ -32,7 +32,7 @@ from typing import Any
 import numpy as np
 import onnxruntime
 import yaml
-from g1_base_env import (
+from common.g1_base_env import (
     G1_CONFIG_YAML,
     G1_LOCO_ONNX,
     G1_ROT_JOINT_SUFFIXES,

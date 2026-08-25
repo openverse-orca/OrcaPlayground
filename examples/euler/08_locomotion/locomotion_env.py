@@ -34,7 +34,7 @@
 from __future__ import annotations
 
 import numpy as np
-from g1_base_env import G1BaseEnv, OnlineVerifier
+from common.g1_base_env import G1BaseEnv, OnlineVerifier
 from common.g1_locomotion import G1Locomotion
 from locomotion_debug_viz import LocomotionDebugVisualizer
 
@@ -57,6 +57,9 @@ class LocomotionEnv(G1BaseEnv):
         - _draw_debug_viz: 每周期绘制 DebugMesh 可视化（头顶指令箭头/接触球/足底力箭头）
         - observe_step: 行走稳定性观察提示
     """
+
+    #: CPU 行走走 host 逐子步闭环（模式 2）；GPU 行走由 _device_pd（模式 3）接管。
+    _per_substep_ctrl: bool = True
 
     def initialize_simulation(self):
         """初始化仿真 + 创建 G1Locomotion 行走策略封装（含 PD 控制器）。"""

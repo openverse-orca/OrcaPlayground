@@ -24,7 +24,7 @@
 from __future__ import annotations
 
 import numpy as np
-from g1_base_env import (
+from common.g1_base_env import (
     G1_ACTUATOR_SUFFIXES,
     G1_ROT_JOINT_SUFFIXES,
     G1BaseEnv,

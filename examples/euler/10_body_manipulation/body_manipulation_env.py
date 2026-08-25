@@ -35,7 +35,7 @@ import time
 from typing import Any
 
 import numpy as np
-from g1_base_env import G1BaseEnv, OnlineVerifier
+from common.g1_base_env import G1BaseEnv, OnlineVerifier
 from common.g1_locomotion import G1Locomotion
 
 # XML 中定义的 body 后缀（无命名空间前缀，实际名由 initialize_simulation 动态解析）
@@ -62,6 +62,9 @@ class BodyManipulationEnv(G1BaseEnv):
         - _pd_controller: 闭环 PD 单步（架构 §6.4 S6）
         - run_interactive: 交互式菜单循环（替代 run_lesson 固定步数循环）
     """
+
+    #: CPU 行走走 host 逐子步闭环（模式 2）；GPU 行走由 _device_pd（模式 3）接管。
+    _per_substep_ctrl: bool = True
 
     def initialize_simulation(self):
         """初始化仿真 + 创建 G1Locomotion 行走策略封装 + 解析场景 body 名。"""

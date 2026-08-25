@@ -65,7 +65,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import numpy as np
 
-from g1_base_env import (
+from common.g1_base_env import (
     G1_FRAME_SKIP,
     G1_MODEL_XML,
     G1_ORCAGYM_ADDR,
