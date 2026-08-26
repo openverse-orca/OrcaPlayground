@@ -32,8 +32,9 @@
 
 ```bash
 pip install -r requirements.txt
-pip install -r examples/embodied/xbot/requirements.txt
 ```
+
+> ⚠️ XBot 还需要 PyTorch 用于加载预训练策略，但其 CUDA 版本必须与你的 NVIDIA 驱动匹配，不能通过 `requirements.txt` 直接安装。请参照 [`examples/embodied/xbot/requirements.txt`](requirements.txt) 顶部的驱动版本对照表手动安装 torch，再运行本示例。
 
 ### 方式 1：使用 OrcaLab 启动（推荐）
 

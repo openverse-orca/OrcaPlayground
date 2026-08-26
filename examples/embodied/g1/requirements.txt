@@ -1,3 +1,4 @@
 onnxruntime>=1.22.0
 pygame
 sshkeyboard
+scipy>=1.10.0
