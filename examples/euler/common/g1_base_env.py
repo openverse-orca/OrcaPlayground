@@ -41,6 +41,7 @@ from common.scene_scanner import (
     scan_scene_for_template,
 )
 from common.perf_log import PerfTimer, print_rtf_report, rtf_log_enabled
+from orca_gym.core.euler.sim_config import SimBackend
 from orca_gym.environment.euler.orca_gym_euler_env import OrcaGymEulerEnv
 from orca_gym.log.orca_log import get_orca_logger
 
@@ -140,6 +141,16 @@ G1_PELVIS_BODY = "pelvis"
 G1_TORSO_BODY = "torso_link"
 G1_IMU_SITE = "imu"
 G1_CAMERA_HEAD_BODY = "camera_head"
+
+
+def scoped_name(agent_name: str | None, suffix: str) -> str:
+    """拼接 agent 前缀与后缀名，返回场景中的实际名称。
+
+    在线模式场景名带命名空间前缀（如 ``g1_left_hip_pitch_joint``）；离线模式本地
+    XML 无前缀（``left_hip_pitch_joint``），此时 ``agent_name`` 为空字符串，直接
+    返回 ``suffix``。
+    """
+    return f"{agent_name}_{suffix}" if agent_name else suffix
 
 
 def build_g1_template():
@@ -261,6 +272,11 @@ class G1BaseEnv(OrcaGymEulerEnv):
     #: 批量）。GPU 行走时被模式 3（_device_pd 非空）优先接管。
     _per_substep_ctrl: bool = False
 
+    #: device-side PD 开关（Phase D §8.2）。Locomotion 系子类（08/09/10）置 True，
+    #: 使其在 GPU(Euler) 后端初始化时调用 register_pid_controller 构造 _device_pd，
+    #: step() 走模式 3（GPU-native PD）。CPU 后端则跳过（回退模式 2），恒不构造。
+    _requires_device_pd: bool = False
+
     def __init__(
         self,
         orcagym_addr: str = G1_ORCAGYM_ADDR,
@@ -276,7 +292,7 @@ class G1BaseEnv(OrcaGymEulerEnv):
         Args:
             orcagym_addr: 渲染端 gRPC 地址（在线模式用）。
             agent_names: agent 名称列表。在线模式若为 None，则在 initialize_simulation
-                中通过场景扫描自动解析；离线模式用默认 ["g1"]。
+                中通过场景扫描自动解析；离线模式本地 XML 无前缀，agent_name 置空。
             time_step: 物理时间步长（默认 0.001s）。
             frame_skip: 每个 control 周期的物理步数（默认 20，控制频率 50Hz）。
             skip_grpc_load: 是否跳过 gRPC 加载（离线模式 True）。
@@ -287,11 +303,12 @@ class G1BaseEnv(OrcaGymEulerEnv):
             model_xml_path = G1_MODEL_XML
         if agent_names is None:
             agent_names = ["g1"]
-        # agent_name 前缀默认值（离线模式使用；在线模式由 initialize_simulation
-        # 通过场景扫描覆盖为实际前缀，如 "g1_29dof_old_usda"）。
+        # agent_name 前缀默认值。离线模式本地 XML 无命名空间前缀，故置空字符串
+        # （scoped_name 遇空前缀直接返回后缀名）；在线模式由 initialize_simulation
+        # 通过场景扫描覆盖为实际前缀，如 "g1_29dof_old_usda"。
         # 必须在 super().__init__() 之前赋值，且此处不可在 super() 之后重新赋值，
         # 否则会覆盖 initialize_simulation 解析的结果。
-        self.agent_name: str = agent_names[0]
+        self.agent_name: str = "" if skip_grpc_load else agent_names[0]
         super().__init__(
             frame_skip=frame_skip,
             orcagym_addr=orcagym_addr,
@@ -321,6 +338,42 @@ class G1BaseEnv(OrcaGymEulerEnv):
             self._agent_names = [resolved]
             self.agent_name = resolved
         return super().initialize_simulation()
+
+    def _register_device_pd(self) -> None:
+        """GPU(Euler) 后端下注册 device-side PD 控制器（Phase D §8.2）。
+
+        仅当子类声明 ``_requires_device_pd=True``（Locomotion 系）且后端为 Euler 时
+        调用真实注册，否则跳过（CPU 回退模式 2）。参数来自 ``self.locomotion``
+        （G1Locomotion 的 kp/kd/motor_limits/joint_names），关节偏移由
+        ``MuJoCoSimCoreEuler.register_pid_controller`` 内部解析，本层不感知
+        ``flow.*`` / ``_pd_kernel`` / ``set_pre_step_kernel``。
+
+        注意：必须在子类 ``initialize_simulation`` 末尾（G1Locomotion 创建之后）调用。
+        """
+        if not self._requires_device_pd:
+            return
+        if self.sim_config.backend != SimBackend.EULER:
+            _logger.info(
+                "register_pid_controller 跳过：后端非 EULER（CPU 回退模式 2）"
+            )
+            return
+        loco = getattr(self, "locomotion", None)
+        if loco is None:
+            raise RuntimeError(
+                "_requires_device_pd=True 但 self.locomotion 未创建；"
+                "请在 initialize_simulation 中先构造 G1Locomotion 再调用本方法。"
+            )
+        _logger.info(
+            "register_pid_controller: controller_type='pd' "
+            f"nu={len(loco.joint_names)} agent={self.agent_name}"
+        )
+        self._device_pd = self.register_pid_controller(
+            "pd",
+            kp=loco.joint_kp,
+            kd=loco.joint_kd,
+            motor_limits=loco.motor_effort_limit,
+            joint_names=loco.joint_names,
+        )
 
     # --- run_lesson 统一运行框架（§3.1）---
 
@@ -372,8 +425,9 @@ class G1BaseEnv(OrcaGymEulerEnv):
         # 恢复后后续周期仍按 RTF=1.0 对齐，避免暂停后全速追赶破坏实时性。
         cycle_target = self.frame_skip * self._time_step
 
-        # RTF/性能诊断计时器（仅在 real_time 且 ORCA_RTF_LOG=1 时挂载，普通运行零开销）
-        perf = PerfTimer() if (real_time and rtf_log_enabled()) else None
+        # RTF/性能诊断计时器（ORCA_RTF_LOG=1 时挂载，与 real_time 解耦：
+        # --no-real-time 全速基准跑也应打印 step/verify/render 分段与真实 RTF）
+        perf = PerfTimer() if rtf_log_enabled() else None
         if perf is not None:
             perf.start()
 
@@ -644,8 +698,10 @@ class G1BaseEnv(OrcaGymEulerEnv):
         包含 G1 基础状态：pelvis 位姿、关节 qpos/qvel。RL 子类可重写为 Box 观测。
         """
         agent = self.agent_name
-        pelvis = self.get_body_xpos_xmat_xquat([f"{agent}_pelvis"])[f"{agent}_pelvis"]
-        joint_names = [f"{agent}_{s}" for s in G1_ROT_JOINT_SUFFIXES]
+        pelvis = self.get_body_xpos_xmat_xquat(
+            [scoped_name(agent, "pelvis")]
+        )[scoped_name(agent, "pelvis")]
+        joint_names = [scoped_name(agent, s) for s in G1_ROT_JOINT_SUFFIXES]
         return {
             "pelvis_xpos": np.asarray(pelvis["xpos"], dtype=np.float64),
             "joint_qpos": self.query_joint_qpos(joint_names),

@@ -34,7 +34,7 @@
 from __future__ import annotations
 
 import numpy as np
-from common.g1_base_env import G1BaseEnv, OnlineVerifier
+from common.g1_base_env import G1BaseEnv, OnlineVerifier, scoped_name
 from common.g1_locomotion import G1Locomotion
 from locomotion_debug_viz import LocomotionDebugVisualizer
 
@@ -61,10 +61,15 @@ class LocomotionEnv(G1BaseEnv):
     #: CPU 行走走 host 逐子步闭环（模式 2）；GPU 行走由 _device_pd（模式 3）接管。
     _per_substep_ctrl: bool = True
 
+    #: GPU(Euler) 后端启用 device-side PD（Phase D §8.2）。
+    _requires_device_pd: bool = True
+
     def initialize_simulation(self):
         """初始化仿真 + 创建 G1Locomotion 行走策略封装（含 PD 控制器）。"""
         super().initialize_simulation()
         self.locomotion = G1Locomotion(agent_name=self.agent_name)
+        # GPU(Euler) 后端注册 device-side PD（Phase D §8.2）；CPU 后端内部跳过
+        self._register_device_pd()
         # DebugMesh 可视化器（离线模式自动 no-op）
         self._viz = LocomotionDebugVisualizer(self.agent_name, self.locomotion)
         # 力矩触限统计（用于 joint_torque_within_limit 判定）
@@ -142,9 +147,8 @@ class LocomotionEnv(G1BaseEnv):
 
         # 读取基座状态（pelvis 位姿）
         agent = self.agent_name
-        pelvis_data = self.get_body_xpos_xmat_xquat([f"{agent}_pelvis"])[
-            f"{agent}_pelvis"
-        ]
+        pelvis_name = scoped_name(agent, "pelvis")
+        pelvis_data = self.get_body_xpos_xmat_xquat([pelvis_name])[pelvis_name]
         pelvis_xpos = pelvis_data["xpos"]  # (3,)
         pelvis_xmat = pelvis_data["xmat"]  # (3,3) 旋转矩阵
 

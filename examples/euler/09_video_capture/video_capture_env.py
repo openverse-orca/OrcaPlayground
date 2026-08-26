@@ -59,10 +59,15 @@ class VideoCaptureEnv(G1BaseEnv):
     #: CPU 行走走 host 逐子步闭环（模式 2）；GPU 行走由 _device_pd（模式 3）接管。
     _per_substep_ctrl: bool = True
 
+    #: GPU(Euler) 后端启用 device-side PD（Phase D §8.2）。
+    _requires_device_pd: bool = True
+
     def initialize_simulation(self):
         """初始化仿真 + 创建 G1Locomotion 行走策略封装。"""
         super().initialize_simulation()
         self.locomotion = G1Locomotion(agent_name=self.agent_name)
+        # GPU(Euler) 后端注册 device-side PD（Phase D §8.2）；CPU 后端内部跳过
+        self._register_device_pd()
         self._prev_frame: int = 0
         self._q_target: np.ndarray = np.zeros(self.model.nu, dtype=np.float64)
 

@@ -48,6 +48,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -83,11 +84,28 @@ def parse_args() -> argparse.Namespace:
         default="cpu",
         help="后端：cpu=CPU MuJoCo（默认），cuda:0=Euler GPU",
     )
+    parser.add_argument(
+        "--perf-log",
+        action="store_true",
+        help=(
+            "启用性能打点：循环级 RTF 报告（step/verify/render/sleep 分段 + 真实 RTF）"
+            "与求解器 GPU 阶段报告（flush H2D / step GPU / sync D2H / view，每 500 步）"
+        ),
+    )
+    parser.add_argument(
+        "--no-real-time",
+        action="store_true",
+        help="关闭 RTF=1.0 限速睡眠，全速推进（长时基准测试，配合 --num-steps 增大）",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+
+    if args.perf_log:
+        os.environ["ORCA_RTF_LOG"] = "1"
+        os.environ["ORCA_EULER_PERF_LOG"] = "1"
 
     env = QueryApiEnv(
         frame_skip=G1_FRAME_SKIP,
@@ -100,7 +118,11 @@ def main() -> None:
 
     verifier = OnlineVerifier("Lesson 5: 状态查询 API")
     try:
-        report = env.run_lesson(num_steps=args.num_steps, verifier=verifier)
+        report = env.run_lesson(
+            num_steps=args.num_steps,
+            verifier=verifier,
+            real_time=not args.no_real_time,
+        )
     finally:
         env.close()
 

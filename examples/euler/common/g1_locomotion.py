@@ -36,6 +36,7 @@ from common.g1_base_env import (
     G1_CONFIG_YAML,
     G1_LOCO_ONNX,
     G1_ROT_JOINT_SUFFIXES,
+    scoped_name,
 )
 
 
@@ -148,9 +149,9 @@ class G1Locomotion:
         with open(config_path, encoding="utf-8") as f:
             self.config = yaml.safe_load(f)
 
-        # 关节名（agent_name 前缀 + 后缀）
+        # 关节名（agent_name 前缀 + 后缀；离线模式无前缀时原样返回后缀）
         self.joint_names = [
-            f"{agent_name}_{suffix}" for suffix in G1_ROT_JOINT_SUFFIXES
+            scoped_name(agent_name, suffix) for suffix in G1_ROT_JOINT_SUFFIXES
         ]
 
         # 默认关节角度（29,）
@@ -274,7 +275,7 @@ class G1Locomotion:
         # 不能硬编码 qpos[3:7]/qvel[3:6]，否则会读到 box 的姿态）。
         # free joint qpos=[px,py,pz,qw,qx,qy,qz]（7），qvel=[vx,vy,vz,wx,wy,wz]（6）。
         # 与原版 g1_env.py imu_quat/imu_gyro 来源一致。
-        base_joint_name = f"{self.agent_name}_floating_base_joint"
+        base_joint_name = scoped_name(self.agent_name, "floating_base_joint")
         base_qpos = env.query_joint_qpos([base_joint_name])
         base_qvel = env.query_joint_qvel([base_joint_name])
         base_quat = base_qpos[base_joint_name][3:7].reshape(1, -1)  # (1, 4) [w,x,y,z]

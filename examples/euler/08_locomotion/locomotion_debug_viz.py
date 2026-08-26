@@ -27,6 +27,7 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+from common.g1_base_env import scoped_name
 from orca_gym.utils.orca_debug_draw import (
     DebugMeshType,
     InstanceFlags,
@@ -63,11 +64,11 @@ class LocomotionDebugVisualizer:
         """
         self.agent = agent_name
         self.loco = locomotion
-        self._head = f"{agent_name}_camera_head"
-        self._pelvis = f"{agent_name}_pelvis"
+        self._head = scoped_name(agent_name, "camera_head")
+        self._pelvis = scoped_name(agent_name, "pelvis")
         self._feet = [
-            f"{agent_name}_left_ankle_roll_link",
-            f"{agent_name}_right_ankle_roll_link",
+            scoped_name(agent_name, "left_ankle_roll_link"),
+            scoped_name(agent_name, "right_ankle_roll_link"),
         ]
 
         # --- 尺度参数（G1 身高 1.3m，以 1.0m 为尺度单位）---

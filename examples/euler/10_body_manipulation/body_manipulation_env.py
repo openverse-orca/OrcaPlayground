@@ -35,7 +35,7 @@ import time
 from typing import Any
 
 import numpy as np
-from common.g1_base_env import G1BaseEnv, OnlineVerifier
+from common.g1_base_env import G1BaseEnv, OnlineVerifier, scoped_name
 from common.g1_locomotion import G1Locomotion
 
 # XML 中定义的 body 后缀（无命名空间前缀，实际名由 initialize_simulation 动态解析）
@@ -66,10 +66,15 @@ class BodyManipulationEnv(G1BaseEnv):
     #: CPU 行走走 host 逐子步闭环（模式 2）；GPU 行走由 _device_pd（模式 3）接管。
     _per_substep_ctrl: bool = True
 
+    #: GPU(Euler) 后端启用 device-side PD（Phase D §8.2）。
+    _requires_device_pd: bool = True
+
     def initialize_simulation(self):
         """初始化仿真 + 创建 G1Locomotion 行走策略封装 + 解析场景 body 名。"""
         super().initialize_simulation()
         self.locomotion = G1Locomotion(agent_name=self.agent_name)
+        # GPU(Euler) 后端注册 device-side PD（Phase D §8.2）；CPU 后端内部跳过
+        self._register_device_pd()
         self._q_target: np.ndarray = np.zeros(self.model.nu, dtype=np.float64)
         # 动态解析 XML 内置 mocap body 的实际场景名（含命名空间前缀）
         self._mocap_body_name = self._resolve_body_by_suffix(_MOCAP_BODY_SUFFIX)
@@ -309,7 +314,7 @@ class BodyManipulationEnv(G1BaseEnv):
             cycle_target: 每控制周期目标墙钟时长（RTF=1.0 限速）。
         """
         agent = self.agent_name
-        pelvis_name = f"{agent}_pelvis"
+        pelvis_name = scoped_name(agent, "pelvis")
 
         if bound:
             # 记录起始位姿（用于周期性移动插值与位移校验）
@@ -372,7 +377,7 @@ class BodyManipulationEnv(G1BaseEnv):
         """暂停前读取状态做检查（pelvis 位姿 + 绑定状态）。"""
         self._check_count += 1
         agent = self.agent_name
-        pelvis_name = f"{agent}_pelvis"
+        pelvis_name = scoped_name(agent, "pelvis")
         pelvis = self.get_body_xpos_xmat_xquat([pelvis_name])[pelvis_name]
         verifier.check(
             f"pelvis_pose_finite_{self._check_count}",
