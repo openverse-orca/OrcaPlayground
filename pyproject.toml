@@ -24,8 +24,6 @@ select = ["E", "F", "W", "I", "SLF001"]
 "examples/embodied/drone_driver/**" = ["SLF001"]
 # TODO(euler-migration): fluid trajectory/run_simulation 需要 mjModel/mjData 用于
 # MuJoCo passive viewer / geom 遍历 / contact 诊断，待 OrcaGym 侧扩展后移除
-"examples/embodied/fluid/trajectory/water_jug_trajectory_controller.py" = ["SLF001"]
-"examples/embodied/fluid/launch/run_simulation.py" = ["SLF001"]
 # TODO: 既有跨类私有访问（agent/state_processor/keyboard 内部属性），待重构类接口后移除
 "examples/embodied/g1/**" = ["SLF001"]
 "examples/embodied/wheeled_chassis/**" = ["SLF001"]

@@ -59,10 +59,10 @@ def read_cursor_uint64(cursor_path: str) -> int:
 def build_joint_qpos_pack_layout(env: Any) -> Tuple[List[str], np.ndarray, int, int]:
     """
     Sorted joint names, qpos segment lengths (int32), packed width Q, model nq (diagnostic).
-    Uses OrcaGymLocalEnv.query_joint_lengths / gym.query_all_joints.
+    Uses env.model.get_joint_dict and OrcaGym query_joint_lengths.
     """
     uw = env.unwrapped
-    joint_names = sorted(uw.gym.query_all_joints().keys())
+    joint_names = sorted(env.model.get_joint_dict().keys())
     if not joint_names:
         raise ValueError("build_joint_qpos_pack_layout: model has no joints")
     qpos_lengths, _, _ = uw.query_joint_lengths(joint_names)

@@ -2,11 +2,57 @@
 Module for publishing positions to SPH
 """
 
-import numpy as np
+import inspect
 import logging
-from typing import List, Dict, Optional, Any
+from typing import Any, Dict, List, Optional
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
+
+
+def _orcalink_rigid_body_position(
+    object_id: str,
+    pos: np.ndarray,
+    quat: np.ndarray,
+    lin_vel: np.ndarray,
+    has_vel: bool,
+) -> Any:
+    """组装一条发给 OrcaLink 的刚体 POSITION。
+
+    按当前已安装的 RigidBodyPosition 构造函数决定传哪些字段：
+    旧版客户端没有 linear_velocity / has_linear_velocity，硬传会 TypeError。
+    找不到 orcalink 时退回简易对象，字段尽量齐全，供调试打印。
+    """
+    pos_f = np.array(pos, dtype=np.float32)
+    quat_f = np.array(quat, dtype=np.float32)
+    vel_f = np.array(lin_vel, dtype=np.float32)
+
+    try:
+        from orcalink_client.data_structures import RigidBodyPosition
+    except ImportError:
+        try:
+            from data_structures import RigidBodyPosition
+        except ImportError:
+            return type("RigidBodyPosition", (), {
+                "object_id": object_id,
+                "position": pos_f,
+                "rotation": quat_f,
+                "linear_velocity": vel_f,
+                "has_linear_velocity": has_vel,
+            })()
+
+    kwargs: Dict[str, Any] = {
+        "object_id": object_id,
+        "position": pos_f,
+        "rotation": quat_f,
+    }
+    names = set(inspect.signature(RigidBodyPosition).parameters)
+    if "linear_velocity" in names:
+        kwargs["linear_velocity"] = vel_f
+    if "has_linear_velocity" in names:
+        kwargs["has_linear_velocity"] = has_vel
+    return RigidBodyPosition(**kwargs)
 
 
 class PositionPublishModule:
@@ -36,7 +82,7 @@ class PositionPublishModule:
             return
         
         try:
-            positions = self._collect_body_positions()
+            positions = self.collect_body_positions()
             if positions:
                 publish_seq = int(self.client.publish_sequence) if hasattr(
                     self.client, "publish_sequence"
@@ -85,8 +131,11 @@ class PositionPublishModule:
         except Exception as e:
             logger.error(f"Error publishing site positions: {e}", exc_info=True)
     
-    def _collect_body_positions(self) -> List:
-        """Collect rigid body positions from MuJoCo using OrcaGym API"""
+    def collect_body_positions(self) -> List:
+        """从环境读取刚体位姿，组装成发给 OrcaLink 的 POSITION 列表。
+
+        主循环发布和 CP6 调试都走这一份，避免外部去调私有方法。
+        """
         positions = []
         
         try:
@@ -111,7 +160,6 @@ class PositionPublishModule:
             self.env.mj_forward()
             
             # 3. 批量查询位姿 + 世界系线速度
-            xvel_list = None
             if hasattr(self.env, 'get_body_xpos_xmat_xquat_xvel'):
                 _poses = self.env.get_body_xpos_xmat_xquat_xvel(body_names)
             else:
@@ -127,36 +175,15 @@ class PositionPublishModule:
                 object_id = body_to_object_id.get(body_name, body_name)
                 pos = xpos_list[i]
                 quat = xquat_list[i]
-                lin_vel = np.asarray(_poses[body_name]["xvel"], dtype=np.float64).reshape(3) if "xvel" in _poses[body_name] else np.zeros(3, dtype=np.float64)
-                
-                # Convert to position data structure
-                try:
-                    from orcalink_client.data_structures import RigidBodyPosition
-                    position_data = RigidBodyPosition(
-                        object_id=object_id,
-                        position=np.array(pos, dtype=np.float32),
-                        rotation=np.array(quat, dtype=np.float32),
-                        linear_velocity=np.array(lin_vel, dtype=np.float32),
-                        has_linear_velocity=(xvel_list is not None),
-                    )
-                except ImportError:
-                    try:
-                        from data_structures import RigidBodyPosition
-                        position_data = RigidBodyPosition()
-                        position_data.object_id = object_id
-                        position_data.position = np.array(pos, dtype=np.float32)
-                        position_data.rotation = np.array(quat, dtype=np.float32)
-                        position_data.linear_velocity = np.array(lin_vel, dtype=np.float32)
-                        position_data.has_linear_velocity = (xvel_list is not None)
-                    except ImportError:
-                        position_data = type('RigidBodyPosition', (), {
-                            'object_id': object_id,
-                            'position': np.array(pos, dtype=np.float32),
-                            'rotation': np.array(quat, dtype=np.float32),
-                            'linear_velocity': np.array(lin_vel, dtype=np.float32),
-                            'has_linear_velocity': (xvel_list is not None),
-                        })()
-                
+                has_vel = "xvel" in _poses[body_name]
+                lin_vel = (
+                    np.asarray(_poses[body_name]["xvel"], dtype=np.float64).reshape(3)
+                    if has_vel
+                    else np.zeros(3, dtype=np.float64)
+                )
+                position_data = _orcalink_rigid_body_position(
+                    object_id, pos, quat, lin_vel, has_vel
+                )
                 positions.append(position_data)
                 logger.debug(f"_collect_body_positions - Collected body '{body_name}' -> object_id '{object_id}', pos={pos}")
             

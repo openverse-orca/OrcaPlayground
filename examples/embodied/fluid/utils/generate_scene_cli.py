@@ -215,8 +215,8 @@ def main():
         # 尝试从多个位置查找配置文件
         config_path = Path(args.config)
         if not config_path.exists():
-            # 尝试从 examples/fluid/ 目录查找
-            examples_config = Path(__file__).parent.parent.parent.parent / "examples" / "fluid" / args.config
+            # 当前工作目录找不到时，再到流体包目录（scene_config.json 所在处）
+            examples_config = Path(__file__).resolve().parent.parent / args.config
             if examples_config.exists():
                 config_path = examples_config
             else:

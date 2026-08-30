@@ -1167,18 +1167,20 @@ class SceneGenerator:
                         )
 
             # user[2]: sphscale — world scaling factor for SPH simulation
-            if len(user_data) >= 3:
-                try:
-                    sphscale = float(user_data[2])
-                    if sphscale < 1.0:
-                        logger.warning(f"[SPHSCALE] sphscale={sphscale} < 1.0, clamping to 1.0")
-                        sphscale = 1.0
-                    self.sphscale = sphscale
-                    logger.info(f"[SPHSCALE] sphscale initialized from MJCF site: {sphscale}")
-                except (TypeError, ValueError):
-                    self.sphscale = 1.0
-            else:
-                self.sphscale = 1.0
+            # 当前进程放弃世界缩放，一律 1.0，不读 site user[2]
+            self.sphscale = 1.0
+            # if len(user_data) >= 3:
+            #     try:
+            #         sphscale = float(user_data[2])
+            #         if sphscale < 1.0:
+            #             logger.warning(f"[SPHSCALE] sphscale={sphscale} < 1.0, clamping to 1.0")
+            #             sphscale = 1.0
+            #         self.sphscale = sphscale
+            #         logger.info(f"[SPHSCALE] sphscale initialized from MJCF site: {sphscale}")
+            #     except (TypeError, ValueError):
+            #         self.sphscale = 1.0
+            # else:
+            #     self.sphscale = 1.0
         except Exception as e:
             logger.warning(f"_init_particle_radius failed: {e}; using default {self.particle_radius}")
 
