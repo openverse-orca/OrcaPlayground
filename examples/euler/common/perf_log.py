@@ -13,10 +13,19 @@ from __future__ import annotations
 import os
 import time
 
+_RTF_LOG_CACHED: bool | None = None
+
 
 def rtf_log_enabled() -> bool:
-    """是否启用 RTF 性能诊断（环境变量 ``ORCA_RTF_LOG=1`` 时）。"""
-    return os.environ.get("ORCA_RTF_LOG") in {"1", "true", "True", "yes"}
+    """是否启用 RTF 性能诊断（环境变量 ``ORCA_RTF_LOG=1`` 时）。
+
+    首次调用时求值并缓存；关闭时 ``run_lesson`` 不挂载计时器、不调用
+    ``perf_counter``、不打印（零开销）。
+    """
+    global _RTF_LOG_CACHED
+    if _RTF_LOG_CACHED is None:
+        _RTF_LOG_CACHED = os.environ.get("ORCA_RTF_LOG") in {"1", "true", "True", "yes"}
+    return _RTF_LOG_CACHED
 
 
 class PerfTimer:

@@ -58,8 +58,17 @@ G1_CONFIG_YAML = os.path.join(_ROBOTS_DIR, "config", "g1_29dof_hist.yaml")
 G1_LOCO_ONNX = os.path.join(_ROBOTS_DIR, "models", "dec_loco", "model_6600.onnx")
 
 # --- 统一运行配置（§2.0.3） ---
-G1_TIME_STEP = 0.001
-G1_FRAME_SKIP = 20
+# dt=0.002 + frame_skip=10 的选择依据见技术报告 Docs/Design/technical_report/
+# single_world_gpu_rtf_analysis.md（OrcaEuler 仓）：单世界小模型在 GPU 上
+# 受 kernel 数量地板限制，dt=0.001 时每控制周期 20ms 仿真时间 < 计算墙钟，
+# RTF<1；dt 翻倍至 0.002 并将 frame_skip 从 20 减半到 10，控制周期保持
+# 20ms（50Hz，与 dec_loco 策略训练频率一致），每周期物理步减半。GPU 空载
+# 实测（零控瘫倒最坏接触 ncon≈54）：RTF=0.895（wait_compute 1.7-1.9ms/
+# substep）；行走类（PD 稳定步态 ncon≈4）物理 ~0.37ms/substep，RTF 远超
+# 1.0。代价：device-PD 从 1kHz 降为 500Hz——若步态退化，可局部改回
+# dt=0.001/frame_skip=20 并接受 RTF<1。
+G1_TIME_STEP = 0.002
+G1_FRAME_SKIP = 10
 G1_ORCAGYM_ADDR = "127.0.0.1:50051"
 
 # --- G1 关节后缀（30 个：29 旋转 + 1 free base）---
@@ -293,8 +302,9 @@ class G1BaseEnv(OrcaGymEulerEnv):
             orcagym_addr: 渲染端 gRPC 地址（在线模式用）。
             agent_names: agent 名称列表。在线模式若为 None，则在 initialize_simulation
                 中通过场景扫描自动解析；离线模式本地 XML 无前缀，agent_name 置空。
-            time_step: 物理时间步长（默认 0.001s）。
-            frame_skip: 每个 control 周期的物理步数（默认 20，控制频率 50Hz）。
+            time_step: 物理时间步长（默认 0.002s）。
+            frame_skip: 每个 control 周期的物理步数（默认 10，控制周期
+                0.002×10=20ms 即控制频率 50Hz，与 dec_loco 策略训练频率一致）。
             skip_grpc_load: 是否跳过 gRPC 加载（离线模式 True）。
             model_xml_path: G1 模型 XML 路径（默认 Euler 专用 g1_29dof_camera.xml）。
             **kwargs: 透传 OrcaGymEulerEnv。
@@ -451,15 +461,19 @@ class G1BaseEnv(OrcaGymEulerEnv):
                 perf.add("verify", t2 - t1)
                 perf.add("render", t3 - t2)
 
-            # 墙钟对齐：若本周期提前完成，睡眠剩余时间以维持 RTF=1.0
+            # 墙钟对齐：若本周期提前完成，睡眠剩余时间以维持 RTF=1.0；
+            # 超时计数与 real_time 解耦（--no-real-time 全速跑也按计算耗时统计）
             if real_time:
-                remaining = cycle_target - (time.perf_counter() - cycle_start)
-                if remaining > 0:
-                    time.sleep(remaining)
-                    if perf is not None:
-                        perf.record_sleep(remaining)
-                elif perf is not None:
-                    perf.record_overrun()
+                cycle_elapsed = time.perf_counter() - cycle_start
+            else:
+                cycle_elapsed = t3 - t0
+            remaining = cycle_target - cycle_elapsed
+            if real_time and remaining > 0:
+                time.sleep(remaining)
+                if perf is not None:
+                    perf.record_sleep(remaining)
+            elif perf is not None and cycle_elapsed > cycle_target:
+                perf.record_overrun()
 
         # 循环后钩子（Lesson 9 用于 stop_save_video + mp4 检查）
         self.after_loop(verifier)
