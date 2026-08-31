@@ -58,17 +58,16 @@ G1_CONFIG_YAML = os.path.join(_ROBOTS_DIR, "config", "g1_29dof_hist.yaml")
 G1_LOCO_ONNX = os.path.join(_ROBOTS_DIR, "models", "dec_loco", "model_6600.onnx")
 
 # --- 统一运行配置（§2.0.3） ---
-# dt=0.002 + frame_skip=10 的选择依据见技术报告 Docs/Design/technical_report/
-# single_world_gpu_rtf_analysis.md（OrcaEuler 仓）：单世界小模型在 GPU 上
-# 受 kernel 数量地板限制，dt=0.001 时每控制周期 20ms 仿真时间 < 计算墙钟，
-# RTF<1；dt 翻倍至 0.002 并将 frame_skip 从 20 减半到 10，控制周期保持
-# 20ms（50Hz，与 dec_loco 策略训练频率一致），每周期物理步减半。GPU 空载
-# 实测（零控瘫倒最坏接触 ncon≈54）：RTF=0.895（wait_compute 1.7-1.9ms/
-# substep）；行走类（PD 稳定步态 ncon≈4）物理 ~0.37ms/substep，RTF 远超
-# 1.0。代价：device-PD 从 1kHz 降为 500Hz——若步态退化，可局部改回
-# dt=0.001/frame_skip=20 并接受 RTF<1。
-G1_TIME_STEP = 0.002
-G1_FRAME_SKIP = 10
+# dt=0.005 + frame_skip=4：dt 与 Isaac Lab 训练 G1 locomotion 时一致
+# （Isaac 训练物理步长即 0.005，策略在该 dt 下的动力学上收敛）；控制周期
+# 0.005×4=20ms（50Hz，与 dec_loco 策略控制频率一致）。此前 dt=0.002+
+# frame_skip=10（同样 20ms 控制周期）的 RTF 依据见技术报告
+# Docs/Design/technical_report/single_world_gpu_rtf_analysis.md
+# （OrcaEuler 仓）；dt 放大到 0.005 后每控制周期物理步从 10 减到 4，
+# 单周期 GPU 计算量进一步下降，RTF 更宽裕。代价：device-PD 执行频率从
+# 500Hz 降为 200Hz——若步态退化，可局部改回 dt=0.002/frame_skip=10。
+G1_TIME_STEP = 0.005
+G1_FRAME_SKIP = 4
 G1_ORCAGYM_ADDR = "127.0.0.1:50051"
 
 # --- G1 关节后缀（30 个：29 旋转 + 1 free base）---
@@ -302,9 +301,9 @@ class G1BaseEnv(OrcaGymEulerEnv):
             orcagym_addr: 渲染端 gRPC 地址（在线模式用）。
             agent_names: agent 名称列表。在线模式若为 None，则在 initialize_simulation
                 中通过场景扫描自动解析；离线模式本地 XML 无前缀，agent_name 置空。
-            time_step: 物理时间步长（默认 0.002s）。
-            frame_skip: 每个 control 周期的物理步数（默认 10，控制周期
-                0.002×10=20ms 即控制频率 50Hz，与 dec_loco 策略训练频率一致）。
+            time_step: 物理时间步长（默认 0.005s，与 Isaac 训练 locomotion 一致）。
+            frame_skip: 每个 control 周期的物理步数（默认 4，控制周期
+                0.005×4=20ms 即控制频率 50Hz，与 dec_loco 策略训练频率一致）。
             skip_grpc_load: 是否跳过 gRPC 加载（离线模式 True）。
             model_xml_path: G1 模型 XML 路径（默认 Euler 专用 g1_29dof_camera.xml）。
             **kwargs: 透传 OrcaGymEulerEnv。
@@ -319,6 +318,12 @@ class G1BaseEnv(OrcaGymEulerEnv):
         # 必须在 super().__init__() 之前赋值，且此处不可在 super() 之后重新赋值，
         # 否则会覆盖 initialize_simulation 解析的结果。
         self.agent_name: str = "" if skip_grpc_load else agent_names[0]
+        # GPU-native PD 控制器句柄占位：必须在 super().__init__() 之前置 None。
+        # super().__init__() 内部会多态调用 self.initialize_simulation()，其末尾
+        # _register_device_pd() 会写入本句柄；若放在 super() 之后赋值 None，会把
+        # 已注册的句柄抹掉——而 solver 上的 pre-step PD kernel（q_target=0）仍
+        # 挂载，导致每个物理步把所有关节往 0 拉（机器人僵硬摔倒）且无法更新目标。
+        self._device_pd = None
         super().__init__(
             frame_skip=frame_skip,
             orcagym_addr=orcagym_addr,
@@ -330,9 +335,6 @@ class G1BaseEnv(OrcaGymEulerEnv):
         )
         # Gymnasium step 循环计数（reset_model 中重置）
         self._step_count: int = 0
-        # GPU-native PD 控制器（Phase D 由 Locomotion 系子类在 GPU 后端下构造）。
-        # Phase B 阶段恒为 None，step() 走模式 1/2。
-        self._device_pd = None
 
     # --- 场景扫描（在线模式自动解析 agent_name）---
 

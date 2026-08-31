@@ -133,6 +133,30 @@ class LocomotionEnv(G1BaseEnv):
         self._torque_clip_count += int(clipped)
         self._torque_total_count += len(tau)
 
+    def reset_model(self) -> tuple[dict, dict]:
+        """重置到站立姿态：G1 关节 qpos = default_dof_angles（对齐 07 参考实现）。
+
+        XML keyframe 姿态与策略的 DEFAULT_DOF_ANGLES 最大差 ~0.3 rad（膝盖），
+        若直接从 keyframe 开始，PD 控制器第一步就会输出 ~60 Nm 的力矩把机器人
+        蹬倒（参考 OrcaEuler 07_locomotion._standing_qpos：reset 后显式把
+        关节 qpos 覆写为 DEFAULT_DOF_ANGLES，使初始 PD 误差为 0）。
+
+        关节 qpos 起始地址通过 jnt_qposadr(首个关节名) 按名字解析——
+        完整关卡场景中 G1 之前存在其他 free joint（Toys/ActorManipulator，
+        各占 7 个 qpos），硬编码偏移 7 会把 default 角度写进玩具的 free joint，
+        导致 G1 保持 keyframe 姿态、初始 PD 误差巨大而摔倒。
+        """
+        obs, info = super().reset_model()
+        default = self.locomotion.default_dof_angles.reshape(-1)
+        qpos = self.data.qpos.copy()
+        first_joint = self.locomotion.joint_names[0]
+        qpos_adr = self.jnt_qposadr(first_joint)
+        qpos[qpos_adr:qpos_adr + len(default)] = default
+        self.set_joint_qpos(qpos)
+        self.set_joint_qvel(np.zeros_like(self.data.qvel))
+        self._sync_view()
+        return self._get_obs(), info
+
     def before_loop(self, verifier: OnlineVerifier) -> None:
         """循环前：行走观察提示 + 初始化统计。"""
         verifier.observe(

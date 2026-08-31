@@ -26,7 +26,6 @@ G1 执行器是 motor（力矩控制，ctrlrange 为 N·m），策略输出位�
 
 from __future__ import annotations
 
-import time
 from typing import Any
 
 import numpy as np
@@ -201,7 +200,7 @@ class G1Locomotion:
         self.ang_vel_command: np.ndarray
         self.stand_command: np.ndarray
         self.base_height_command: np.ndarray
-        self._start_time: float
+        self._sim_time: float
         self.reset()
 
     def reset(self) -> None:
@@ -217,7 +216,10 @@ class G1Locomotion:
         self.base_height_command = np.array(
             [[self.DEFAULT_BASE_HEIGHT]], dtype=np.float64
         )
-        self._start_time = time.time()
+        # 步态相位使用仿真时间（07 参考实现 `loco._sim_time += dt * frame_skip`），
+        # 不用墙钟时间——墙钟在 RTF≠1、graph capture warmup、断点暂停时会与物理
+        # 时间脱钩，导致相位信号与机器人实际状态错位（策略观测含 sin/cos_phase）。
+        self._sim_time = 0.0
         if self.history_handler is not None:
             self.history_handler.reset([0])
 
@@ -271,6 +273,8 @@ class G1Locomotion:
             q_target (29,): 关节位置目标（rad），供 PD 控制器使用。
         """
         # 1. 读取状态
+        # 同步仿真时间供步态相位计算（每个控制周期一次，先于 _build_obs）。
+        self._sim_time = float(env.data.time)
         # 基座姿态/角速度：通过 free joint 名字查询（场景含 box free joint，
         # 不能硬编码 qpos[3:7]/qvel[3:6]，否则会读到 box 的姿态）。
         # free joint qpos=[px,py,pz,qw,qx,qy,qz]（7），qvel=[vx,vy,vz,wx,wy,wz]（6）。
@@ -358,10 +362,11 @@ class G1Locomotion:
     def _get_phase_time(self) -> np.ndarray:
         """计算当前步态相位时间 [0, 1)。
 
-        与原版一致：phase = (time*stand_command) % gait_period / gait_period。
-        stand_command=0 时 phase=0（站立模式，不迈步）；stand_command=1 时随时间推进。
+        与原版一致：phase = (sim_time*stand_command) % gait_period / gait_period。
+        stand_command=0 时 phase=0（站立模式，不迈步）；stand_command=1 时随仿真时间推进。
+        sim_time 由 compute_q_target() 每周期从 env.data.time 同步。
         """
-        elapsed = (time.time() - self._start_time) * self.stand_command[0, 0]
+        elapsed = self._sim_time * self.stand_command[0, 0]
         phase = (elapsed % self.gait_period) / self.gait_period
         return np.array([[phase]], dtype=np.float64)
 
