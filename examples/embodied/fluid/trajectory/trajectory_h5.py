@@ -54,7 +54,7 @@ def human_mocap_body_names(
     sph_names: FrozenSet[str],
 ) -> List[str]:
     """所有 mocap body 中排除 SPH 耦合与启发式 *_SPH_MOCAP_*。"""
-    mocap_dict = env.gym.query_all_mocap_bodies()
+    mocap_dict = env.model.get_mocap_dict()
     out: List[str] = []
     for name in mocap_dict.keys():
         if name in sph_names:

@@ -1,5 +1,5 @@
 {
-  "description": "Fluid-MuJoCo 全链路 + WaterJug 自动轨迹（Fangfang_AutoMove）：force_position + vel_uniform；入口 run_fluid_sim_auto.py",
+  "description": "Fluid-MuJoCo 全链路 + WaterJug 自动轨迹（Fangfang_AutoMove）：force_position + vel_uniform；入口 python run_fluid_sim.py --config fluid_sim_config_auto.json",
   "build_mode": "release",
   "orcagym": {
     "address": "localhost:50051",

@@ -69,16 +69,17 @@ def _bodies_with_mesh_token(
     if not matching_mesh_ids:
         return []
 
-    # TODO(euler-migration): 原 env.gym._mjModel 访问 geom，Euler 体系无直接 geom API，需 OrcaGym 侧扩展
-    mj_model = env.gym._mjModel  # noqa: SLF001
+    # get Mujoco body info from orcagym
+    geom_dict = env.model.get_geom_dict() or {}
     bodies: set[str] = set()
-    for i in range(mj_model.ngeom):
-        geom = mj_model.geom(i)
-        if int(geom.type[0]) != _MJ_GEOM_MESH:
+    for _geom_name, geom_info in geom_dict.items():
+        if int(geom_info.get("Type", -1)) != _MJ_GEOM_MESH:
             continue
-        if int(geom.dataid[0]) not in matching_mesh_ids:
+        if int(geom_info.get("DataID", -1)) not in matching_mesh_ids:
             continue
-        bodies.add(mj_model.body(int(geom.bodyid[0])).name)
+        body_name = geom_info.get("BodyName")
+        if body_name:
+            bodies.add(body_name)
     return sorted(bodies)
 
 
@@ -161,19 +162,16 @@ def _is_waterjug_joint(joint_name: str) -> bool:
 
 
 def _set_fixed_body_world_pose(env: Any, body_name: str, pos: np.ndarray, quat_wxyz: np.ndarray) -> None:
-    """
-    将无关节 body（世界子节点）的 model.body_pos/body_quat 设为给定世界位姿，并 mj_forward。
 
-    用于 fluidblock 等静态 body 随 waterjug 刚性运动。
-    """
-    # TODO(euler-migration): 原 env.gym._mjModel 访问 geom，Euler 体系无直接 geom API，需 OrcaGym 侧扩展
-    mj_model = env.gym._mjModel  # noqa: SLF001
-    body_id = env.model.body_name2id(body_name)
-    mj_model.body_pos[body_id] = np.asarray(pos, dtype=np.float64).reshape(3)
-    mj_model.body_quat[body_id] = np.asarray(quat_wxyz, dtype=np.float64).reshape(4)
-    env.mj_forward()
-    if hasattr(env.gym, "update_data"):
-        env.gym.update_data()
+    """静态 body 随水壶运动：暂不写模型位姿（需 Gym 公共 API，禁止穿墙）。"""
+    logger.warning(
+        "skip set_body_model_pose for %s: Euler 无公共 API，禁止 env.gym._mjModel",
+        body_name,
+    )
+    return
+
+
+
 
 
 class WaterJugTrajectoryController:
@@ -323,7 +321,8 @@ class WaterJugTrajectoryController:
             return
         try:
             body_id = env.model.body_name2id(self._jug_body_name)
-            env.gym._mjData.xfrc_applied[body_id] = 0.0
+            # env.gym._mjData.xfrc_applied[body_id] = 0.0
+            env.clear_body_force(self._jug_body_name)
         except Exception as e:
             logger.debug("clear xfrc on %s: %s", self._jug_body_name, e)
 
@@ -365,8 +364,8 @@ class WaterJugTrajectoryController:
         env.apply_joint_qpos_dict({self.kettle_joint: qpos})
         env.apply_joint_qvel_dict({self.kettle_joint: qvel})
         env.mj_forward()
-        if hasattr(env.gym, "update_data"):
-            env.gym.update_data()
+        # if hasattr(env.gym, "update_data"):
+        #     env.gym.update_data()
         self._update_fluidblock(env, qpos[:3], qpos[3:7])
 
 

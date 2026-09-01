@@ -1,9 +1,31 @@
- # ⚠️ PyTorch 安装说明：
-#   pip install torch 默认安装最新版本，其 CUDA 版本可能不兼容你的 NVIDIA 驱动。
-#   请根据你的驱动版本，在 PyTorch 官网选择对应的安装命令：
-#     https://pytorch.org/get-started/locally/
+# Xbot 双足机器人示例依赖
+#
+# ⚠️ 本文件无可自动安装的依赖 —— PyTorch 必须手动安装
+#
+#   xbot 示例仅需 torch（用于加载预训练策略 policy_example.pt 做推理），
+#   不需要 stable-baselines3 等训练栈。但 torch 的 CUDA 版本必须与你的
+#   NVIDIA 驱动匹配，因此不能写死在 requirements.txt 里直接 `pip install`。
+#   请按下表根据驱动版本手动选择安装命令后再运行本示例。
+#
+# ⚠️ PyTorch 安装说明：
+#   pip install torch 默认安装 CUDA 12.8 版本，需要 NVIDIA 驱动 ≥ 570。
+#   如果你的驱动较旧，请根据下表选择对应的安装命令：
+#
+#   NVIDIA 驱动版本    最低 CUDA 版本    安装命令
+#   ──────────────────────────────────────────────────────────────────────────
+#   ≥ 570             CUDA 12.8         pip install torch>=2.7.0
+#   ≥ 560             CUDA 12.6         pip install torch>=2.7.0 --index-url https://download.pytorch.org/whl/cu126
+#   ≥ 550             CUDA 12.4         pip install torch>=2.6.0,<2.7 --index-url https://download.pytorch.org/whl/cu124
+#   ≥ 530             CUDA 12.1         pip install torch>=2.3.0,<2.5 --index-url https://download.pytorch.org/whl/cu121
+#   ≥ 520             CUDA 11.8         pip install torch>=2.3.0,<2.5 --index-url https://download.pytorch.org/whl/cu118
 #
 #   查看驱动版本：nvidia-smi | head -3
 #   查看当前 CUDA 版本：python -c "import torch; print(torch.version.cuda)"
-# ⚠️ 不要直接 pip install torch，请参考上方说明根据驱动版本选择安装命令
-# torch (需手动安装，版本取决于驱动，见上方说明)
+#
+# ⚠️ 不要直接 pip install torch，请参考上方表格根据驱动版本选择安装命令
+#   注：xbot 仅做策略推理，默认使用 GPU（CUDA）以获得更好性能；
+#       无 GPU 时可加 --device cpu 参数在 CPU 上运行（速度较慢但可用）。
+# torch>=2.3.0   # 取消注释即可让 pip 安装 CPU 版 torch；GPU 版请用上表命令
+
+# numpy / gymnasium / mujoco / pyyaml 等基础依赖由 orca_gym 与仓库根 requirements.txt 提供，
+# 此处不再重复声明。

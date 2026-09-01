@@ -166,7 +166,7 @@ def generate_orcasph_config(
         template_filename = orcasph_cfg["config_template"]
         # 尝试多个位置查找模板文件
         template_paths = [
-            ORCA_PLAYGROUND_ROOT / "examples" / "fluid" / template_filename,
+            ORCA_PLAYGROUND_ROOT / "examples" / "embodied" / "fluid" / template_filename,
             FLUID_PACKAGE_DIR / template_filename,
             Path(template_filename),  # 相对于当前工作目录
         ]

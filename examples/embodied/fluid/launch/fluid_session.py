@@ -40,7 +40,9 @@ def _resolve_particle_render_server(config: Dict) -> Optional[str]:
     try:
         template_filename = particle_render_cfg.get("config_template", "")
         if template_filename:
-            template_path = ORCA_PLAYGROUND_ROOT / "examples" / "fluid" / template_filename
+            template_path = (
+                ORCA_PLAYGROUND_ROOT / "examples" / "embodied" / "fluid" / template_filename
+            )
             if not template_path.exists():
                 template_path = FLUID_PACKAGE_DIR / template_filename
             if template_path.exists():
@@ -215,8 +217,8 @@ def _try_start_record_stats_plot_viewer(
     orcagym_tmp_dir: Path,
 ) -> None:
     """
-    In record mode, spawn the stats viewer script under ``envs/fluid/utils/`` when
-    ``particle_render_run.stats_plot.enabled`` and an OrcaSPH log path is known.
+    In record mode, spawn the stats viewer under ``examples/embodied/fluid/utils/``
+    when ``particle_render_run.stats_plot.enabled`` and an OrcaSPH log path is known.
     """
     pr_run = config.get("particle_render_run") or {}
     if pr_run.get("mode") != "record":
@@ -243,7 +245,7 @@ def _try_start_record_stats_plot_viewer(
     old_pp = child_env.get("PYTHONPATH", "")
     child_env["PYTHONPATH"] = (root_s + os.pathsep + old_pp) if old_pp else root_s
 
-    viewer_script = project_root / "envs" / "fluid" / "utils" / "particle_record_stats_plot_viewer.py"
+    viewer_script = FLUID_PACKAGE_DIR / "utils" / "particle_record_stats_plot_viewer.py"
     if not viewer_script.is_file():
         logger.warning(f"📊 录制统计脚本不存在: {viewer_script}，已跳过")
         return

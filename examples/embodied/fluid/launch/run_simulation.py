@@ -33,11 +33,6 @@ from .fluid_session import (
     resolve_record_stats_orcasph_log_path,
 )
 from .process_utils import ProcessManager, is_tcp_port_accepting_connections
-from .mujoco_viewer_style import (
-    apply_mujoco_passive_viewer_styles,
-    configure_passive_viewer_options,
-    draw_coupling_site_markers,
-)
 from .sph_config import (
     _resolve_coupling_mode,
     generate_orcasph_config,
@@ -74,8 +69,6 @@ class FluidSimulationContext:
     particle_render_override: Any = None
     sphscale: float = 1.0
     prev_sigterm_handler: Any = None
-    # MuJoCo 原生被动查看器（短链无 Studio 时用于本地可视化）
-    mujoco_passive_viewer: Any = None
     fp_debug_trace: Any = None
     water_jug_ctrl: Any = None
     bench_output_path: Optional[str] = None
@@ -136,8 +129,6 @@ def _make_sigterm_cleanup_handler(
             # 4. 等待在途粒子帧被丢弃
             if _owns:
                 time.sleep(0.2)
-
-            _close_mujoco_passive_viewer(ctx)
 
             # 5. 重置刚体位姿并推给 OrcaSim
             if _env is not None and _owns and not _orcagym_skip_studio(ctx.config):
@@ -243,89 +234,6 @@ def _resolve_debug_mjcf_path(ctx: FluidSimulationContext) -> Optional[Path]:
             p = Path(xml_path).expanduser()
             return p if p.is_file() else None
     return None
-
-
-def _mujoco_gui_enabled(config: Dict) -> bool:
-    return bool((config.get("mujoco_gui") or {}).get("enabled"))
-
-
-def _mujoco_gui_shutdown_on_close(config: Dict) -> bool:
-    """
-    是否在 MuJoCo 被动查看器窗口关闭时结束整场仿真。
-
-    为 false 时仅停止 viewer.sync()，主循环与 OrcaSPH 继续运行（双界面长跑 / 误关窗场景）。
-    未配置时默认为 true，保持单 MuJoCo 查看器时的历史行为。
-    """
-    return bool((config.get("mujoco_gui") or {}).get("shutdown_on_close", True))
-
-
-def _start_mujoco_passive_viewer(ctx: FluidSimulationContext) -> None:
-    """启动 MuJoCo 原生被动查看器（与 OrcaStudio 视口无关）。"""
-    import mujoco
-    import mujoco.viewer
-
-    gui_cfg = ctx.config.get("mujoco_gui") or {}
-    unwrapped = ctx.env.unwrapped
-    mj_model = unwrapped.gym._mjModel
-    mj_data = unwrapped.gym._mjData
-    apply_mujoco_passive_viewer_styles(mj_model, gui_cfg)
-    # 须先 forward + 默认自由相机；否则 launch_passive 默认 lookat=原点、distance=2，场景在远处会全黑
-    mujoco.mj_forward(mj_model, mj_data)
-    viewer = mujoco.viewer.launch_passive(mj_model, mj_data)
-    with viewer.lock():
-        configure_passive_viewer_options(viewer, mj_model, gui_cfg)
-        if gui_cfg.get("site_markers", True):
-            draw_coupling_site_markers(mj_model, mj_data, viewer)
-    viewer.sync()
-    ctx.mujoco_passive_viewer = viewer
-    logger.info(
-        "🖥️  MuJoCo 被动查看器已启动（着色=%s SITE=%s lookat=%s distance=%.2f shutdown_on_close=%s）",
-        gui_cfg.get("colorize", True),
-        gui_cfg.get("show_coupling_sites", True),
-        viewer.cam.lookat,
-        viewer.cam.distance,
-        _mujoco_gui_shutdown_on_close(ctx.config),
-    )
-
-
-def _sync_mujoco_passive_viewer(ctx: FluidSimulationContext) -> None:
-    import mujoco
-
-    viewer = ctx.mujoco_passive_viewer
-    if viewer is None:
-        return
-    if not viewer.is_running():
-        if _mujoco_gui_shutdown_on_close(ctx.config):
-            logger.info("MuJoCo 查看器已关闭，结束主循环")
-            ctx.shutdown_event.set()
-        else:
-            logger.info(
-                "MuJoCo 查看器已关闭，仿真继续在后台运行（mujoco_gui.shutdown_on_close=false）；"
-                "按 Ctrl+C 结束整场仿真"
-            )
-            ctx.mujoco_passive_viewer = None
-        return
-    gui_cfg = ctx.config.get("mujoco_gui") or {}
-    unwrapped = ctx.env.unwrapped
-    # TODO(euler-migration): MuJoCo passive viewer 需 mjModel/mjData，Euler 体系未暴露，需 OrcaGym 侧扩展
-    mj_model = unwrapped.gym._mjModel  # noqa: SLF001
-    mj_data = unwrapped.gym._mjData  # noqa: SLF001
-    mujoco.mj_forward(mj_model, mj_data)
-    if gui_cfg.get("site_markers", True):
-        with viewer.lock():
-            draw_coupling_site_markers(mj_model, mj_data, viewer)
-    viewer.sync()
-
-
-def _close_mujoco_passive_viewer(ctx: FluidSimulationContext) -> None:
-    viewer = ctx.mujoco_passive_viewer
-    if viewer is None:
-        return
-    try:
-        viewer.close()
-    except Exception as e:
-        logger.warning("MuJoCo passive viewer close: %s", e)
-    ctx.mujoco_passive_viewer = None
 
 
 def _resolve_prebuilt_sph_scene(ctx: FluidSimulationContext) -> None:
@@ -440,13 +348,13 @@ def _maybe_generate_sph_scene(ctx: FluidSimulationContext) -> None:
     ctx.scene_output_path = ctx.orcagym_tmp_dir / f"sph_scene_{scene_uuid}.json"
 
     scene_config_path = (
-        ORCA_PLAYGROUND_ROOT / "examples" / "fluid" / config["sph"]["scene_config"]
+        ORCA_PLAYGROUND_ROOT / "examples" / "embodied" / "fluid" / config["sph"]["scene_config"]
     )
     if not scene_config_path.exists():
         scene_config_path = FLUID_PACKAGE_DIR / config["sph"]["scene_config"]
 
     sph_config_template_path = (
-        ORCA_PLAYGROUND_ROOT / "examples" / "fluid" / config["orcasph"]["config_template"]
+        ORCA_PLAYGROUND_ROOT / "examples" / "embodied" / "fluid" / config["orcasph"]["config_template"]
     )
     if not sph_config_template_path.exists():
         sph_config_template_path = FLUID_PACKAGE_DIR / config["orcasph"]["config_template"]
@@ -848,7 +756,7 @@ def _log_cp6_after_mj_step_if_enabled(
         int(client.publish_sequence) if client is not None else macro_step + 1
     )
 
-    positions = ppm._collect_body_positions()
+    positions = ppm.collect_body_positions()
     if not positions:
         return
 
@@ -1079,15 +987,11 @@ def _run_cooperative_main_loop(ctx: FluidSimulationContext) -> None:
                 ctx.mujoco_qpos_sidecar.append_row(env, step_count)
             if ctx.traj_rec is not None:
                 ctx.traj_rec.append_frame()
-            if ctx.mujoco_passive_viewer is not None:
-                _sync_mujoco_passive_viewer(ctx)
-            elif not _orcagym_skip_studio(config):
+            if not _orcagym_skip_studio(config):
                 env.render()
             t3 = time.perf_counter()
         else:
-            if ctx.mujoco_passive_viewer is not None:
-                _sync_mujoco_passive_viewer(ctx)
-            elif not _orcagym_skip_studio(config):
+            if not _orcagym_skip_studio(config):
                 env.render()
             t3 = time.perf_counter()
 
@@ -1173,8 +1077,6 @@ def _finalize_simulation_session(ctx: FluidSimulationContext) -> None:
 
     if ctx.sph_wrapper:
         ctx.sph_wrapper.close()
-
-    _close_mujoco_passive_viewer(ctx)
 
     if owns and not _orcagym_skip_studio(config):
         _fluid_send_end_simulation_from_config(config)
@@ -1290,9 +1192,6 @@ def run_simulation_with_config(
         sys.stderr.flush()
 
         _connect_sph_bridge_if_enabled(ctx)
-
-        if _mujoco_gui_enabled(config):
-            _start_mujoco_passive_viewer(ctx)
 
         logger.debug("[DEBUG] About to enter main loop...")
         sys.stdout.flush()

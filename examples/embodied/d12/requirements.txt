@@ -1,2 +1,26 @@
 # D12 双臂机器人示例依赖
+#
+# 依赖分两档：
+#   - demo 脚本轨迹回放（run_d12_demo.py）：仅需 scipy
+#   - act 闭环推理（run_d12_act.py）：需 scipy + torch（加载 ACT 模型权重）
 scipy>=1.10.0
+
+# ⚠️ 仅当使用 ACT 闭环推理时才需要 torch，必须手动安装
+#
+#   torch 的 CUDA 版本必须与你的 NVIDIA 驱动匹配，因此不能写死在
+#   requirements.txt 里直接 `pip install`。请按下表根据驱动版本选择安装命令：
+#
+#   NVIDIA 驱动版本    最低 CUDA 版本    安装命令
+#   ──────────────────────────────────────────────────────────────────────────
+#   ≥ 570             CUDA 12.8         pip install torch>=2.7.0
+#   ≥ 560             CUDA 12.6         pip install torch>=2.7.0 --index-url https://download.pytorch.org/whl/cu126
+#   ≥ 550             CUDA 12.4         pip install torch>=2.6.0,<2.7 --index-url https://download.pytorch.org/whl/cu124
+#   ≥ 530             CUDA 12.1         pip install torch>=2.3.0,<2.5 --index-url https://download.pytorch.org/whl/cu121
+#   ≥ 520             CUDA 11.8         pip install torch>=2.3.0,<2.5 --index-url https://download.pytorch.org/whl/cu118
+#
+#   查看驱动版本：nvidia-smi | head -3
+#   查看当前 CUDA 版本：python -c "import torch; print(torch.version.cuda)"
+#
+# ⚠️ 不要直接 pip install torch，请参考上方表格根据驱动版本选择安装命令
+#   注：ACT 推理默认在 GPU 上运行；demo 脚本轨迹回放不需要 torch。
+# torch>=2.3.0   # 取消注释即可让 pip 安装 CPU 版 torch；GPU 版请用上表命令
