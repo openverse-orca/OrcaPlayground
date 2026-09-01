@@ -4,7 +4,7 @@
 通过 `OrcaGymScene.add_actor` 订阅资产库的 spawnable 资产（XML/USDZ/资产包），统一调用
 `publish_scene()` 发布到 OrcaLab。
 
-> 课程设计参考 [examples/euler/TUTORIAL.md](../euler/TUTORIAL.md)，每个示例既是一个独立的
+> 每个示例既是一个独立的
 > 场景构建用例，也是后续强化学习训练（Lesson 4 PPO、Lesson 8 行走控制）和其他课题的**场景前置准备**。
 > 基本逻辑参考 [examples/replicator](../replicator/README.md)。
 

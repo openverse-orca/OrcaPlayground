@@ -40,7 +40,7 @@ git clone -b release/26.7.1 <repo-url> orcaplayground-rl
 - 消除跨样例循环依赖，每个样例自包含训练入口
 - 提供从零到一的 RL 训练教程（而非完整的工程化训练管线）
 
-跟踪进度请关注 `examples/euler/` 目录扩展与 PRD v2 第三部分规划文档。
+跟踪进度请关注独立仓库 `OrcaEulerExamples`（Euler 教程示例已迁移至该仓）与 PRD v2 第三部分规划文档。
 
 ## 旧样例引用清单（供迁移参考）
 

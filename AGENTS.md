@@ -10,7 +10,6 @@ AI 代理执行测试、调试、运行示例脚本时，**必须使用 `orca` c
 # 正确
 conda activate orca
 python examples/character/run_character.py
-python examples/euler/run_simple.py --orcagym_addr localhost:50051 --scene scene.xml
 
 # 错误 — 不要使用 base 或其他环境
 conda activate base
@@ -35,8 +34,10 @@ Euler 体系的架构约束参考 OrcaGym 仓库的架构文档：
 
 ### 新 Example 的开发规范
 
-1. **Env 子类**放在 `examples/euler/` 下，继承 `OrcaGymEulerEnv`
-2. **入口脚本**放在 `examples/euler/` 下，提供命令行启动
+> Euler 教程示例（01_hello_euler ~ 11_scene_config）已迁移至独立仓库 `OrcaEulerExamples`，本仓不再保留。
+
+1. **Env 子类**继承 `OrcaGymEulerEnv`，放在对应示例目录下
+2. **入口脚本**放在对应示例目录下，提供命令行启动
 3. **禁止**在 Env 子类中访问 `env._gym._sim._mjData` 或 `env._gym._mjModel`
 4. **状态读取**使用 `env.data.*`（`OrcaGymDataView`）或 `env.query_*()`
 5. **状态写入**使用 `env.set_*()` 或 `env.apply_body_force()`
@@ -63,10 +64,10 @@ Euler 体系使用 GPU 加速时（MuJoCoFlow / Flow 在 GPU 上求解），**�
 3. **输出捕获用重定向，不用管道**。如需捕获输出，将日志重定向到文件，再单独读取：
    ```bash
    # 正确 — 重定向到文件（通常安全）
-   <conda-base>/envs/orca/bin/python examples/euler/run_simple.py > /tmp/out.log 2>&1
+   <conda-base>/envs/orca/bin/python examples/character/run_character.py > /tmp/out.log 2>&1
 
    # 错误 — 管道触发 sandbox 包裹
-   <conda-base>/envs/orca/bin/python examples/euler/run_simple.py 2>&1 | tail -30
+   <conda-base>/envs/orca/bin/python examples/character/run_character.py 2>&1 | tail -30
    ```
 
 4. **若需切换目录，用 `cd` 链接**。`cd` 已在白名单中，`cd <repo-root> && <conda-base>/envs/orca/bin/python script.py` 整条链在宿主执行。
@@ -75,19 +76,19 @@ Euler 体系使用 GPU 加速时（MuJoCoFlow / Flow 在 GPU 上求解），**�
 
 ```bash
 # ✅ 正确 — 白名单解释器直接调用，无管道
-<conda-base>/envs/orca/bin/python examples/euler/run_simple.py --orcagym_addr localhost:50051 --scene scene.xml
+<conda-base>/envs/orca/bin/python examples/character/run_character.py
 
 # ✅ 正确 — cd 链接 + 白名单解释器
-cd <repo-root> && <conda-base>/envs/orca/bin/python examples/euler/run_loop.py
+cd <repo-root> && <conda-base>/envs/orca/bin/python examples/character/run_character.py
 
 # ✅ 正确 — 重定向到文件捕获输出
-<conda-base>/envs/orca/bin/python examples/euler/run_force.py > /tmp/out.log 2>&1
+<conda-base>/envs/orca/bin/python examples/character/run_character.py > /tmp/out.log 2>&1
 
 # ❌ 错误 — 管道触发 sandbox 包裹，GPU 不可用
-<conda-base>/envs/orca/bin/python examples/euler/run_simple.py 2>&1 | tail -30
+<conda-base>/envs/orca/bin/python examples/character/run_character.py 2>&1 | tail -30
 
 # ❌ 错误 — 非白名单首 token
-bash -c "<conda-base>/envs/orca/bin/python examples/euler/run_simple.py"
+bash -c "<conda-base>/envs/orca/bin/python examples/character/run_character.py"
 ```
 
 ### 识别 sandbox 包裹

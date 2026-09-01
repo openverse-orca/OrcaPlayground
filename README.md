@@ -97,7 +97,6 @@ python examples/embodied/fluid/run_fluid_sim.py
 ```
 OrcaPlayground/
 ├── examples/              # 示例代码目录（每个样例自包含 env 子类 + 入口脚本）
-│   ├── euler/             #   Euler 体系教程（01_hello_euler ~ 11_scene_config）
 │   ├── scene_building/    #   场景构建教程（资产加载 / 场景组装 / 灯光 / 随机化）
 │   ├── embodied/          #   具身场景样例（已迁移 Euler 体系的机器人/角色/流体仿真）
 │   │   ├── _common/       #     公共工具（场景模型扫描等，供 embodied 下样例使用）
