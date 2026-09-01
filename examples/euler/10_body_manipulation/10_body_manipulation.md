@@ -69,6 +69,9 @@ python examples/euler/10_body_manipulation/body_manipulation.py
 
 # 指定 Studio 地址
 python examples/euler/10_body_manipulation/body_manipulation.py --addr 192.168.1.100:50051
+
+# GPU 后端（Euler.SolverMujoco，需 CUDA 可用）
+python examples/euler/10_body_manipulation/body_manipulation.py --device cuda:0
 ```
 
 ### 步骤 3（自动 + 交互）：脚本运行流程

@@ -18,6 +18,9 @@
     python examples/euler/11_scene_config/run_scene_config.py --exp gravity
     python examples/euler/11_scene_config/run_scene_config.py --exp iterations
 
+    # GPU 后端（Euler.SolverMujoco，需 CUDA 可用）
+    python examples/euler/11_scene_config/run_scene_config.py --device cuda:0
+
 验证点:
     1. timestep 小步长能量保持良好（半隐式 Euler），大步长（≥0.1）出现明显漂移
     2. 保守系统下 symplectic Euler 长期能量保持优于 RK4（RK4 非保结构）
@@ -62,7 +65,7 @@ DURATION_SEC_TIMESTEP = 20.0
 # ──────────────────────────────────────────────────────────────
 # 实验 1：timestep 对比
 # ──────────────────────────────────────────────────────────────
-def run_timestep_experiment() -> None:
+def run_timestep_experiment(device: str = "cpu") -> None:
     _log("─" * 60)
     _log("实验 1：timestep 对比（自由摆动 20 秒，action=0，Euler 积分器）")
     _log("  预期：小步长能量保持良好（半隐式 Euler），大步长出现明显漂移/发散")
@@ -74,9 +77,8 @@ def run_timestep_experiment() -> None:
     results: list[tuple[float, float, float, float]] = []
 
     for ts in timesteps:
-        env = SceneConfigEulerEnv(time_step=ts, frame_skip=5)
-        # 显式再设一次，确保 __init__ 后 sim_config.timestep 生效
-        env.sim_config.timestep = ts
+        env = SceneConfigEulerEnv(time_step=ts, frame_skip=5, device=device)
+        # timestep 经构造参数下发（Euler 后端在 solver 构造前固化，构造后只读）。
         # 用 Euler 积分器（半隐式 symplectic），RK4 能量保持更好，差异不显著
         env.sim_config.integrator = INTEGRATOR_EULER
         env.reset()
@@ -100,7 +102,7 @@ def run_timestep_experiment() -> None:
 # ──────────────────────────────────────────────────────────────
 # 实验 2：integrator 对比
 # ──────────────────────────────────────────────────────────────
-def run_integrator_experiment() -> None:
+def run_integrator_experiment(device: str = "cpu") -> None:
     _log("─" * 60)
     _log("实验 2：integrator 对比（timestep=0.05 放大差异，自由摆动 20 秒）")
     _log("  预期：无阻尼保守系统下 symplectic Euler 长期能量保持优于 RK4")
@@ -115,7 +117,7 @@ def run_integrator_experiment() -> None:
     results: list[tuple[str, float, float, float]] = []
 
     for integ_val, name in integrators:
-        env = SceneConfigEulerEnv(time_step=0.05, frame_skip=5)
+        env = SceneConfigEulerEnv(time_step=0.05, frame_skip=5, device=device)
         env.sim_config.integrator = integ_val
         env.reset()
         e_init = env.energy()
@@ -138,7 +140,7 @@ def run_integrator_experiment() -> None:
 # ──────────────────────────────────────────────────────────────
 # 实验 3：gravity 对比
 # ──────────────────────────────────────────────────────────────
-def run_gravity_experiment() -> None:
+def run_gravity_experiment(device: str = "cpu") -> None:
     _log("─" * 60)
     _log("实验 3：gravity 对比（自由摆动，记录 theta 在 t=1..5 秒的值）")
     _log("  预期：地球周期短，月球周期长（√(g) 关系），失重不摆动")
@@ -153,7 +155,7 @@ def run_gravity_experiment() -> None:
     results: list[tuple[str, list[float]]] = []
 
     for grav, name in gravities:
-        env = SceneConfigEulerEnv(time_step=0.002, frame_skip=5)
+        env = SceneConfigEulerEnv(time_step=0.002, frame_skip=5, device=device)
         env.sim_config.gravity = np.array(grav, dtype=np.float64)
         env.reset()
         dt = env.dt
@@ -182,7 +184,7 @@ def run_gravity_experiment() -> None:
 # ──────────────────────────────────────────────────────────────
 # 实验 4：iterations 对比
 # ──────────────────────────────────────────────────────────────
-def run_iterations_experiment() -> None:
+def run_iterations_experiment(device: str = "cpu") -> None:
     _log("─" * 60)
     _log("实验 4：iterations 对比（setter 生效验证）")
     _log("  注：simple_pendulum 无接触，iterations 主要影响接触求解，")
@@ -193,7 +195,7 @@ def run_iterations_experiment() -> None:
     results: list[tuple[int, int, float]] = []
 
     for iters in iterations_list:
-        env = SceneConfigEulerEnv(time_step=0.002, frame_skip=5)
+        env = SceneConfigEulerEnv(time_step=0.002, frame_skip=5, device=device)
         before = env.sim_config.iterations
         env.sim_config.iterations = iters
         after = env.sim_config.iterations
@@ -223,22 +225,28 @@ def main() -> int:
         default="all",
         help="运行哪个实验（默认 all）",
     )
+    parser.add_argument(
+        "--device",
+        default="cpu",
+        help="后端选择：cpu=CPU MuJoCo（默认），cuda:0=Euler.SolverMujoco GPU",
+    )
     args = parser.parse_args()
 
     _log("=" * 60)
     _log("第 11 课：求解器与场景配置深度 — SimConfig 四属性对比")
     _log("  模式: 离线（不需要 OrcaStudio）")
     _log(f"  实验: {args.exp}")
+    _log(f"  后端: {args.device}")
     _log("=" * 60)
 
     if args.exp in ("timestep", "all"):
-        run_timestep_experiment()
+        run_timestep_experiment(device=args.device)
     if args.exp in ("integrator", "all"):
-        run_integrator_experiment()
+        run_integrator_experiment(device=args.device)
     if args.exp in ("gravity", "all"):
-        run_gravity_experiment()
+        run_gravity_experiment(device=args.device)
     if args.exp in ("iterations", "all"):
-        run_iterations_experiment()
+        run_iterations_experiment(device=args.device)
 
     _log("=" * 60)
     _log("第 11 课验证通过")

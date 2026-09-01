@@ -63,6 +63,9 @@ python examples/euler/11_scene_config/run_scene_config.py --exp timestep
 python examples/euler/11_scene_config/run_scene_config.py --exp integrator
 python examples/euler/11_scene_config/run_scene_config.py --exp gravity
 python examples/euler/11_scene_config/run_scene_config.py --exp iterations
+
+# GPU 后端（Euler.SolverMujoco，需 CUDA 可用）
+python examples/euler/11_scene_config/run_scene_config.py --device cuda:0
 ```
 
 ---
@@ -209,6 +212,7 @@ def reset_model(self) -> tuple[np.ndarray, dict]:
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
 | `--exp` | `all` | 运行哪个实验（`timestep`/`integrator`/`gravity`/`iterations`/`all`） |
+| `--device` | `cpu` | 后端选择：`cpu`=CPU MuJoCo（默认），`cuda:0`=Euler.SolverMujoco GPU |
 
 ---
 

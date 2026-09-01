@@ -116,6 +116,9 @@ python examples/euler/09_video_capture/video_capture.py
 # 指定 Studio 地址
 python examples/euler/09_video_capture/video_capture.py --addr 192.168.1.100:50051
 
+# GPU 后端（Euler.SolverMujoco，需 CUDA 可用）
+python examples/euler/09_video_capture/video_capture.py --device cuda:0
+
 # 不加载障碍物（仅 G1，空场景，快速测试）
 python examples/euler/09_video_capture/video_capture.py --no-obstacles
 

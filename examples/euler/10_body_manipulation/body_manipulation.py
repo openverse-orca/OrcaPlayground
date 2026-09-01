@@ -18,6 +18,9 @@
     # 指定 Studio 地址
     python examples/euler/10_body_manipulation/body_manipulation.py --addr 192.168.1.100:50051
 
+    # GPU 后端（Euler.SolverMujoco，需 CUDA 可用）
+    python examples/euler/10_body_manipulation/body_manipulation.py --device cuda:0
+
 交互流程:
     1. G1 无绑定向前行走 3 秒
     2. 暂停，显示菜单，等待用户输入：
@@ -63,6 +66,11 @@ def parse_args() -> argparse.Namespace:
         default=G1_ORCAGYM_ADDR,
         help=f"OrcaStudio gRPC 地址（默认 {G1_ORCAGYM_ADDR}）",
     )
+    parser.add_argument(
+        "--device",
+        default="cpu",
+        help="后端选择：cpu=CPU MuJoCo（默认），cuda:0=Euler.SolverMujoco GPU",
+    )
     return parser.parse_args()
 
 
@@ -75,6 +83,7 @@ def main() -> None:
         agent_names=["g1"],  # 在线模式由场景扫描覆盖为实际 agent_name
         time_step=G1_TIME_STEP,
         model_xml_path=G1_MODEL_XML,
+        device=args.device,
     )
 
     verifier = OnlineVerifier("Lesson 10: 体操作")
