@@ -14,10 +14,10 @@
 
 | # | 验证点 | API | 期望 |
 |---|--------|-----|------|
-| 1 | timestep 精度 | `env.sim_config.timestep = {0.002..0.2}` | 小步长能量保持良好，大步长（≥0.1）漂移明显 |
-| 2 | 积分器能量保持 | `env.sim_config.integrator = Euler/RK4/implicitfast` | 保守系统下 symplectic Euler 长期保持优于 RK4 |
-| 3 | gravity 影响周期 | `env.sim_config.gravity = (0,0,g)` | 地球周期短、月球周期长（√(g) 关系）、失重不摆动 |
-| 4 | iterations setter | `env.sim_config.iterations = {10..500}` | setter 生效（after 等于设定值） |
+| 1 | timestep 精度 | `time_step={0.002..0.2}`（构造参数） | 小步长能量保持良好，大步长（≥0.1）漂移明显 |
+| 2 | 积分器能量保持 | `sim_config_overrides={"integrator": Euler/RK4/implicitfast}` | 保守系统下 symplectic Euler 长期保持优于 RK4 |
+| 3 | gravity 影响周期 | `sim_config_overrides={"gravity": (0,0,g)}` | 地球周期短、月球周期长（√(g) 关系）、失重不摆动 |
+| 4 | iterations 构造期下发 | `sim_config_overrides={"iterations": {10..500}}` | 构造期下发生效（构造完成后 getter 即返回设定值） |
 
 > **本课为对比实验课**，不做强化学习，不依赖 OrcaStudio/OrcaLab。
 > `action=0`（零控）自由摆动，通过 `env.energy()` 读取总能量观察漂移。
@@ -68,6 +68,21 @@ python examples/euler/11_scene_config/run_scene_config.py --exp iterations
 python examples/euler/11_scene_config/run_scene_config.py --device cuda:0
 ```
 
+### GPU 后端说明
+
+四个实验均支持 GPU 后端（`--device cuda:0`）。Euler 后端下 `mj_model.opt` 在
+solver 构造时随 `put_model` 上传 GPU 后固化，**init 后 opt 字段只读**（构造后
+`env.sim_config.<field> = ...` 赋值会触发 setter 守卫抛 `RuntimeError`，见
+OrcaGym P1 设计）。因此 SimConfig 覆盖统一经构造参数在后端固化前下发：
+
+- `timestep` → `time_step` 构造参数（既有通道）；
+- `integrator` / `gravity` / `iterations` → `sim_config_overrides` 构造参数
+  （如 `SceneConfigEulerEnv(sim_config_overrides={"integrator": 0})`）。
+
+构造完成后 `env.sim_config.<field>` 的 getter 即返回覆盖值（双后端一致，getter
+委托 host `mj_model.opt`）。GPU float32 与 CPU float64 存在数值容差，趋势判据
+一致即可。
+
 ---
 
 ## 5. 预期输出
@@ -111,18 +126,19 @@ gravity |   t=1.0s   t=2.0s   t=3.0s   t=4.0s   t=5.0s
 
 **趋势**：月球重力（g=1.62）摆动周期变长（√(g) 关系），失重下摆杆保持初始角度不摆动。
 
-### 实验 4：iterations 对比（setter 生效验证）
+### 实验 4：iterations 对比（构造期下发生效验证）
 
 ```
    iterations(before) |    iterations(after) |   1秒后能量
 ------------------------------------------------------------
-                   10 |                   10 |     0.0000
-                   10 |                  100 |     0.0000
-                   10 |                  500 |     0.0000
+                  100 |                   10 |     0.0000
+                  100 |                  100 |     0.0000
+                  100 |                  500 |     0.0000
 ```
 
-**结论**：setter 生效（after 等于设定值）；`simple_pendulum` 无接触，iterations 主要影响
-接触求解，本场景动力学差异极小，需接触场景验证。
+**结论**：构造期下发生效（after 等于设定值，before 为 XML 默认 100）；
+`simple_pendulum` 无接触，iterations 主要影响接触求解，本场景动力学差异极小，
+需接触场景验证。双后端行为一致即为本实验的验证目标。
 
 ### 通过条件
 
@@ -130,7 +146,7 @@ gravity |   t=1.0s   t=2.0s   t=3.0s   t=4.0s   t=5.0s
 - ✅ timestep 漂移随步长单调增大
 - ✅ RK4 漂移显著大于 Euler
 - ✅ 失重场景 theta 保持不变
-- ✅ iterations setter 生效
+- ✅ iterations 构造期下发生效（after 等于设定值）
 
 ---
 
@@ -161,16 +177,34 @@ env = SceneConfigEulerEnv(
 - `skip_grpc_load=True`：跳过 gRPC，直接用本地 MuJoCo 仿真。
 - `time_step` / `frame_skip`：物理步长与控制频率。
 
-#### 6.2 配置求解器
+#### 6.2 配置求解器（构造期下发）
 
 ```python
-env.sim_config.timestep = 0.05           # 修改步长
-env.sim_config.integrator = 0            # Euler（半隐式 symplectic）
-env.sim_config.gravity = np.array([0, 0, -1.62])  # 月球重力
-env.sim_config.iterations = 100          # 求解器迭代次数
+# timestep 走 time_step 构造参数（既有通道）
+env = SceneConfigEulerEnv(
+    time_step=0.05,
+    frame_skip=5,
+    skip_grpc_load=True,   # 离线模式，不需要 OrcaStudio
+    # integrator/gravity/iterations 走 sim_config_overrides 构造期下发
+    sim_config_overrides={
+        "integrator": 0,                        # Euler（半隐式 symplectic）
+        # "gravity": np.array([0, 0, -1.62]),   # 月球重力
+        # "iterations": 100,                    # 求解器迭代次数
+    },
+)
 ```
 
-> **API 隔离**：通过 `env.sim_config.*` 公共 API 配置，不访问 `_mjModel.opt.*` 内部属性。
+- `skip_grpc_load=True`：跳过 gRPC，直接用本地 MuJoCo 仿真。
+- `time_step` / `frame_skip`：物理步长与控制频率。
+- `sim_config_overrides`：在后端固化前下发（Euler 后端 init 后 opt 只读），
+  合法键为 `integrator`/`gravity`/`iterations`（`timestep` 键会被拒绝，
+  与 `time_step` 构造参数双通道冲突）。构造完成后
+  `env.sim_config.integrator` 等 getter 即返回覆盖值。
+
+> **API 隔离**：通过构造参数 + `env.sim_config.*` 公共 API 配置，不访问
+> `_mjModel.opt.*` 内部属性。CPU 后端下运行期 setter（如
+> `env.sim_config.iterations = 100`）仍可用；Euler 后端下 init 后赋值会触发
+> 只读守卫，请统一使用构造期下发。
 
 #### 6.3 能量计算（`scene_config_env.py`）
 
@@ -250,8 +284,17 @@ python examples/euler/11_scene_config/run_scene_config.py
 
 **原因**：`simple_pendulum` 无接触，iterations 主要影响接触约束求解。
 
-**解决**：本实验仅验证 setter 生效。接触场景差异需扩展 XML（添加地面/接触对）后验证，
+**解决**：本实验仅验证构造期下发生效。接触场景差异需扩展 XML（添加地面/接触对）后验证，
 待 OrcaGym 扩展 `sim_config` 接触配置 API 后补充。
+
+### Q5：Euler 后端构造后修改 `env.sim_config.*` 抛 `RuntimeError`
+
+**原因**：Euler 后端下 `mj_model.opt` 在 solver 构造时上传 GPU 后固化，init 后
+opt 字段只读（P1 设计的 setter 守卫）。
+
+**解决**：改用构造期下发——`timestep` 走 `time_step` 构造参数，
+`integrator`/`gravity`/`iterations` 走 `sim_config_overrides` 构造参数
+（见 §4 "GPU 后端说明"）。
 
 ---
 

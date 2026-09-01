@@ -52,6 +52,7 @@ class SceneConfigEulerEnv(OrcaGymEulerEnv):
         time_step: float = 0.002,
         frame_skip: int = 5,
         skip_grpc_load: bool = True,
+        sim_config_overrides: dict | None = None,
         **kwargs,
     ) -> None:
         if agent_names is None:
@@ -63,6 +64,7 @@ class SceneConfigEulerEnv(OrcaGymEulerEnv):
             time_step=time_step,
             model_xml_path=_SCENE_XML,
             skip_grpc_load=skip_grpc_load,
+            sim_config_overrides=sim_config_overrides,
             **kwargs,
         )
         self._step_count = 0

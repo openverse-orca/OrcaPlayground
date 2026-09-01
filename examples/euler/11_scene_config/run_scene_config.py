@@ -25,9 +25,13 @@
     1. timestep 小步长能量保持良好（半隐式 Euler），大步长（≥0.1）出现明显漂移
     2. 保守系统下 symplectic Euler 长期能量保持优于 RK4（RK4 非保结构）
     3. 月球重力下摆动周期变长（√(g) 关系），失重下不摆动
-    4. iterations setter 生效（打印前后值）；无接触场景动力学差异小
+    4. iterations 构造期下发生效（构造完成后 getter 即返回覆盖值）；
+       无接触场景动力学差异小
 
-注: SimConfig 当前仅暴露 4 个属性（timestep/integrator/iterations/gravity），
+注: SimConfig 覆盖经构造参数 ``sim_config_overrides`` 在后端固化前下发
+    （Euler 后端 init 后 opt 只读，构造后赋值会触发 setter 守卫；双后端
+    构造完成后 ``env.sim_config.<field>`` getter 均返回覆盖值）。
+    SimConfig 当前仅暴露 4 个属性（timestep/integrator/iterations/gravity），
     contact/flags 等深度配置待 OrcaGym 扩展后补充。
 """
 
@@ -77,10 +81,15 @@ def run_timestep_experiment(device: str = "cpu") -> None:
     results: list[tuple[float, float, float, float]] = []
 
     for ts in timesteps:
-        env = SceneConfigEulerEnv(time_step=ts, frame_skip=5, device=device)
-        # timestep 经构造参数下发（Euler 后端在 solver 构造前固化，构造后只读）。
+        env = SceneConfigEulerEnv(
+            time_step=ts,
+            frame_skip=5,
+            device=device,
+            sim_config_overrides={"integrator": INTEGRATOR_EULER},
+        )
+        # timestep 经构造参数下发，integrator 经 sim_config_overrides 构造期下发
+        # （Euler 后端 init 后 opt 只读，构造后赋值会触发 setter 守卫）。
         # 用 Euler 积分器（半隐式 symplectic），RK4 能量保持更好，差异不显著
-        env.sim_config.integrator = INTEGRATOR_EULER
         env.reset()
         e_init = env.energy()
         steps = int(DURATION_SEC_TIMESTEP / env.dt)
@@ -117,8 +126,12 @@ def run_integrator_experiment(device: str = "cpu") -> None:
     results: list[tuple[str, float, float, float]] = []
 
     for integ_val, name in integrators:
-        env = SceneConfigEulerEnv(time_step=0.05, frame_skip=5, device=device)
-        env.sim_config.integrator = integ_val
+        env = SceneConfigEulerEnv(
+            time_step=0.05,
+            frame_skip=5,
+            device=device,
+            sim_config_overrides={"integrator": integ_val},
+        )
         env.reset()
         e_init = env.energy()
         steps = int(DURATION_SEC_TIMESTEP / env.dt)
@@ -155,8 +168,12 @@ def run_gravity_experiment(device: str = "cpu") -> None:
     results: list[tuple[str, list[float]]] = []
 
     for grav, name in gravities:
-        env = SceneConfigEulerEnv(time_step=0.002, frame_skip=5, device=device)
-        env.sim_config.gravity = np.array(grav, dtype=np.float64)
+        env = SceneConfigEulerEnv(
+            time_step=0.002,
+            frame_skip=5,
+            device=device,
+            sim_config_overrides={"gravity": np.array(grav, dtype=np.float64)},
+        )
         env.reset()
         dt = env.dt
         max_steps = int(DURATION_SEC / dt)
@@ -186,19 +203,25 @@ def run_gravity_experiment(device: str = "cpu") -> None:
 # ──────────────────────────────────────────────────────────────
 def run_iterations_experiment(device: str = "cpu") -> None:
     _log("─" * 60)
-    _log("实验 4：iterations 对比（setter 生效验证）")
+    _log("实验 4：iterations 对比（构造期下发生效验证）")
     _log("  注：simple_pendulum 无接触，iterations 主要影响接触求解，")
-    _log("      本场景动力学差异极小，仅验证 setter 生效。")
+    _log("      本场景动力学差异极小，仅验证构造期下发生效。")
     _log("─" * 60)
 
     iterations_list = [10, 100, 500]
     results: list[tuple[int, int, float]] = []
 
     for iters in iterations_list:
-        env = SceneConfigEulerEnv(time_step=0.002, frame_skip=5, device=device)
-        before = env.sim_config.iterations
-        env.sim_config.iterations = iters
+        env = SceneConfigEulerEnv(
+            time_step=0.002,
+            frame_skip=5,
+            device=device,
+            sim_config_overrides={"iterations": iters},
+        )
+        # 构造期下发：构造完成后 getter 即返回覆盖值（双后端一致，
+        # getter 委托 host mj_model.opt）
         after = env.sim_config.iterations
+        before = 100  # XML 默认值（simple_pendulum.xml opt 无 iterations 属性）
         env.reset()
         # 跑 1 秒看是否有明显差异（预期无）
         steps = int(1.0 / env.dt)
@@ -213,7 +236,8 @@ def run_iterations_experiment(device: str = "cpu") -> None:
     _log("-" * 60)
     for before, after, e_final in results:
         _log(f"{before:>20} | {after:>20} | {e_final:>10.4f}")
-    _log("  结论：setter 生效（after 等于设定值）；动力学差异需接触场景验证")
+    _log("  结论：构造期下发生效（after 等于设定值，before 为 XML 默认 100）；")
+    _log("        双后端行为一致即为本实验的验证目标")
     _log("")
 
 
@@ -253,7 +277,7 @@ def main() -> int:
     _log("  ✓ timestep 小步长能量保持良好，大步长（≥0.1）漂移明显")
     _log("  ✓ 保守系统下 symplectic Euler 长期能量保持优于 RK4")
     _log("  ✓ 重力影响摆动周期（√(g) 关系）")
-    _log("  ✓ iterations setter 生效（接触场景差异待扩展 XML 验证）")
+    _log("  ✓ iterations 构造期下发生效（接触场景差异待扩展 XML 验证）")
     _log("=" * 60)
     return 0
 
