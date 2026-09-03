@@ -30,11 +30,13 @@ pip install -r requirements.txt
 如果你要运行重依赖样例，再额外安装对应目录下的依赖：
 
 ```bash
-# 例如：fluid
+# 例如：fluid / cloth
 pip install -r examples/embodied/fluid/requirements.txt
+pip install -r examples/embodied/cloth/requirements.txt
 
 # 或使用 setuptools extras（适合源码开发）
 pip install -e ".[fluid]"
+pip install -e ".[cloth]"
 ```
 
 #### 步骤 3：在当前目录启动 OrcaLab
@@ -132,6 +134,7 @@ OrcaPlayground/
 - **OrcaLocomotion** - [`examples/orca_locomotion/README.md`](examples/orca_locomotion/README.md)：PyPI 包回放 Go2 / G1 运动控制策略
 - **场景复制** - [`examples/embodied/replicator/README.md`](examples/embodied/replicator/README.md)：Actor 与 Light 批量生成
 - **流体仿真** - [`examples/embodied/fluid/README.md`](examples/embodied/fluid/README.md)：SPH 流体与 MuJoCo 刚体耦合
+- **布料仿真** - [`examples/embodied/cloth/README.md`](examples/embodied/cloth/README.md)：XPBD 布料与 MuJoCo 刚体耦合
 
 > **强化学习样例**：原有的 `ant_rl`、`franka_rl`、`legged_gym` 三个 RL 样例已从主分支移除，详见 [`examples/LEGACY_RL.md`](examples/LEGACY_RL.md)。这些样例仍可在 `release/26.7.1` 分支中获取，新的 Euler 兼容 RL 样例正在开发中。
 

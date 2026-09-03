@@ -75,3 +75,10 @@ display_name = "run_fluid_sim"
 command = "python"
 args = [ "-m", "examples.embodied.fluid.run_fluid_sim",]
 description = "启动流体仿真"
+
+[[external_programs.programs]]
+name = "cloth_sim"
+display_name = "run_cloth_sim"
+command = "python"
+args = [ "-m", "examples.embodied.cloth.run_cloth_sim",]
+description = "启动布料仿真"

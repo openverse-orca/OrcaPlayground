@@ -1,0 +1,207 @@
+<mujoco model="phase1_slide">
+  <!--
+    MjcPBD phase1：单夹爪推块（无布）+ steering 转台（测旋转跟随）
+    6 个 OrcaLink body；每刚体 4 个 SITE 锚点 = 质心重合的正四面体顶点，
+    外接球半径 R = ||(hx,hy,hz)||，覆盖盒体 geom（见 modules/anchor_tetrahedron.py）。
+    GUI：anchor_sphere 半透明球 + anchor_* SITE + anchor_edge_* 胶囊棱边。
+  -->
+  <compiler angle="degree" autolimits="true"/>
+  <option timestep="0.001" gravity="0 0 -9.81" integrator="implicitfast" solver="CG"
+          cone="elliptic" impratio="12" tolerance="1e-7" iterations="200" noslip_iterations="2"/>
+  <default>
+    <joint damping="0.30" armature="0.001"/>
+    <geom solref="0.025 1.2" solimp="0.94 0.997 0.0008" condim="3" friction="0.45 0.02 0.005"/>
+    <default class="anchor_viz">
+      <geom contype="0" conaffinity="0" group="1"/>
+      <site size="0.007" group="2"/>
+    </default>
+  </default>
+
+  <visual>
+    <headlight diffuse="0.8 0.8 0.8" ambient="0.2 0.2 0.2" specular="0.25 0.25 0.25"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+  </visual>
+
+  <worldbody>
+    <light pos="0.5 -0.5 1.5" dir="-0.3 0.3 -1"/>
+    <camera name="main" pos="1.1 -0.9 0.55" xyaxes="0.75 0.66 0 -0.28 0.32 0.90"/>
+
+    <body name="base" pos="0 0 0.1">
+      <geom name="base_geom" type="box" size="0.5 0.5 0.1" rgba="0.24 0.42 0.78 1"
+            friction="0.45 0.02 0.005"/>
+      <!-- R=0.714143 hx,hy,hz=0.5,0.5,0.1 -->
+      <geom name="base_anchor_sphere" class="anchor_viz" type="sphere" size="0.714143"
+            rgba="0.25 0.85 0.40 0.14"/>
+      <site name="base_anchor_0" class="anchor_viz" pos="0.412311 0.412311 0.412311" rgba="1 0.25 0.25 1"/>
+      <site name="base_anchor_1" class="anchor_viz" pos="0.412311 -0.412311 -0.412311" rgba="1 0.55 0.25 1"/>
+      <site name="base_anchor_2" class="anchor_viz" pos="-0.412311 0.412311 -0.412311" rgba="0.25 0.55 1 1"/>
+      <site name="base_anchor_3" class="anchor_viz" pos="-0.412311 -0.412311 0.412311" rgba="0.85 0.25 1 1"/>
+      <geom name="base_anchor_edge_01" class="anchor_viz" type="capsule" size="0.003"
+            fromto="0.412311 0.412311 0.412311 0.412311 -0.412311 -0.412311" rgba="0.95 0.95 0.2 0.55"/>
+      <geom name="base_anchor_edge_02" class="anchor_viz" type="capsule" size="0.003"
+            fromto="0.412311 0.412311 0.412311 -0.412311 0.412311 -0.412311" rgba="0.95 0.95 0.2 0.55"/>
+      <geom name="base_anchor_edge_03" class="anchor_viz" type="capsule" size="0.003"
+            fromto="0.412311 0.412311 0.412311 -0.412311 -0.412311 0.412311" rgba="0.95 0.95 0.2 0.55"/>
+      <geom name="base_anchor_edge_12" class="anchor_viz" type="capsule" size="0.003"
+            fromto="0.412311 -0.412311 -0.412311 -0.412311 0.412311 -0.412311" rgba="0.95 0.95 0.2 0.55"/>
+      <geom name="base_anchor_edge_13" class="anchor_viz" type="capsule" size="0.003"
+            fromto="0.412311 -0.412311 -0.412311 -0.412311 -0.412311 0.412311" rgba="0.95 0.95 0.2 0.55"/>
+      <geom name="base_anchor_edge_23" class="anchor_viz" type="capsule" size="0.003"
+            fromto="-0.412311 0.412311 -0.412311 -0.412311 -0.412311 0.412311" rgba="0.95 0.95 0.2 0.55"/>
+    </body>
+
+    <body name="cube" pos="0 0 0.225">
+      <freejoint name="cube_free"/>
+      <geom name="cube_geom" type="box" size="0.025 0.025 0.025" mass="0.12"
+            rgba="0.92 0.55 0.15 1" friction="0.50 0.03 0.008"/>
+      <!-- R=0.043301 -->
+      <geom name="cube_anchor_sphere" class="anchor_viz" type="sphere" size="0.043301"
+            rgba="0.25 0.85 0.40 0.18"/>
+      <site name="cube_anchor_0" class="anchor_viz" pos="0.025 0.025 0.025" rgba="1 0.25 0.25 1"/>
+      <site name="cube_anchor_1" class="anchor_viz" pos="0.025 -0.025 -0.025" rgba="1 0.55 0.25 1"/>
+      <site name="cube_anchor_2" class="anchor_viz" pos="-0.025 0.025 -0.025" rgba="0.25 0.55 1 1"/>
+      <site name="cube_anchor_3" class="anchor_viz" pos="-0.025 -0.025 0.025" rgba="0.85 0.25 1 1"/>
+      <geom name="cube_anchor_edge_01" class="anchor_viz" type="capsule" size="0.002"
+            fromto="0.025 0.025 0.025 0.025 -0.025 -0.025" rgba="0.95 0.95 0.2 0.55"/>
+      <geom name="cube_anchor_edge_02" class="anchor_viz" type="capsule" size="0.002"
+            fromto="0.025 0.025 0.025 -0.025 0.025 -0.025" rgba="0.95 0.95 0.2 0.55"/>
+      <geom name="cube_anchor_edge_03" class="anchor_viz" type="capsule" size="0.002"
+            fromto="0.025 0.025 0.025 -0.025 -0.025 0.025" rgba="0.95 0.95 0.2 0.55"/>
+      <geom name="cube_anchor_edge_12" class="anchor_viz" type="capsule" size="0.002"
+            fromto="0.025 -0.025 -0.025 -0.025 0.025 -0.025" rgba="0.95 0.95 0.2 0.55"/>
+      <geom name="cube_anchor_edge_13" class="anchor_viz" type="capsule" size="0.002"
+            fromto="0.025 -0.025 -0.025 -0.025 -0.025 0.025" rgba="0.95 0.95 0.2 0.55"/>
+      <geom name="cube_anchor_edge_23" class="anchor_viz" type="capsule" size="0.002"
+            fromto="-0.025 0.025 -0.025 -0.025 -0.025 0.025" rgba="0.95 0.95 0.2 0.55"/>
+    </body>
+
+    <body name="gripper_palm" pos="-0.18 0 0.36">
+      <joint name="gripper_slide_x" type="slide" axis="1 0 0" range="-0.05 0.35" damping="25"/>
+      <joint name="gripper_slide_y" type="slide" axis="0 1 0" range="-0.15 0.15" damping="25"/>
+      <joint name="gripper_slide_z" type="slide" axis="0 0 1" range="-0.10 0.05" damping="35"/>
+      <geom name="gripper_palm_geom" type="box" size="0.045 0.035 0.025"
+            rgba="0.30 0.30 0.30 1" friction="1.0 0.04 0.01"/>
+      <!-- R=0.062249 -->
+      <geom name="gripper_palm_anchor_sphere" class="anchor_viz" type="sphere" size="0.062249"
+            rgba="0.25 0.85 0.40 0.18"/>
+      <site name="gripper_palm_anchor_0" class="anchor_viz" pos="0.035937 0.035937 0.035937" rgba="1 0.25 0.25 1"/>
+      <site name="gripper_palm_anchor_1" class="anchor_viz" pos="0.035937 -0.035937 -0.035937" rgba="1 0.55 0.25 1"/>
+      <site name="gripper_palm_anchor_2" class="anchor_viz" pos="-0.035937 0.035937 -0.035937" rgba="0.25 0.55 1 1"/>
+      <site name="gripper_palm_anchor_3" class="anchor_viz" pos="-0.035937 -0.035937 0.035937" rgba="0.85 0.25 1 1"/>
+      <geom name="gripper_palm_anchor_edge_01" class="anchor_viz" type="capsule" size="0.002"
+            fromto="0.035937 0.035937 0.035937 0.035937 -0.035937 -0.035937" rgba="0.95 0.95 0.2 0.55"/>
+      <geom name="gripper_palm_anchor_edge_02" class="anchor_viz" type="capsule" size="0.002"
+            fromto="0.035937 0.035937 0.035937 -0.035937 0.035937 -0.035937" rgba="0.95 0.95 0.2 0.55"/>
+      <geom name="gripper_palm_anchor_edge_03" class="anchor_viz" type="capsule" size="0.002"
+            fromto="0.035937 0.035937 0.035937 -0.035937 -0.035937 0.035937" rgba="0.95 0.95 0.2 0.55"/>
+      <geom name="gripper_palm_anchor_edge_12" class="anchor_viz" type="capsule" size="0.002"
+            fromto="0.035937 -0.035937 -0.035937 -0.035937 0.035937 -0.035937" rgba="0.95 0.95 0.2 0.55"/>
+      <geom name="gripper_palm_anchor_edge_13" class="anchor_viz" type="capsule" size="0.002"
+            fromto="0.035937 -0.035937 -0.035937 -0.035937 -0.035937 0.035937" rgba="0.95 0.95 0.2 0.55"/>
+      <geom name="gripper_palm_anchor_edge_23" class="anchor_viz" type="capsule" size="0.002"
+            fromto="-0.035937 0.035937 -0.035937 -0.035937 -0.035937 0.035937" rgba="0.95 0.95 0.2 0.55"/>
+
+      <body name="gripper_finger1" pos="0 0.050 -0.070">
+        <joint name="gripper_finger1_slide" type="slide" axis="0 -1 0" range="0 0.042" damping="10"/>
+        <geom name="gripper_finger1_geom" type="box" size="0.012 0.022 0.045"
+              rgba="0.15 0.15 0.15 1" condim="4" friction="1.2 0.05 0.01"/>
+        <!-- R=0.051507 -->
+        <geom name="gripper_finger1_anchor_sphere" class="anchor_viz" type="sphere" size="0.051507"
+              rgba="0.25 0.85 0.40 0.18"/>
+        <site name="gripper_finger1_anchor_0" class="anchor_viz" pos="0.029750 0.029750 0.029750" rgba="1 0.25 0.25 1"/>
+        <site name="gripper_finger1_anchor_1" class="anchor_viz" pos="0.029750 -0.029750 -0.029750" rgba="1 0.55 0.25 1"/>
+        <site name="gripper_finger1_anchor_2" class="anchor_viz" pos="-0.029750 0.029750 -0.029750" rgba="0.25 0.55 1 1"/>
+        <site name="gripper_finger1_anchor_3" class="anchor_viz" pos="-0.029750 -0.029750 0.029750" rgba="0.85 0.25 1 1"/>
+        <geom name="gripper_finger1_anchor_edge_01" class="anchor_viz" type="capsule" size="0.002"
+              fromto="0.029750 0.029750 0.029750 0.029750 -0.029750 -0.029750" rgba="0.95 0.95 0.2 0.55"/>
+        <geom name="gripper_finger1_anchor_edge_02" class="anchor_viz" type="capsule" size="0.002"
+              fromto="0.029750 0.029750 0.029750 -0.029750 0.029750 -0.029750" rgba="0.95 0.95 0.2 0.55"/>
+        <geom name="gripper_finger1_anchor_edge_03" class="anchor_viz" type="capsule" size="0.002"
+              fromto="0.029750 0.029750 0.029750 -0.029750 -0.029750 0.029750" rgba="0.95 0.95 0.2 0.55"/>
+        <geom name="gripper_finger1_anchor_edge_12" class="anchor_viz" type="capsule" size="0.002"
+              fromto="0.029750 -0.029750 -0.029750 -0.029750 0.029750 -0.029750" rgba="0.95 0.95 0.2 0.55"/>
+        <geom name="gripper_finger1_anchor_edge_13" class="anchor_viz" type="capsule" size="0.002"
+              fromto="0.029750 -0.029750 -0.029750 -0.029750 -0.029750 0.029750" rgba="0.95 0.95 0.2 0.55"/>
+        <geom name="gripper_finger1_anchor_edge_23" class="anchor_viz" type="capsule" size="0.002"
+              fromto="-0.029750 0.029750 -0.029750 -0.029750 -0.029750 0.029750" rgba="0.95 0.95 0.2 0.55"/>
+      </body>
+
+      <body name="gripper_finger2" pos="0 -0.050 -0.070">
+        <joint name="gripper_finger2_slide" type="slide" axis="0 1 0" range="0 0.042" damping="10"/>
+        <geom name="gripper_finger2_geom" type="box" size="0.012 0.022 0.045"
+              rgba="0.15 0.15 0.15 1" condim="4" friction="1.2 0.05 0.01"/>
+        <geom name="gripper_finger2_anchor_sphere" class="anchor_viz" type="sphere" size="0.051507"
+              rgba="0.25 0.85 0.40 0.18"/>
+        <site name="gripper_finger2_anchor_0" class="anchor_viz" pos="0.029750 0.029750 0.029750" rgba="1 0.25 0.25 1"/>
+        <site name="gripper_finger2_anchor_1" class="anchor_viz" pos="0.029750 -0.029750 -0.029750" rgba="1 0.55 0.25 1"/>
+        <site name="gripper_finger2_anchor_2" class="anchor_viz" pos="-0.029750 0.029750 -0.029750" rgba="0.25 0.55 1 1"/>
+        <site name="gripper_finger2_anchor_3" class="anchor_viz" pos="-0.029750 -0.029750 0.029750" rgba="0.85 0.25 1 1"/>
+        <geom name="gripper_finger2_anchor_edge_01" class="anchor_viz" type="capsule" size="0.002"
+              fromto="0.029750 0.029750 0.029750 0.029750 -0.029750 -0.029750" rgba="0.95 0.95 0.2 0.55"/>
+        <geom name="gripper_finger2_anchor_edge_02" class="anchor_viz" type="capsule" size="0.002"
+              fromto="0.029750 0.029750 0.029750 -0.029750 0.029750 -0.029750" rgba="0.95 0.95 0.2 0.55"/>
+        <geom name="gripper_finger2_anchor_edge_03" class="anchor_viz" type="capsule" size="0.002"
+              fromto="0.029750 0.029750 0.029750 -0.029750 -0.029750 0.029750" rgba="0.95 0.95 0.2 0.55"/>
+        <geom name="gripper_finger2_anchor_edge_12" class="anchor_viz" type="capsule" size="0.002"
+              fromto="0.029750 -0.029750 -0.029750 -0.029750 0.029750 -0.029750" rgba="0.95 0.95 0.2 0.55"/>
+        <geom name="gripper_finger2_anchor_edge_13" class="anchor_viz" type="capsule" size="0.002"
+              fromto="0.029750 -0.029750 -0.029750 -0.029750 -0.029750 0.029750" rgba="0.95 0.95 0.2 0.55"/>
+        <geom name="gripper_finger2_anchor_edge_23" class="anchor_viz" type="capsule" size="0.002"
+              fromto="-0.029750 0.029750 -0.029750 -0.029750 -0.029750 0.029750" rgba="0.95 0.95 0.2 0.55"/>
+      </body>
+    </body>
+
+    <!-- steering：薄板 0.1m×0.06m×0.05m；质心 (0.3,0,0.225)；绕 Z 匀速转；与 base/cube/夹爪无碰撞 -->
+    <body name="steering" pos="0.3 0 0.225">
+      <joint name="steering_hinge" type="hinge" axis="0 0 1" limited="false" damping="0.05"
+             armature="0.001"/>
+      <geom name="steering_geom" type="box" size="0.05 0.03 0.025" mass="0.08"
+            rgba="0.55 0.35 0.85 1" friction="0.45 0.02 0.005"
+            contype="2" conaffinity="0"/>
+      <!-- R=0.063482 hx,hy,hz=0.05,0.03,0.025 -->
+      <geom name="steering_anchor_sphere" class="anchor_viz" type="sphere" size="0.063482"
+            rgba="0.25 0.85 0.40 0.18"/>
+      <site name="steering_anchor_0" class="anchor_viz" pos="0.036655 0.036655 0.036655" rgba="1 0.25 0.25 1"/>
+      <site name="steering_anchor_1" class="anchor_viz" pos="0.036655 -0.036655 -0.036655" rgba="1 0.55 0.25 1"/>
+      <site name="steering_anchor_2" class="anchor_viz" pos="-0.036655 0.036655 -0.036655" rgba="0.25 0.55 1 1"/>
+      <site name="steering_anchor_3" class="anchor_viz" pos="-0.036655 -0.036655 0.036655" rgba="0.85 0.25 1 1"/>
+      <geom name="steering_anchor_edge_01" class="anchor_viz" type="capsule" size="0.002"
+            fromto="0.036655 0.036655 0.036655 0.036655 -0.036655 -0.036655" rgba="0.95 0.95 0.2 0.55"/>
+      <geom name="steering_anchor_edge_02" class="anchor_viz" type="capsule" size="0.002"
+            fromto="0.036655 0.036655 0.036655 -0.036655 0.036655 -0.036655" rgba="0.95 0.95 0.2 0.55"/>
+      <geom name="steering_anchor_edge_03" class="anchor_viz" type="capsule" size="0.002"
+            fromto="0.036655 0.036655 0.036655 -0.036655 -0.036655 0.036655" rgba="0.95 0.95 0.2 0.55"/>
+      <geom name="steering_anchor_edge_12" class="anchor_viz" type="capsule" size="0.002"
+            fromto="0.036655 -0.036655 -0.036655 -0.036655 0.036655 -0.036655" rgba="0.95 0.95 0.2 0.55"/>
+      <geom name="steering_anchor_edge_13" class="anchor_viz" type="capsule" size="0.002"
+            fromto="0.036655 -0.036655 -0.036655 -0.036655 -0.036655 0.036655" rgba="0.95 0.95 0.2 0.55"/>
+      <geom name="steering_anchor_edge_23" class="anchor_viz" type="capsule" size="0.002"
+            fromto="-0.036655 0.036655 -0.036655 -0.036655 -0.036655 0.036655" rgba="0.95 0.95 0.2 0.55"/>
+    </body>
+  </worldbody>
+
+  <equality>
+    <joint joint1="gripper_finger1_slide" joint2="gripper_finger2_slide"/>
+  </equality>
+
+  <tendon>
+    <fixed name="gripper_grasp">
+      <joint joint="gripper_finger1_slide" coef="0.35"/>
+      <joint joint="gripper_finger2_slide" coef="0.35"/>
+    </fixed>
+  </tendon>
+
+  <actuator>
+    <position name="gripper_move_x" joint="gripper_slide_x" kp="180" dampratio="1"
+              ctrlrange="-0.05 0.35"/>
+    <position name="gripper_move_y" joint="gripper_slide_y" kp="700" dampratio="1"
+              ctrlrange="-0.15 0.15"/>
+    <position name="gripper_move_z" joint="gripper_slide_z" kp="850" dampratio="1"
+              ctrlrange="-0.10 0.05"/>
+    <position name="gripper_grasp_ctrl" tendon="gripper_grasp" kp="1250" dampratio="1"
+              ctrlrange="0 0.042"/>
+    <!-- 俯视 +Z 顺时针：角速度为负（rad/s） -->
+    <velocity name="steering_spin" joint="steering_hinge" ctrlrange="-8 8" kv="15"/>
+  </actuator>
+
+</mujoco>
