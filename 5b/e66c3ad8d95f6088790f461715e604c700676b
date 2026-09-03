@@ -1,0 +1,32 @@
+README.md
+  s_e288066fd5d81e::t_55d179952ca374 7,9-15
+  s_e288066fd5d81e::t_d21221da7557be 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.2",
+  "base_commit_sha": "5be66c3ad8d95f6088790f461715e604c700676b",
+  "prompts": {},
+  "sessions": {
+    "s_e288066fd5d81e": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a968f897c70804470f2f871",
+        "model": "glm-5v-turbo__dev"
+      },
+      "human_author": "guojiatao <1570601232@qq.com>",
+      "custom_attributes": {
+        "operation_id": "6a992abd8637c8cc09459253",
+        "source_scene": "agent",
+        "runtime_client": "trae-tob-git-ai",
+        "tool_use_id": "6a992abd8637c8cc09459253",
+        "display_model_name": "GLM-5V-Turbo",
+        "edit_kind": "file_edit",
+        "tool_name": "Edit",
+        "external_session_id": "6a968f897c70804470f2f871",
+        "session_id": "6a968f897c70804470f2f871",
+        "client_type": "ide"
+      }
+    }
+  }
+}
