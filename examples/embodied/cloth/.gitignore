@@ -1,0 +1,6 @@
+# Runtime session（由 refresh_xpbd_session_from_mjcf / verify 生成，勿提交）
+cloth_sim_session*.json
+cloth_sim_session.json
+
+# 本地 symlink 或编辑器临时备份
+*.bak
