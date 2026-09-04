@@ -9,6 +9,8 @@ import logging
 from typing import Dict, List
 import re
 
+from .body_name_map import resolve_internal_prefix
+
 # 设置日志
 logger = logging.getLogger(__name__)
 if not logger.handlers:
@@ -86,6 +88,14 @@ class ConfigGenerator:
         except Exception as e:
             logger.error(f"Error identifying SPH bodies: {e}", exc_info=True)
             return []
+
+    def _mujoco_body_id(self, body_name: str) -> int:
+        """取 body 在 MuJoCo 模型里的真实 id（字典 ID 字段），不是 enumerate 下标。"""
+        body_dict = self.model.get_body_dict() or {}
+        info = body_dict.get(body_name) or {}
+        if "ID" in info:
+            return int(info["ID"])
+        return int(self.model.body_name2id(body_name))
     
     def extract_sites_for_body(self, body_name: str) -> Dict[str, List[str]]:
         """
@@ -108,11 +118,17 @@ class ConfigGenerator:
 
         try:
             site_dict = self.model.get_site_dict()
-            body_id = self.model.body_name2id(body_name)
+            body_id = self._mujoco_body_id(body_name)
 
-            # 第1步：通过 BodyID 收集属于该 body 的 SPH_SITE
+            # 第1步：通过真实 BodyID 收集属于该 body 的 SPH_SITE
             for site_name, site_info in site_dict.items():
-                if site_info.get("BodyID") != body_id:
+                site_body_id = site_info.get("BodyID")
+                if site_body_id is None:
+                    continue
+                try:
+                    if int(site_body_id) != body_id:
+                        continue
+                except (TypeError, ValueError):
                     continue
                 if "SPH_SITE" in site_name and "SPH_MOCAP_SITE" not in site_name:
                     sph_sites.append(site_name)
@@ -173,10 +189,12 @@ class ConfigGenerator:
             match = re.search(r'SPH_MOCAP_SITE_(\d+)$', mocap_site_name)
             if match:
                 index = int(match.group(1))
-                # 构造 mocap BODY 名称（不是 site 名称）
-                mocap_body_name = f"{body_name}_SPH_MOCAP_{index:03d}"
+                # mocap body 名跟 SITE 一样用内部 ID 前缀，不能用描述性 body 名
+                internal_prefix = site_name.split("_SPH_SITE_")[0]
+                mocap_body_name = f"{internal_prefix}_SPH_MOCAP_{index:03d}"
             else:
-                mocap_body_name = f"{body_name}_SPH_MOCAP_{i:03d}"
+                internal_prefix = resolve_internal_prefix(self.model, body_name)
+                mocap_body_name = f"{internal_prefix}_SPH_MOCAP_{i:03d}"
             
             connection_points.append({
                 "point_id": site_name,  # 使用实际 site 名称
@@ -188,7 +206,9 @@ class ConfigGenerator:
     
     def generate_rigid_bodies_force_position(self) -> List[Dict]:
         """
-        force_position 模式：按刚体 body 生成配置（object_id = MuJoCo body 名，与 sph scene entityName 对齐）。
+        force_position 模式：按刚体生成配置。
+        object_id = 内部 ID 前缀（给 SPH / OrcaLink）；
+        mujoco_body = 描述性 body 名（给 Euler 查位姿）。
         仅包含带 SPH_SITE 的动力学耦合体。
         """
         rigid_bodies = []
@@ -197,13 +217,20 @@ class ConfigGenerator:
             sites_info = self.extract_sites_for_body(body_name)
             if not sites_info['sph_sites']:
                 continue
+            object_id = resolve_internal_prefix(self.model, body_name)
             rigid_bodies.append({
-                "object_id": body_name,
+                "object_id": object_id,
                 "mujoco_body": body_name,
                 "coupling_mode": "force_position",
                 "connection_points": [],
             })
-            logger.info(f"Generated force_position body '{body_name}'")
+            if object_id != body_name:
+                logger.info(
+                    f"Generated force_position body '{body_name}' "
+                    f"(object_id='{object_id}')"
+                )
+            else:
+                logger.info(f"Generated force_position body '{body_name}'")
         logger.info(f"Generated {len(rigid_bodies)} force_position rigid bodies")
         return rigid_bodies
 
@@ -230,9 +257,11 @@ class ConfigGenerator:
             sph_sites = sites_info['sph_sites']
             mocap_sites = sites_info['mocap_sites']
             
+            object_id = resolve_internal_prefix(self.model, body_name)
+
             if not sph_sites:
                 rigid_body = {
-                    "object_id": body_name,
+                    "object_id": object_id,
                     "mujoco_body": body_name,
                     "coupling_mode": "static_boundary",
                     "connection_points": []
@@ -246,7 +275,7 @@ class ConfigGenerator:
             
             if not connection_points:
                 rigid_body = {
-                    "object_id": body_name,
+                    "object_id": object_id,
                     "mujoco_body": body_name,
                     "coupling_mode": "static_boundary",
                     "connection_points": []
@@ -257,7 +286,7 @@ class ConfigGenerator:
             
             # 生成 rigid body 配置
             rigid_body = {
-                "object_id": body_name,
+                "object_id": object_id,
                 "mujoco_body": body_name,
                 "coupling_mode": "multipoint_connect",
                 "connection_points": connection_points,

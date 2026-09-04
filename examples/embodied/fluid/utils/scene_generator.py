@@ -13,6 +13,7 @@ from pathlib import Path
 
 from ..paths import FLUID_PACKAGE_DIR
 from ..launch.sph_config import _deep_merge, _resolve_coupling_mode
+from .body_name_map import resolve_internal_prefix
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass, asdict
 import sys
@@ -888,22 +889,14 @@ class SceneGenerator:
     
     def _extract_entity_name(self, body_name: str) -> str:
         """
-        从 MuJoCo body 名称提取 entityName
-        
-        直接使用原始 body 名称，无需转换
-        (body name 设计满足 Python 变量约束格式)
-        
-        例如：
-            "toys_usda_sphere_body" → "toys_usda_sphere_body"
-            "toys_usda_box_body" → "toys_usda_box_body"
-        
-        Args:
-            body_name: MuJoCo body 名称
-            
-        Returns:
-            str: entityName（与 body_name 相同）
+        从 MuJoCo body 名称得到 SPH scene 的 entityName。
+
+        现场 Group 场景里 body 名是描述性的，SITE/mesh 用内部 ID 前缀。
+        SPH 回力和跟随时认的是 entityName，必须写成内部 ID 前缀，
+        才能和 OrcaLink object_id 对上。短链 XML 两套同名，函数会原样返回。
         """
-        return body_name
+        model = getattr(self.env, "model", None)
+        return resolve_internal_prefix(model, body_name)
     
     def extract_rigid_body_config(self, body_name: str, rb_id: int) -> Dict:
         """

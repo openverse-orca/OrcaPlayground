@@ -30,6 +30,7 @@ class ForceApplicationModule:
         # 用于在下一帧开始时清零这些 site 对应的 body 的外力
         self._previous_site_names = set()
         self._warned_no_body_force_api = False
+        self._body_name_map = None
         
         print("[PRINT-DEBUG] ForceApplicationModule.__init__() - END", file=sys.stderr, flush=True)
         logger.debug("[DEBUG] ForceApplicationModule.__init__() - Completed")
@@ -153,10 +154,24 @@ class ForceApplicationModule:
         except Exception as e:
             logger.error(f"Error applying site forces: {e}", exc_info=True)
     
+    def _gym_model(self):
+        """取当前流体环境里的 OrcaGym 模型。可能包了一层 unwrapped。"""
+        env = self.env
+        if hasattr(env, "unwrapped"):
+            env = env.unwrapped
+        return getattr(env, "model", None)
+
     def _apply_force_to_body(self, force_data) -> bool:
         """Apply force to a rigid body using OrcaGym API. Returns True if written to sim memory."""
-        body_name = force_data.object_id
+        object_id = force_data.object_id
+        body_name = object_id
         try:
+            model = self._gym_model()
+            if model is not None:
+                if self._body_name_map is None:
+                    from ..utils.body_name_map import FluidBodyNameMap
+                    self._body_name_map = FluidBodyNameMap(model)
+                body_name = self._body_name_map.mujoco_body_name(object_id)
             force = np.array(force_data.force, dtype=np.float64)
             torque = (
                 np.array(force_data.torque, dtype=np.float64)
@@ -175,10 +190,17 @@ class ForceApplicationModule:
                 return False
 
             self.env.apply_force_to_body(body_name, force, torque)
-            logger.debug(f"Applied force to body '{body_name}': F={force}, τ={torque}")
+            logger.debug(
+                f"Applied force to body '{body_name}' (object_id='{object_id}'): "
+                f"F={force}, τ={torque}"
+            )
             return True
 
         except Exception as e:
-            logger.error(f"Error applying force to body '{body_name}': {e}", exc_info=True)
+            logger.error(
+                f"Error applying force to body '{body_name}' "
+                f"(object_id='{object_id}'): {e}",
+                exc_info=True,
+            )
             return False
 
