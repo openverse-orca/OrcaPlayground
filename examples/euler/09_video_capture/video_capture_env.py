@@ -1,20 +1,25 @@
 """VideoCaptureEnv — Lesson 9：视频输出验证（截帧 + 录制）。
 
-验证视频输出功能:
+验证视频输出功能（OrcaGym 新相机 API，客户端 PyAV remux 录制）：
 
 1. 截帧功能: get_frame_png 保存 PNG，校验格式（PNG magic + PIL 解码）
-2. 录制功能: begin_save_video 启动录制，运动过程中帧索引递增，
-   stop_save_video 后生成 mp4 文件
-3. 时间戳查询: get_camera_time_stamp 返回 camera_head_* 键
+2. 推流与录制: start_streaming 启动 RGB+Depth 推流；render(simulate_index=...)
+   驱动帧对齐；save_streaming 将区间 H.264 流客户端 remux 为 mp4
+3. 时间戳查询: save_streaming 返回的 RemuxResult.timestamps_ns 携带每帧
+   纳秒时间戳（替代已废弃的 get_camera_time_stamp）
 
 阶段序列（num_steps=450，共 9 秒仿真）:
-    before_loop:  激活摄像头流 + 使能检查 + 开始录制
+    before_loop:  枚举相机 + 启动 RGB/Depth 推流 + 启动前进
     steps 0–149:  G1 前进 3 秒（lin_vel=0.3）+ 周期截帧
     steps 150–299: G1 转弯 3 秒（ang_vel=0.5）+ 周期截帧
     steps 300–449: G1 横移 3 秒（lin_vel=(0,0.3)）+ 周期截帧
-    after_loop:   停止录制 + mp4 检查 + 时间戳查询 + 提示查看文件
+    after_loop:   save_streaming 生成 color/depth mp4 + 时间戳检查 + 提示查看文件
 
 > **前置依赖**：本课依赖 Lesson 8 行走控制已验证（复用 ``g1_locomotion.py`` 驱动行走）。
+> **API 迁移说明**：OrcaGym 已删除引擎侧 MP4 录制 RPC（``set_camera_sensor_info``
+> 已移除，``begin_save_video`` / ``stop_save_video`` / ``get_camera_time_stamp`` /
+> ``get_current_frame`` 均已废弃为 no-op）。本课改用客户端 PyAV remux 路径：
+> ``start_streaming`` → ``render(simulate_index=...)`` → ``save_streaming``。
 """
 
 from __future__ import annotations
@@ -35,6 +40,10 @@ _FRAME_DIR = "/tmp/g1_frames"
 # PNG magic bytes: \x89PNG\r\n\x1a\n
 _PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
+# 相机推流端口（与 g1_29dof_camera.xml 中 camera user="7070 7071" 一致）
+_COLOR_PORT = 7070
+_DEPTH_PORT = 7071
+
 # 动作阶段划分（每阶段 150 步 = 3 秒仿真）
 _PHASE_FORWARD_END = 150    # steps 0–149：前进
 _PHASE_TURN_END = 300       # steps 150–299：转弯
@@ -50,18 +59,23 @@ class VideoCaptureEnv(G1BaseEnv):
         - initialize_simulation: 创建 G1Locomotion 实例
         - compute_ctrl: ONNX 推理 → q_target
         - _pd_controller: 闭环 PD 单步（架构 §6.4 S6）
-        - before_loop: 摄像头使能 + 开始录制 + 启动前进
-        - verify_step: 每 50 步检查帧索引递增
+        - render: 注入递增 simulate_index 驱动客户端录制帧对齐
+        - before_loop: 枚举相机 + 启动推流 + 启动前进
+        - verify_step: 每 50 步检查已到达帧 simulate_index 递增
         - observe_step: 周期截帧 + 阶段动作切换
-        - after_loop: 停止录制 + mp4 检查 + 时间戳 + 提示查看文件
+        - after_loop: save_streaming 生成 mp4 + 时间戳 + 提示查看文件
     """
 
     def initialize_simulation(self):
         """初始化仿真 + 创建 G1Locomotion 行走策略封装。"""
         super().initialize_simulation()
         self.locomotion = G1Locomotion(agent_name=self.agent_name)
-        self._prev_frame: int = 0
+        self._prev_frame: int = -1
         self._q_target: np.ndarray = np.zeros(self.model.nu, dtype=np.float64)
+        # 相机推流状态（before_loop 中填充）
+        self._camera_name: str | None = None
+        self._render_idx: int = 0
+        self._idr_pending: bool = False
 
     def compute_ctrl(self, step: int) -> np.ndarray:
         """ONNX 策略推理 → 位置目标 q_target（29 维）。"""
@@ -86,73 +100,108 @@ class VideoCaptureEnv(G1BaseEnv):
         tau = self.locomotion.compute_tau(q_target, dof_pos, dof_vel)
         return tau
 
-    def before_loop(self, verifier: OnlineVerifier) -> None:
-        """循环前：清除残留文件 + 激活摄像头流 + 开始录制 + 使能检查 + 启动前进。
+    def render(self, simulate_index: int = -1, request_idr: bool = False):
+        """注入递增 simulate_index 驱动客户端录制帧对齐（新相机 API）。
 
-        顺序约束：begin_save_video 必须在 get_current_frame 之前调用。
-        Studio 端 CameraSyncManager::GetCurrentFrameIndex 会 WaitBeginSave(30ms)，
-        若 m_isBeginSaving==false 则超时返回 -1，导致 camera_enabled 误判失败。
+        基类 run_lesson 每控制周期调用一次 render()；客户端录制器按
+        simulate_index 区间提取帧，因此这里自动维护递增计数器。推流启动后
+        的首帧请求 IDR 关键帧，配合 save_streaming 的前向截断保证 mp4
+        起点可正常播放。
+
+        Args:
+            simulate_index: 物理仿真步索引；-1 表示自动递增（默认）。
+            request_idr: 是否请求引擎输出 IDR 关键帧。
+        """
+        if simulate_index < 0:
+            self._render_idx += 1
+            simulate_index = self._render_idx
+            if self._idr_pending:
+                request_idr = True
+                self._idr_pending = False
+        return super().render(simulate_index=simulate_index, request_idr=request_idr)
+
+    def before_loop(self, verifier: OnlineVerifier) -> None:
+        """循环前：清除残留文件 + 枚举相机 + 启动 RGB/Depth 推流 + 启动前进。
+
+        新相机 API 无需显式"开始录制"——客户端录制器在 start_streaming 时
+        已启动并缓存码流，after_loop 中通过 save_streaming 按区间提取。
         """
         # 0. 清除上一次运行残留的 mp4 / png，避免本次判定读到旧产物
         self._clean_previous_outputs()
 
-        # 1. 设置摄像头传感器开关（gRPC SetCameraSensorInfo，扩展参数）
-        #    通过新扩展的 optional 字段一次性开启所有流和录制，无需 Editor 手工操作。
-        #    扩展参数（None 表示不修改 server 现有值，对应 proto3 optional 语义）：
-        #      capture_normal / capture_object_color / is_recording / ...
-        print(f"[DEBUG] agent_name={self.agent_name!r}")
-        try:
-            self.set_camera_sensor_info(
-                actor_name=self.agent_name,
-                capture_rgb=True,
-                capture_depth=True,          # 开启深度流
-                save_mp4_file=True,          # 开启 MP4 录制
-                use_dds=False,
-                # 扩展参数：开启所有相机流 + 录制
-                capture_normal=True,         # 法线图
-                capture_object_color=True,   # 实例分割色标图
-                is_recording=True,           # 激活录制（替代手工勾选 IsRecording）
-                random_object_color=True,    # 随机分配物体颜色（object_color 图更易区分）
-            )
-            print("[DEBUG] set_camera_sensor_info succeeded (all streams + recording)")
-        except RuntimeError as e:
-            print(f"[DEBUG] set_camera_sensor_info failed: {e}")
-
-        # 2. 开始录制（设置 m_isBeginSaving=true，后续 get_current_frame 才能返回有效帧号）
-        os.makedirs(_VIDEO_DIR, exist_ok=True)
-        self.begin_save_video(_VIDEO_DIR, capture_mode=0)
-
-        # 3. 摄像头使能检查（begin_save_video 之后，m_isBeginSaving==true）
-        frame_idx = self.get_current_frame()
+        # 1. 枚举已注册相机
+        camera_names = self.get_camera_names()
         verifier.check(
-            "camera_enabled",
-            frame_idx >= 0,
-            frame_idx,
-            ">=0",
-            "摄像头使能检查",
+            "camera_registered",
+            len(camera_names) > 0,
+            camera_names,
+            "non-empty",
+            "相机注册检查（get_camera_names）",
         )
+        # 优先选头部相机（G1 模型中为 camera_head），否则取第一个
+        self._camera_name = next(
+            (n for n in camera_names if "head" in n.lower()),
+            camera_names[0] if camera_names else None,
+        )
+        print(
+            f"[DEBUG] agent_name={self.agent_name!r}, "
+            f"camera_name={self._camera_name!r}"
+        )
+
+        # 2. 启动推流与录制器（替代旧 set_camera_sensor_info）
+        #    RGB+Depth 双流；端口与 g1_29dof_camera.xml 的 user="7070 7071" 一致
+        try:
+            self.start_streaming(
+                self._camera_name,
+                capture_rgb=True,
+                capture_depth=True,
+                color_port=_COLOR_PORT,
+                depth_port=_DEPTH_PORT,
+            )
+            print("[DEBUG] start_streaming succeeded (RGB + Depth)")
+            verifier.check(
+                "streaming_started",
+                True,
+                self._camera_name,
+                self._camera_name,
+                "相机推流启动（start_streaming RGB+Depth）",
+            )
+        except (ValueError, ConnectionError) as e:
+            verifier.check(
+                "streaming_started",
+                False,
+                str(e),
+                "started",
+                "相机推流启动（start_streaming RGB+Depth）",
+            )
+
+        # 3. 录制帧对齐：后续 render() 自动携带递增 simulate_index（首帧 IDR）
+        self._render_idx = 0
+        self._idr_pending = True
+        self._prev_frame = -1
 
         # 4. 启动前进（阶段 1：steps 0–149）
         self.locomotion.set_commands(stand=1, lin_vel=(0.3, 0.0), ang_vel=0.0)
         verifier.observe(
             "recording_started",
-            "Studio 视口：G1 开始前进，正在录制视频（阶段 1/3：前进 3 秒）",
+            "Studio 视口：G1 开始前进，正在推流录制（阶段 1/3：前进 3 秒）",
         )
 
-        self._prev_frame = frame_idx
-
     def verify_step(self, step: int, verifier: OnlineVerifier) -> None:
-        """循环中：每 50 步检查帧索引递增。"""
+        """循环中：每 50 步检查已到达帧的 simulate_index 递增。"""
         if step % 50 == 0 and step > 0:
-            cur_frame = self.get_next_frame()
+            cur_frame = self.get_recorder_manager().get_latest_frame_simulate_index(
+                self._camera_name
+            )
             verifier.check(
                 f"frame_index_increasing_{step}",
-                cur_frame > self._prev_frame,
+                cur_frame is not None and cur_frame > self._prev_frame,
                 cur_frame,
                 f">{self._prev_frame}",
                 "帧索引递增",
             )
-            self._prev_frame = cur_frame
+            if cur_frame is not None:
+                self._prev_frame = cur_frame
 
     def observe_step(self, step: int, verifier: OnlineVerifier) -> None:
         """循环中：阶段动作切换 + 周期截帧。"""
@@ -177,15 +226,16 @@ class VideoCaptureEnv(G1BaseEnv):
     # --- 残留文件清理 ---
 
     def _clean_previous_outputs(self) -> None:
-        """清除 _VIDEO_DIR 下的 mp4 与 _FRAME_DIR 下的 png（递归子目录）。
+        """清除 _VIDEO_DIR 下的 mp4 与 _FRAME_DIR 下的 png/npy（递归子目录）。
 
-        Studio 端 mp4 落在 ${_VIDEO_DIR}/video/、${_VIDEO_DIR}/depth/ 等子目录；
-        PNG 落在 ${_FRAME_DIR}/color/、${_FRAME_DIR}/normal/ 等子目录。
+        客户端 remux 的 mp4 由本课显式指定路径写在 _VIDEO_DIR 下；
+        get_frame_png 的 PNG 落在 _FRAME_DIR/color/ 等子目录。
         启动时清空这些残留文件，避免本次运行读到上次的产物导致判定误报。
         """
         for pattern in (
             f"{_VIDEO_DIR}/**/*.mp4",
             f"{_FRAME_DIR}/**/*.png",
+            f"{_FRAME_DIR}/**/*.npy",
         ):
             for path in glob.glob(pattern, recursive=True):
                 try:
@@ -250,92 +300,100 @@ class VideoCaptureEnv(G1BaseEnv):
         )
 
     def after_loop(self, verifier: OnlineVerifier) -> None:
-        """循环后：停止录制 + mp4 检查 + 时间戳 + 提示查看文件。"""
+        """循环后：save_streaming 生成 mp4 + 时间戳检查 + 提示查看文件。"""
         # 停止行走
         self.locomotion.set_commands(stand=1, lin_vel=(0.0, 0.0), ang_vel=0.0)
 
-        # 时间戳查询（在 stop_save_video 之前，此时 m_syncTimeStamp 仍有数据）
-        # Studio 端 SYNC 模式下 key 格式为 entityName + "_color"/"_depth"，
-        # 即 camera_head_color / camera_head_depth（而非裸 camera_head）。
-        timestamps = self.get_camera_time_stamp(last_frame_index=self._prev_frame)
-        ts_keys = list(timestamps.keys())
-        verifier.check(
-            "timestamp_returned",
-            any(k.startswith("camera_head") for k in ts_keys),
-            ts_keys,
-            "contains camera_head_*",
-            "时间戳查询返回",
+        # 客户端 PyAV remux：将 [0, _render_idx] 区间的 H.264 流保存为 mp4。
+        # 非阻塞提交 + future.result() 阻塞等待；帧号/时间戳由 RemuxResult 返回
+        # （替代已废弃的 get_camera_time_stamp / stop_save_video）。
+        end_idx = max(self._render_idx - 1, 0)
+        mp4_specs: list[tuple[str, str]] = [
+            ("color", os.path.join(_VIDEO_DIR, "g1_walk_color.mp4")),
+            ("depth", os.path.join(_VIDEO_DIR, "g1_walk_depth.mp4")),
+        ]
+        results: dict[str, object] = {}
+        for stream_kind, path in mp4_specs:
+            try:
+                future = self.save_streaming(
+                    camera_name=self._camera_name,
+                    camera_type=stream_kind,
+                    file_path=path,
+                    start_simulate_index=0,
+                    end_simulate_index=end_idx,
+                )
+                results[stream_kind] = future.result()
+            except Exception as e:
+                print(f"[WARN] save_streaming({stream_kind}) 失败: {e}")
+
+        # mp4 文件生成检查（以 color 流为主判定对象）
+        color_result = results.get("color")
+        mp4_ok = (
+            color_result is not None
+            and os.path.exists(color_result.file_path)
+            and os.path.getsize(color_result.file_path) > 0
         )
-
-        # 停止录制
-        self.stop_save_video()
-
-        # mp4 文件生成检查
-        # Studio 端 CameraSensor::BeginSaveMp4File 实际路径：
-        #   ${filePath}/video/${entityName}_color.mp4
-        #   ${filePath}/depth/${entityName}_depth.mp4
-        # 即在传入路径下创建 video/depth 子目录。
-        mp4s: list[str] = []
-        for _ in range(10):  # 轮询等待 mp4 写入完成
-            mp4s = glob.glob(f"{_VIDEO_DIR}/video/*.mp4") + glob.glob(f"{_VIDEO_DIR}/depth/*.mp4")
-            if mp4s:
-                break
-            time.sleep(0.5)
         verifier.check(
             "mp4_file_generated",
-            len(mp4s) > 0,
-            mp4s,
-            "non-empty",
-            "录制完成后 mp4 文件生成",
+            mp4_ok,
+            color_result.file_path if color_result is not None else "未生成",
+            "existing mp4",
+            "客户端 remux 生成 mp4 文件",
+        )
+
+        # 时间戳检查（RemuxResult.timestamps_ns，每帧纳秒时间戳）
+        ts_count = len(color_result.timestamps_ns) if color_result is not None else 0
+        verifier.check(
+            "timestamp_returned",
+            ts_count > 0,
+            ts_count,
+            ">0 timestamps",
+            "录制结果时间戳返回（RemuxResult.timestamps_ns）",
         )
 
         # 收集所有输出文件
-        # Studio 端 CameraSensor 对 4 类相机通道独立保存：
-        #   color       — RGB 彩色图（PNG / MP4）
-        #   depth       — 深度图（.npy 浮点数组 / MP4）
-        #   normal      — 法线图（PNG / MP4）
-        #   object_color — 实例分割色标图（PNG / MP4）
-        # 通道是否输出取决于 Studio 端 CameraCaptureComponent 的开关
-        # （ColorCamera/DepthCamera/NormalCamera/ObjectColorCamera）。
-        #
-        # 注意 mp4 子目录名与 channel 名不一致：
-        #   color 的 mp4 在 ${filePath}/video/ 下（CameraSensor.cpp:582）
-        #   其余通道 mp4 在 ${filePath}/${channel}/ 下
-
-        file_categories = [
-            ("color",        "video",        "RGB 彩色图",   "可见光画面，人眼可直观查看"),
-            ("depth",        "depth",        "深度图",       "每像素为相机坐标系下距离（米），记录场景几何结构"),
-            ("normal",       "normal",       "法线图",       "每像素为表面法线向量（RGB 编码），反映表面朝向"),
-            ("object_color", "object_color", "实例分割色标图", "每个物体实例分配唯一颜色，用于实例分割训练/评估"),
-        ]
+        # 截帧（get_frame_png）由 Studio 端 CameraSensor 按 4 类相机通道独立保存：
+        #   color        — RGB 彩色图（PNG）
+        #   depth        — 深度图（.npy 浮点数组）
+        #   normal       — 法线图（PNG）
+        #   object_color — 实例分割色标图（PNG）
+        # 通道是否输出取决于 Studio 端 CameraCaptureComponent 的开关。
 
         print()
         print("=" * 70)
         print("视频输出已生成，请自行查看：")
         print()
 
-        total_mp4 = 0
-        total_frames = 0
+        mp4_list = sorted(glob.glob(f"{_VIDEO_DIR}/*.mp4"))
+        frame_categories = [
+            ("color",        "RGB 彩色图",   "可见光画面，人眼可直观查看"),
+            ("depth",        "深度图",       "每像素为相机坐标系下距离（米），记录场景几何结构"),
+            ("normal",       "法线图",       "每像素为表面法线向量（RGB 编码），反映表面朝向"),
+            ("object_color", "实例分割色标图", "每个物体实例分配唯一颜色，用于实例分割训练/评估"),
+        ]
 
-        for channel, mp4_dir, cn_name, desc in file_categories:
-            mp4_list = sorted(glob.glob(f"{_VIDEO_DIR}/{mp4_dir}/*.mp4"))
+        total_frames = 0
+        print("  [MP4 视频]（客户端 PyAV remux）")
+        if mp4_list:
+            for p in mp4_list:
+                print(f"    {p}")
+        else:
+            print("    （未生成 mp4）")
+        print()
+
+        for channel, cn_name, desc in frame_categories:
             png_list = sorted(glob.glob(f"{_FRAME_DIR}/{channel}/*.png"))
             npy_list = sorted(glob.glob(f"{_FRAME_DIR}/{channel}/*.npy"))
             frame_list = png_list + npy_list
-            total_mp4 += len(mp4_list)
             total_frames += len(frame_list)
 
             print(f"  [{cn_name}]（{channel}）")
             print(f"    用途：{desc}")
-            if mp4_list:
-                print(f"    MP4 视频（{len(mp4_list)} 个）：")
-                for p in mp4_list:
-                    print(f"      {p}")
             if frame_list:
                 print(f"    截帧（{len(frame_list)} 个）：")
                 for p in frame_list:
                     print(f"      {p}")
-            if not mp4_list and not frame_list:
+            else:
                 print("    （本通道未生成文件，Studio 端该通道开关可能未开启）")
             print()
 
@@ -356,5 +414,5 @@ class VideoCaptureEnv(G1BaseEnv):
         print("=" * 70)
         verifier.observe(
             "output_files_ready",
-            f"生成 {total_mp4} 个 mp4 + {total_frames} 个截帧，请查看上方文件列表",
+            f"生成 {len(mp4_list)} 个 mp4 + {total_frames} 个截帧，请查看上方文件列表",
         )

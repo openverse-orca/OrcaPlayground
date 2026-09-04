@@ -22,6 +22,9 @@
 # SB3 PPO 强化学习（第 4 课 train_ppo.py 需要，第 1/2 课不需要）
 stable-baselines3>=2.8.0
 
+# 图像处理（第 9 课 video_capture_env.py 需要，PNG 截帧格式校验）
+pillow>=10.0.0
+
 # 数值计算与 Gymnasium API（orca_gym 已附带，此处仅声明）
 # numpy>=1.24.0
 # gymnasium>=0.29.0

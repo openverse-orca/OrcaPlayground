@@ -1,25 +1,26 @@
 """第 9 课：视频输出验证 — 截帧 + 录制
 
-验证视频输出功能:
+验证视频输出功能（OrcaGym 新相机 API，客户端 PyAV remux 录制）:
 
 1. 截帧功能: get_frame_png 保存 PNG，校验格式（PNG magic + PIL 解码）
-2. 录制功能: begin_save_video 启动录制，运动过程中帧索引递增，
-   stop_save_video 后生成 mp4 文件
-3. 时间戳查询: get_camera_time_stamp 返回 camera_head_* 键
+2. 推流与录制: start_streaming 启动 RGB+Depth 推流；render(simulate_index=...)
+   驱动帧对齐；save_streaming 将区间 H.264 流客户端 remux 为 mp4
+3. 时间戳查询: save_streaming 返回的 RemuxResult.timestamps_ns 携带每帧
+   纳秒时间戳
 
 阶段序列（num_steps=450，共 9 秒仿真）:
     阶段 1（脚本启动）: OrcaGymScene.add_actor 加载 G1 spawnable 到场景
     阶段 2（EulerEnv）:
-        before_loop:  激活摄像头流 + 使能检查 + 开始录制 + 启动前进
+        before_loop:  枚举相机 + 启动 RGB/Depth 推流 + 启动前进
         steps 0–149:  G1 前进 3 秒（lin_vel=0.3）+ 周期截帧
         steps 150–299: G1 转弯 3 秒（ang_vel=0.5）+ 周期截帧
         steps 300–449: G1 横移 3 秒（lin_vel=(0,0.3)）+ 周期截帧
-        after_loop:   停止录制 + mp4 检查 + 时间戳 + 提示查看文件
+        after_loop:   save_streaming 生成 color/depth mp4 + 时间戳 + 提示查看文件
 
 > **前置依赖**：本课依赖 Lesson 8 行走控制已验证（复用 ``g1_locomotion.py`` 驱动行走）。
 
 > **摄像头激活原理**：Euler 体系走 LoadLocalEnv 路径，不填充 Studio 端
-> ``m_spawnedEntities``，导致 ``SetCameraSensorInfo`` 找不到 actor。本课通过
+> ``m_spawnedEntities``，导致相机注册与截帧 RPC 找不到 actor。本课通过
 > OrcaGymScene 的 ``add_actor`` + ``publish_scene`` 走 AddActor 路径加载 G1，
 > spawn 时填充 ``m_spawnedEntities`` 并激活 ``CameraCaptureComponent``，随后
 > EulerEnv 的 ``LoadLocalEnv`` 从场景生成 MJCF 用于仿真控制。
@@ -42,14 +43,15 @@
 
 验证点:
     before_loop:
-    1. camera_enabled: 摄像头使能（frame_idx >= 0）
+    1. camera_registered: 相机已注册（get_camera_names 非空）
+    2. streaming_started: start_streaming RGB+Depth 推流启动
     observe_step（step 0）:
-    2. png_file_valid_format: PNG 截帧文件格式校验（magic + PIL 解码）
+    3. png_file_valid_format: PNG 截帧文件格式校验（magic + PIL 解码）
     verify_step（每 50 步）:
-    3. frame_index_increasing_{step}: 帧索引递增
+    4. frame_index_increasing_{step}: 已到达帧 simulate_index 递增
     after_loop:
-    4. timestamp_returned: 时间戳查询返回 camera_head_* 键
-    5. mp4_file_generated: 录制完成后 mp4 文件生成
+    5. mp4_file_generated: save_streaming 客户端 remux 生成 mp4 文件
+    6. timestamp_returned: RemuxResult.timestamps_ns 非空
 """
 
 from __future__ import annotations
