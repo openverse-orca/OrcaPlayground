@@ -71,7 +71,7 @@ example_extras["all"] = merge_unique_requirements(example_extras)
 
 setup(
     name="orca-playground",
-    version="1.0.0",
+    version="26.8.1.41",
     description="OrcaGym 示例代码独立仓库",
     long_description=long_description,
     long_description_content_type="text/markdown",
