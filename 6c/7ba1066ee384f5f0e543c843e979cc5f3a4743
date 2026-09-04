@@ -1,0 +1,38 @@
+examples/euler/09_video_capture/video_capture.py
+  s_e51ca4cd7eead8::t_ef3196c37a898d 3,6-9,14,18,23,46-47,49,51,53-54
+examples/euler/requirements.txt
+  s_e51ca4cd7eead8::t_f66bd3b465b177 25-27
+examples/euler/09_video_capture/09_video_capture.md
+  s_e51ca4cd7eead8::t_859a501cff5622 3-5,9-13,19,24-29,47,95,156-157,163,172-173,188-192,196-197,211-212,219,225,227,232,234,236,239-243,245-252,261,263,266,268-269,284-285,287,291-292,294,298-301,304,308-310,313-314,316-321,323,326-334,337
+examples/euler/09_video_capture/video_capture_env.py
+  s_e51ca4cd7eead8::t_03b9ab8cb2c34d 3,6-9,12,16,19-22,43-46,62-64,66,73,75-78,103-122,124,126-127,132-143,145-152,154-155,157-175,178-181,187,191,193-195,198,203-204,229,231-232,238,303,307-335,337-341,344-345,347-351,355-360,367-374,376-382,384,396,417
+  s_e51ca4cd7eead8::t_f35e6922771670 144
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.2",
+  "base_commit_sha": "6c7ba1066ee384f5f0e543c843e979cc5f3a4743",
+  "prompts": {},
+  "sessions": {
+    "s_e51ca4cd7eead8": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a9a3f6c8637c8cc0945993e",
+        "model": "glm-5.3__dev"
+      },
+      "human_author": "guojiatao <1570601232@qq.com>",
+      "custom_attributes": {
+        "session_id": "6a9a3f6c8637c8cc0945993e",
+        "tool_name": "Write",
+        "client_type": "ide",
+        "operation_id": "6a9a4a438637c8cc09459ba1",
+        "runtime_client": "trae-tob-git-ai",
+        "display_model_name": "GLM-5.3",
+        "tool_use_id": "6a9a4a438637c8cc09459ba1",
+        "edit_kind": "file_edit",
+        "source_scene": "agent",
+        "external_session_id": "6a9a3f6c8637c8cc0945993e"
+      }
+    }
+  }
+}
