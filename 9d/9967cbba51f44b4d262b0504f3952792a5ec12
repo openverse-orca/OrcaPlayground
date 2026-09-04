@@ -1,0 +1,31 @@
+examples/euler/03_env_register/03_env_register.md
+  s_e51ca4cd7eead8::t_3bbb111803b78d 1-236
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.2",
+  "base_commit_sha": "9d9967cbba51f44b4d262b0504f3952792a5ec12",
+  "prompts": {},
+  "sessions": {
+    "s_e51ca4cd7eead8": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a9a3f6c8637c8cc0945993e",
+        "model": "glm-5.3__dev"
+      },
+      "human_author": "guojiatao <1570601232@qq.com>",
+      "custom_attributes": {
+        "display_model_name": "GLM-5.3",
+        "runtime_client": "trae-tob-git-ai",
+        "tool_use_id": "6a9a40368637c8cc094599c4",
+        "source_scene": "agent",
+        "client_type": "ide",
+        "external_session_id": "6a9a3f6c8637c8cc0945993e",
+        "session_id": "6a9a3f6c8637c8cc0945993e",
+        "tool_name": "Write",
+        "operation_id": "6a9a40368637c8cc094599c4",
+        "edit_kind": "file_edit"
+      }
+    }
+  }
+}
