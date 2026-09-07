@@ -2,16 +2,18 @@
 # 只保留大多数示例都会用到的最小运行时。
 #
 # 额外依赖已下沉到各示例目录：
-# - examples/franka_rl/requirements.txt
-# - examples/ant_rl/requirements.txt
-# - examples/legged_gym/requirements.txt
-# - examples/g1/requirements.txt
-# - examples/xbot/requirements.txt
-# - examples/zq_sa01/requirements.txt
-# - examples/fluid/requirements.txt
+# - examples/embodied/d12/requirements.txt       (scipy，ACT 路径另需 torch)
+# - examples/embodied/fluid/requirements.txt     (orca-sph, matplotlib)
+# - examples/embodied/g1/requirements.txt         (onnxruntime, pygame, sshkeyboard, scipy)
+# - examples/embodied/xbot/requirements.txt       (torch，需手动按驱动版本安装)
+# - examples/embodied/zq_sa01/requirements.txt    (onnxruntime, scipy)
+# - examples/euler/requirements.txt              (stable-baselines3，torch 需手动安装)
 #
-# 简单示例（character / wheeled_chassis / replicator / drone_driver）
-# 安装本文件即可运行。
+# 注：原 franka_rl / ant_rl / legged_gym 三个 RL 样例已从主分支移除，
+#     详见 examples/LEGACY_RL.md（仍可在 release/26.7.1 分支获取）。
+#
+# 简单示例（character / wheeled_chassis / replicator / drone_driver，
+# 均位于 examples/embodied/ 下）安装本文件即可运行。
 
 pyyaml>=6.0
 pygame

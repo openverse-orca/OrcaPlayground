@@ -1,0 +1,151 @@
+{
+  "description": "RectCloth 短边中点外夹，折痕沿长边 X 向布心对折",
+  "coordinate_system": "yup_world",
+  "target_body": "palm",
+  "metadata": {
+    "level": "test20260508_RectCloth",
+    "cloth_center_yup": [
+      -0.589305878,
+      11.699999809,
+      -0.0
+    ],
+    "cloth_nx": 20,
+    "cloth_ny": 11,
+    "cloth_spacing_m": 0.0618,
+    "rect_span_x_m": 1.1742,
+    "rect_span_z_m": 0.618,
+    "rect_half_extent_x_m": 0.5871,
+    "rect_half_extent_z_m": 0.309,
+    "grasp_mode": "pinch_short_edge_midpoints_fold_along_long_X",
+    "short_edge_axis_yup": "Z",
+    "long_edge_axis_yup": "X",
+    "fold_crease_axis_yup": "X",
+    "fold_motion_axis_yup": "Z",
+    "sleeve_half_x_m": 0.309,
+    "grasp_margin_m": 0.08,
+    "fold_hold_z_m": 0.06
+  },
+  "gripper_fsm": {
+    "close_t0_sec": 4.0,
+    "close_t1_sec": 6.0,
+    "open_t0_sec": 12.0,
+    "open_t1_sec": 15.0
+  },
+  "verification": {
+    "approach_t_sec": 2.0,
+    "max_palm_err_m": 0.08
+  },
+  "keyframes": [
+    {
+      "t_sec": 0.0,
+      "grip_cmd": "open",
+      "neutral": true,
+      "comment": "tele neutral"
+    },
+    {
+      "t_sec": 2.0,
+      "grip_cmd": "open",
+      "left_yup": [
+        -0.589305878,
+        11.719999808999999,
+        -0.389
+      ],
+      "right_yup": [
+        -0.589305878,
+        11.719999808999999,
+        0.389
+      ],
+      "comment": "approach：X 对齐布心，Z 分列两条短边外侧"
+    },
+    {
+      "t_sec": 4.0,
+      "grip_cmd": "closing",
+      "left_yup": [
+        -0.589305878,
+        11.704999809,
+        -0.309
+      ],
+      "right_yup": [
+        -0.589305878,
+        11.704999809,
+        0.309
+      ],
+      "comment": "收爪至短边中点 (cx, cz±half_z)"
+    },
+    {
+      "t_sec": 6.0,
+      "grip_cmd": "closed",
+      "left_yup": [
+        -0.589305878,
+        11.699999809,
+        -0.309
+      ],
+      "right_yup": [
+        -0.589305878,
+        11.699999809,
+        0.309
+      ],
+      "comment": "短边中点夹紧"
+    },
+    {
+      "t_sec": 8.0,
+      "grip_cmd": "closed",
+      "left_yup": [
+        -0.589305878,
+        11.749999809,
+        -0.309
+      ],
+      "right_yup": [
+        -0.589305878,
+        11.749999809,
+        0.309
+      ],
+      "comment": "微抬（仍保持短边中点 X/Z）"
+    },
+    {
+      "t_sec": 10.0,
+      "grip_cmd": "closed",
+      "left_yup": [
+        -0.589305878,
+        11.849999809,
+        -0.06
+      ],
+      "right_yup": [
+        -0.589305878,
+        11.849999809,
+        0.06
+      ],
+      "comment": "沿 Z 向布心对折（折痕平行长边 X）"
+    },
+    {
+      "t_sec": 12.0,
+      "grip_cmd": "opening",
+      "left_yup": [
+        -0.589305878,
+        11.849999809,
+        -0.06
+      ],
+      "right_yup": [
+        -0.589305878,
+        11.849999809,
+        0.06
+      ],
+      "comment": "张爪"
+    },
+    {
+      "t_sec": 15.0,
+      "grip_cmd": "open",
+      "left_yup": [
+        -0.589305878,
+        11.879999809,
+        -0.389
+      ],
+      "right_yup": [
+        -0.589305878,
+        11.879999809,
+        0.389
+      ],
+      "comment": "外撤"
+    }
+  ]
+}

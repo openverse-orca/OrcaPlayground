@@ -35,7 +35,7 @@ Euler 体系的架构约束参考 OrcaGym 仓库的架构文档：
 
 ### 新 Example 的开发规范
 
-1. **Env 子类**放在 `envs/euler/` 下，继承 `OrcaGymEulerEnv`
+1. **Env 子类**放在 `examples/euler/` 下，继承 `OrcaGymEulerEnv`
 2. **入口脚本**放在 `examples/euler/` 下，提供命令行启动
 3. **禁止**在 Env 子类中访问 `env._gym._sim._mjData` 或 `env._gym._mjModel`
 4. **状态读取**使用 `env.data.*`（`OrcaGymDataView`）或 `env.query_*()`

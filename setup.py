@@ -22,21 +22,33 @@ def read_requirements(path: Path) -> list[str]:
 
 
 def discover_example_extras(examples_dir: Path) -> dict[str, list[str]]:
+    """扫描 examples/ 直接子目录与 examples/embodied/ 子目录，发现带有
+    README.md / requirements.txt / *.py 标记的样例并注册为 extras。
+    embodied/ 下的样例从顶层目录迁入，仍需被 extras 机制发现以便
+    `pip install -e ".[g1]"` 等命令正常工作。
+    """
     extras: dict[str, list[str]] = {}
     if not examples_dir.exists():
         return extras
 
-    for child in sorted(examples_dir.iterdir()):
-        if not child.is_dir() or child.name.startswith("__"):
-            continue
-        has_example_markers = (
-            (child / "README.md").exists()
-            or (child / "requirements.txt").exists()
-            or any(child.glob("*.py"))
-        )
-        if not has_example_markers:
-            continue
-        extras[child.name] = read_requirements(child / "requirements.txt")
+    # 同时扫描 examples/ 直接子目录与 examples/embodied/ 子目录
+    scan_dirs = [examples_dir]
+    embodied_dir = examples_dir / "embodied"
+    if embodied_dir.exists():
+        scan_dirs.append(embodied_dir)
+
+    for scan_dir in scan_dirs:
+        for child in sorted(scan_dir.iterdir()):
+            if not child.is_dir() or child.name.startswith("__"):
+                continue
+            has_example_markers = (
+                (child / "README.md").exists()
+                or (child / "requirements.txt").exists()
+                or any(child.glob("*.py"))
+            )
+            if not has_example_markers:
+                continue
+            extras[child.name] = read_requirements(child / "requirements.txt")
 
     return extras
 
