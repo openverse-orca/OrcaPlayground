@@ -386,8 +386,10 @@
       </body>
     </body>
 
-    <!-- 测试用 box：含 free joint，可被 mocap 通过 equality 驱动 -->
-    <body name="manipulation_box" pos="500 500 0.3">
+    <!-- 测试用 box：含 free joint，可被 mocap 通过 equality 驱动。
+         初始位置需远离障碍物环（5-10m）但不能过远：MuJoCo 的 stat.extent
+         把所有 geom 计入模型边界，过远的隐藏体会把相机取景/裁剪面拉爆。 -->
+    <body name="manipulation_box" pos="15 15 0.3">
       <joint name="manipulation_box_joint" type="free" />
       <geom name="manipulation_box_geom" type="box" size="0.01 0.01 0.01" group="3" contype="0" conaffinity="0"
         rgba="0.8 0.4 0.2 1" mass="0.001" />
@@ -395,8 +397,9 @@
 
     <!-- 测试用 mocap body：空（无动力学），通过 equality 与 box 绑定。
          命名为 TestMocapAnchor 以避免与 Studio 关卡自带的 ActorManipulator 重名。
-         geom 用作坐标轴可视化（group=1 显示），不参与碰撞。 -->
-    <body name="TestMocapAnchor" pos="500 500 0.3" mocap="true">
+         geom 用作坐标轴可视化（group=1 显示），不参与碰撞。
+         Lesson 10 运行时通过 set_mocap_pos_and_quat 移动到目标 body 旁。 -->
+    <body name="TestMocapAnchor" pos="15 15 0.3" mocap="true">
       <geom conaffinity="0" contype="0" pos="0.3 0 0" rgba="0.7 0 0 0.5" size="0.3 0.005 0.005" type="box" group="1" />
       <geom conaffinity="0" contype="0" pos="0 0.3 0" rgba="0 0.7 0 0.5" size="0.005 0.3 0.005" type="box" group="1" />
       <geom conaffinity="0" contype="0" pos="0 0 0.3" rgba="0 0 0.7 0.5" size="0.005 0.005 0.3" type="box" group="1" />
