@@ -1,0 +1,14 @@
+id: 3
+title: 导入一个机器人
+stage: 1
+layer: 1
+scene_mode: spawn
+prerequisites: [lesson_02_load_object]
+entry: python -m examples.euler.beginner.lesson_03_load_robot.run
+asset_packages: [BeginnerAssets]
+expected_result: 场景中出现稳定摆放的机器人（机械臂或小车），仅观察
+rebuild_scene: false
+tunable_params:
+  - name: --robot
+    default: arm
+    unit: arm|car
