@@ -1,6 +1,6 @@
 # OrcaPlayground 新手示例库重构 — 需求分析
 
-文档版本：v0.1（草案）
+文档版本：v0.2（含 §11 决策定稿）
 编写日期：2026-09-15
 编写分支：`feat/playground-beginner-redesign`（orphan 分支，从零重建）
 上游输入：`/home/guojiatao/资料/迭代资料/OrcaPlayground_新手示例库设计.md`（2026-09-10，下称"设计文档"）
@@ -37,7 +37,7 @@
 
 完整规划为 **48 个基础课 + 8 个选修专题**，首版只交付 **01–18**。
 
-现有 `dev` 分支内容**不删除、不迁移**，保留为开发者/高级入口；本分支（`feat/playground-beginner-redesign`）从接近空的状态重建新手主线。
+本分支（`feat/playground-beginner-redesign`）从接近空的状态重建新手主线，**最终整体替换 `dev` 分支**：旧内容（Euler 01–11 课程、embodied 高级样例）在合入主线时移除，不保留为独立入口；需要旧内容的用户经由 git 历史标签访问（决策记录见 §11）。
 
 ---
 
@@ -55,8 +55,8 @@
 
 ### 2.2 非目标用户（本期不服务）
 
-- 需要 GPU 集群训练大规模策略的 RL 研究者 → 指向 `dev` 分支 embodied 示例与 OrcaGym 文档
-- 需要流体/布料/XPBD 耦合仿真的引擎开发者 → 指向 `dev` 分支 fluid/cloth 示例
+- 需要 GPU 集群训练大规模策略的 RL 研究者 → 指向 OrcaGym 文档与独立研究仓库（本库不承载）
+- 需要流体/布料/XPBD 耦合仿真的引擎开发者 → 指向 OrcaGym/OrcaEngine 仓库文档（原 dev 分支示例随替换移除）
 - 想直接加载自有 USD/MJCF/URDF 资产的资产工程师 → 选修 A08 扩展工坊
 
 ### 2.3 核心用户故事（首版 01–18 范围）
@@ -129,7 +129,7 @@
 | 编号 | 需求 | 优先级 |
 |---|---|---|
 | FR-A01 | 场景构建三步范式：`OrcaGymScene(addr)` → `add_actor(Actor(...))` → `publish_scene()`；每课自带专用教学场景配方 | P0 |
-| FR-A02 | 制作版本固定的 **BeginnerAssets** 基础资产包：地面、方块、球、长方体（带方向标记）、桌子、坡面、目标区域标记、轻/重方块、不同摩擦地面、单关节摆、独立轮子、三种执行器教学模型、差速小车、固定基座机械臂 + 夹爪、RGB-D 相机预设、基础传感器 | P0（P0 批先交付 01–18 所需子集） |
+| FR-A02 | 制作版本固定的 **BeginnerAssets** 基础资产包：地面、方块、球、长方体（带方向标记）、桌子、坡面、目标区域标记、轻/重方块、不同摩擦地面、单关节摆、独立轮子、三种执行器教学模型、差速小车、固定基座机械臂 + 夹爪、RGB-D 相机预设、基础传感器。**制作与管理放本仓库** `examples/euler/beginner/assets/`（配方、清单、可分发文件）；云端 spawnable 资产的上传发布走 simassets 订阅平台 | P0（P0 批先交付 01–18 所需子集） |
 | FR-A03 | 资产全部来自 `https://simassets.orca3d.cn/` 订阅，路径格式 `assets/<hash>/default_project/prefabs/<name>` | P0 |
 | FR-A04 | 每个资产登记元数据：实际路径、包版本、比例/单位、碰撞几何、质量、自由度、初始姿态、关节/执行器名称、对应课程 | P0 |
 | FR-A05 | 资产订阅文档统一格式："✅ 已在 OrcaLab 资产库中订阅 **<package>** 资产包"，并在 `START_HERE` 汇总一张总表 | P0 |
@@ -157,8 +157,9 @@
 | FR-E02 | 每课一个模块级入口：`python -m examples.euler.beginner.lesson_01_hello_world.run` | P0 |
 | FR-E03 | `.orcalab/config.toml` 增加新手课程启动菜单项，保留现有程序配置 | P0 |
 | FR-E04 | `_common/` 公共工具只做：连接/退出、版本检查、名称绑定、角度/四元数转换、dict→全量数组转换、计时。教学主题（PD 公式、差速控制、成功条件）保留在各课源码内 | P0 |
-| FR-E05 | 每课元数据（README 或 example.yaml）：编号、标题、阶段、前置、运行入口、运行模式、资产包与版本、后端支持、预期结果、是否重建场景、可调参数、已验证版本组合 | P0 |
+| FR-E05 | 每课元数据采用 **`example.yaml` 单一数据源**：编号、标题、阶段、前置、运行入口、运行模式、资产包与版本、后端支持、预期结果、是否重建场景、可调参数、已验证版本组合 | P0 |
 | FR-E06 | 入口脚本默认 seed=None（系统熵源）；显式 `--seed` 可复现 | P1 |
+| FR-E07 | 提供**元数据生成脚本**（放 `_common/` 或 `tools/`）：从全部 `example.yaml` 汇总自动生成 `START_HERE.md` 课程总表与 `.orcalab/config.toml` 启动菜单；禁止导航与菜单手工双写，避免 48 课时多处失同步 | P0 |
 
 ---
 
@@ -192,14 +193,14 @@ OrcaPlayground/
 │   ├── REQUIREMENTS.md                # 本文档
 │   └── previews/                      # 每课预览 GIF/图片
 ├── examples/euler/beginner/
-│   ├── lesson_01_hello_world/         # run.py + env.py + README.md
+│   ├── lesson_01_hello_world/         # run.py + env.py + example.yaml + README.md
 │   ├── ... (lesson_02 ... lesson_18)
-│   ├── _common/                       # 连接/版本/命名绑定/角度转换等
-│   └── assets/                        # BeginnerAssets 清单与教学配方
-└── .orcalab/config.toml               # 新手启动菜单（保留现有项）
+│   ├── _common/                       # 连接/版本/命名绑定/角度转换等 + 元数据生成脚本
+│   └── assets/                        # BeginnerAssets 制作与管理（配方/清单/可分发文件）
+└── .orcalab/config.toml               # 新手启动菜单（由 example.yaml 自动生成）
 ```
 
-> 与 `dev` 分支的关系：`dev` 分支整体保留为开发者入口（合并时以 `examples/euler/` 现有课程为"高级路线"，与本 `beginner/` 主线并存，导航上明确区分）。合并策略在方案设计阶段决策，本需求不锁定。
+> 与 `dev` 分支的关系（已决策）：本分支**整体替换 `dev`**。合入主线时移除旧 Euler 01–11 课程与 embodied 高级样例；替换前在 `dev` 上打 `legacy/pre-redesign` 标签存档，README 提供旧内容指引（git 历史标签访问）。
 
 ---
 
@@ -252,8 +253,8 @@ OrcaPlayground/
 | 场景重建耗时过长破坏"改一行立刻见效"体验 | 中 | P0 实测；超阈值则管理预期/推接口 |
 | BeginnerAssets 资产质量（碰撞/质量/执行器配置）不齐导致控制变量课讲不清 | 中 | 资产元数据表（FR-A04）作为 P0 硬交付物 |
 | 相机/视频链路端到端不通 | 中 | P2 前冒烟验证（设计文档同结论） |
-| 与 dev 分支并存的导航混乱 | 低 | START_HERE 明确"新手主线 vs 高级路线"双入口 |
-| 规模失控（48 课全量铺开） | 中 | 坚持先做 5 个纵向样板（01/07/13/27/45 模板），定型后再填充 |
+| 替换 dev 移除旧示例后，依赖旧课程/embodied 样例的用户失去入口 | 中 | 替换前打 `legacy/pre-redesign` 存档标签；README 给出历史访问指引；高阶用户引导至 OrcaGym/OrcaEngine 仓库文档 |
+| 规模失控（48 课全量铺开） | 中 | 坚持先做 01–18 内的纵向样板课，定型后再填充 |
 
 ---
 
@@ -261,7 +262,7 @@ OrcaPlayground/
 
 | 批次 | 范围 | 完成标准 |
 |---|---|---|
-| P0 配套确认 | 版本组合锁定、publish 行为、变换/删除边界、BeginnerAssets 首批、5 个纵向样板课 | 干净教学场景创建方块、重复运行、重置全通过；明确哪些操作需重建 |
+| P0 配套确认 | 版本组合锁定、publish 行为、变换/删除边界、BeginnerAssets 首批（放本仓库）、纵向样板课 **01 Hello / 07 移动 / 13 单步**（覆盖阶段 1–3；原设计 5 样板中的 27/45 超出 01–18 范围，推迟至对应批次） | 干净教学场景创建方块、重复运行、重置全通过；明确哪些操作需重建 |
 | P1 首版 | 01–18 + START_HERE + 导航 + FAQ | §8 验收标准 1–9 全过 |
 | P2 基础控制 | 19–36 | 外力/碰撞/关节/小车/机械臂/夹爪渐进成课 |
 | P3 任务实践 | 37–48 | 相机实测出图、任务判定、随机化、多次评测 |
@@ -269,13 +270,17 @@ OrcaPlayground/
 
 ---
 
-## 11. 待决策项（进入方案设计前需用户拍板）
+## 11. 决策记录（2026-09-15 用户定稿）
 
-1. **分支策略**：`feat/playground-beginner-redesign` 最终以何种方式合入主线（替换 dev / 并存 beginner 目录 / 独立长期分支）？
-2. **BeginnerAssets 归属**：资产包制作放本仓库 `examples/euler/beginner/assets/` 还是独立资产仓（订阅平台上传方）？
-3. **课程元数据载体**：README.md 前置表格 vs `example.yaml` 结构化文件（影响后续自动生成导航的可行性）？
-4. **样板课范围确认**：P0 的 5 个纵向样板（01 Hello / 07 移动 / 13 单步 / 27 位置控制 / 45 抓取预览）是否按此执行？
-5. **旧 Euler 课程（01–11）去留**：首版发布时是否在导航中降级为"开发者参考"并冻结不再迭代？
+原 v0.1 的 5 个待决策项已全部拍板：
+
+| # | 决策项 | 决策 | 影响 |
+|---|---|---|---|
+| 1 | 分支策略 | **整体替换 `dev`** | 合入主线时移除旧 Euler 01–11 与 embodied 样例；替换前在 dev 打 `legacy/pre-redesign` 存档标签（§6、§9） |
+| 2 | BeginnerAssets 归属 | **制作与管理放本仓库** `examples/euler/beginner/assets/` | 云端 spawnable 资产上传发布仍走 simassets 平台（FR-A02） |
+| 3 | 课程元数据载体 | **`example.yaml` 单一数据源** | 新增 FR-E07：导航表与 OrcaLab 启动菜单由脚本自动生成，禁止手工双写 |
+| 4 | 当前阶段范围 | **只做 01–18** | P0 纵向样板调整为 01/07/13（27/45 推迟）；19–48 与选修课仅保留规划，不进首版排期 |
+| 5 | 旧 Euler 课程去留 | **去掉**（随决策 1 一并移除） | 旧用户经 git 存档标签访问；高阶用户引导至 OrcaGym/OrcaEngine 仓库（§2.2、§9） |
 
 ---
 
