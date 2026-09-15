@@ -24,13 +24,13 @@ from examples.euler.beginner._common.scene_recipe import ActorSpec, spawn_recipe
 
 _logger = get_orca_logger()
 
-# BeginnerAssets 占位路径（P0 制作资产包后替换为真实路径）
-_GROUND_PATH = "assets/<hash>/default_project/prefabs/beginner_ground"
-_TABLE_PATH = "assets/<hash>/default_project/prefabs/beginner_table"
-_BLOCK_PATH = "assets/<hash>/default_project/prefabs/beginner_block"
-_BALL_PATH = "assets/<hash>/default_project/prefabs/beginner_ball"
+# 真实 spawnable 资产（OrcaPlaygroundAssets 包，scene_building 已验证）
+_GROUND_PATH = "assets/e071469a36d3c8aa/playground/prefabs/floor_usda"
+_TABLE_PATH = "assets/e071469a36d3c8aa/playground/prefabs/desk_usda"
+_BLOCK_PATH = "assets/e071469a36d3c8aa/playground/prefabs/cube_usda"
+_BALL_PATH = "assets/e071469a36d3c8aa/playground/prefabs/sphere_usda"
 
-# 桌面高度（米）：桌上的物体以此为基准（P0 资产落地后按实际桌面高度修正）
+# 桌面高度（米）：桌上物体以此为基准（desk_usda 实测后校准）
 _TABLE_TOP_Z = 0.75
 
 

@@ -5,11 +5,11 @@
 这个摆放的「实例名」——两者是一对一的spawn关系。
 
 用法:
-    # 前置：OrcaLab 已启动，BeginnerAssets 资产包已订阅
+    # 前置：OrcaLab 已启动，OrcaPlaygroundAssets 资产包已订阅
     python -m examples.euler.beginner.lesson_02_load_object.run
 
 验证点:
-    1. 视口出现地面与选定的物体（桌/球/椅等 BeginnerAssets 物体）
+    1. 视口出现地面与选定的物体（桌/球/货架等 OrcaPlaygroundAssets 物体）
     2. 终端打印当前使用的 asset_path 与实例名
 """
 
@@ -25,17 +25,17 @@ from examples.euler.beginner._common.scene_recipe import ActorSpec, spawn_recipe
 
 _logger = get_orca_logger()
 
-# BeginnerAssets 占位路径（P0 制作资产包后替换为真实路径）
-_GROUND_PATH = "assets/<hash>/default_project/prefabs/beginner_ground"
-_TABLE_PATH = "assets/<hash>/default_project/prefabs/beginner_table"
-_BALL_PATH = "assets/<hash>/default_project/prefabs/beginner_ball"
-_CHAIR_PATH = "assets/<hash>/default_project/prefabs/beginner_chair"
+# 真实 spawnable 资产（OrcaPlaygroundAssets 包，scene_building 已验证）
+_GROUND_PATH = "assets/e071469a36d3c8aa/playground/prefabs/floor_usda"
+_TABLE_PATH = "assets/e071469a36d3c8aa/playground/prefabs/desk_usda"
+_BALL_PATH = "assets/e071469a36d3c8aa/playground/prefabs/sphere_usda"
+_SHELF_PATH = "assets/e071469a36d3c8aa/playground/prefabs/metal_shelf_usda"
 
 # 可选物体清单（换一个 = 换 asset_path，实例名不变）
 OBJECT_CHOICES = {
     "table": _TABLE_PATH,
     "ball": _BALL_PATH,
-    "chair": _CHAIR_PATH,
+    "shelf": _SHELF_PATH,
 }
 DEFAULT_OBJECT = "table"
 

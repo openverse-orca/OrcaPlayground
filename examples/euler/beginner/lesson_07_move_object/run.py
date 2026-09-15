@@ -30,9 +30,9 @@ from examples.euler.beginner._common.scene_recipe import (
 
 _logger = get_orca_logger()
 
-# BeginnerAssets 占位路径（P0 制作资产包后替换为真实路径）
-_GROUND_PATH = "assets/<hash>/default_project/prefabs/beginner_ground"
-_BLOCK_PATH = "assets/<hash>/default_project/prefabs/beginner_block"
+# 真实 spawnable 资产（OrcaPlaygroundAssets 包，scene_building 已验证）
+_GROUND_PATH = "assets/e071469a36d3c8aa/playground/prefabs/floor_usda"
+_BLOCK_PATH = "assets/e071469a36d3c8aa/playground/prefabs/cube_usda"
 
 # ======================= 配方区（改这里） =======================
 # 方块的摆放位置，单位：米（世界坐标，x/y/z）

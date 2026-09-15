@@ -4,7 +4,7 @@
 视口出现地面与你选定的物体；换 `--object` 重跑，变成另一种物体。
 
 ## 准备
-同第 01 课（OrcaLab + BeginnerAssets 订阅 + 首次重启）。
+同第 01 课（OrcaLab + OrcaPlaygroundAssets 订阅 + 首次重启）。
 
 ## 运行
 ```bash
@@ -18,20 +18,20 @@ python -m examples.euler.beginner.lesson_02_load_object.run --object ball
 OBJECT_CHOICES = {
     "table": _TABLE_PATH,
     "ball": _BALL_PATH,
-    "chair": _CHAIR_PATH,
+    "shelf": _SHELF_PATH,
 }
 ```
 注意：实例名始终是 `object_1`——资产换了，名字不变。
 
 ## 动手改
-用 `--object chair` 重跑，观察椅子替换桌子。
+用 `--object shelf` 重跑，观察金属货架替换桌子。
 
 ## 解释结果
 `asset_path` 指向资产库里的**资产**（这一类东西），`name` 是场景里的
 **实例名**（这一次摆放）。一个资产可以 spawn 多个实例（第 04 课见）。
 
 ## 小挑战
-把 `_CHAIR_PATH` 换成资产库里你感兴趣的其它 BeginnerAssets 资产路径。
+把 `_SHELF_PATH` 换成资产库里你感兴趣的其它 OrcaPlaygroundAssets 资产路径。
 
 ## 常见问题
 | 现象 | 修复 |

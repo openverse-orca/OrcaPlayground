@@ -5,7 +5,7 @@
 放进 OrcaLab 视口，确认整条链路（订阅资产 → spawn → 视口）可用。
 
 用法:
-    # 前置：OrcaLab 已启动，BeginnerAssets 资产包已订阅
+    # 前置：OrcaLab 已启动，OrcaPlaygroundAssets 资产包已订阅
     python -m examples.euler.beginner.lesson_01_hello_world.run
 
 验证点:
@@ -26,9 +26,9 @@ from examples.euler.beginner._common.scene_recipe import ActorSpec, spawn_recipe
 
 _logger = get_orca_logger()
 
-# BeginnerAssets 占位路径（P0 制作资产包后替换为真实路径）
-_GROUND_PATH = "assets/<hash>/default_project/prefabs/beginner_ground"
-_BLOCK_PATH = "assets/<hash>/default_project/prefabs/beginner_block"
+# 真实 spawnable 资产（OrcaPlaygroundAssets 包，scene_building 已验证）
+_GROUND_PATH = "assets/e071469a36d3c8aa/playground/prefabs/floor_usda"
+_BLOCK_PATH = "assets/e071469a36d3c8aa/playground/prefabs/cube_usda"
 
 
 def build_default_recipe() -> list[ActorSpec]:

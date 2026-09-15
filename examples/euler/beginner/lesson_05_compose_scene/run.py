@@ -23,21 +23,22 @@ from examples.euler.beginner._common.scene_recipe import ActorSpec, spawn_recipe
 
 _logger = get_orca_logger()
 
-# BeginnerAssets 占位路径（P0 制作资产包后替换为真实路径）
-_GROUND_PATH = "assets/<hash>/default_project/prefabs/beginner_ground"
-_TABLE_PATH = "assets/<hash>/default_project/prefabs/beginner_table"
-_BLOCK_PATH = "assets/<hash>/default_project/prefabs/beginner_block"
-_ARM_PATH = "assets/<hash>/default_project/prefabs/beginner_arm"
+# 真实 spawnable 资产（OrcaPlaygroundAssets 包，scene_building 已验证）
+_GROUND_PATH = "assets/e071469a36d3c8aa/playground/prefabs/floor_usda"
+_TABLE_PATH = "assets/e071469a36d3c8aa/playground/prefabs/desk_usda"
+_BLOCK_PATH = "assets/e071469a36d3c8aa/playground/prefabs/cube_usda"
+_GO2_PATH = "assets/e071469a36d3c8aa/default_project/prefabs/go2_usda"
 
+# 桌面高度（米）：桌上物体以此为基准（desk_usda 实测后校准）
 _TABLE_TOP_Z = 0.75
 
 
 def build_recipe() -> list[ActorSpec]:
-    """组合配方：机械臂 + 工作台 + 桌上方块。"""
+    """组合配方：机器狗 + 工作台 + 桌上方块。"""
     return [
         ActorSpec(name="ground", asset_path=_GROUND_PATH),
         ActorSpec(name="table_1", asset_path=_TABLE_PATH),
-        ActorSpec(name="arm_1", asset_path=_ARM_PATH, position=(0.0, -0.8, 0.0)),
+        ActorSpec(name="robot_1", asset_path=_GO2_PATH, position=(0.0, -1.2, 0.0)),
         ActorSpec(name="block_1", asset_path=_BLOCK_PATH, position=(0.0, 0.0, _TABLE_TOP_Z + 0.1)),
     ]
 

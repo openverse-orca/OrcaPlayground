@@ -24,16 +24,16 @@ from examples.euler.beginner._common.scene_recipe import ActorSpec, spawn_recipe
 
 _logger = get_orca_logger()
 
-# BeginnerAssets 占位路径（P0 制作资产包后替换为真实路径）
-_GROUND_PATH = "assets/<hash>/default_project/prefabs/beginner_ground"
-_ARM_PATH = "assets/<hash>/default_project/prefabs/beginner_arm"
-_CAR_PATH = "assets/<hash>/default_project/prefabs/beginner_diffcar"
+# 真实 spawnable 资产（OrcaPlaygroundAssets 包，scene_building 已验证）
+_GROUND_PATH = "assets/e071469a36d3c8aa/playground/prefabs/floor_usda"
+_GO2_PATH = "assets/e071469a36d3c8aa/default_project/prefabs/go2_usda"
+_H1_PATH = "assets/e071469a36d3c8aa/playground/prefabs/h1_usda"
 
 ROBOT_CHOICES = {
-    "arm": _ARM_PATH,
-    "car": _CAR_PATH,
+    "go2": _GO2_PATH,
+    "h1": _H1_PATH,
 }
-DEFAULT_ROBOT = "arm"
+DEFAULT_ROBOT = "go2"
 
 
 def build_recipe(robot_kind: str) -> list[ActorSpec]:
@@ -51,7 +51,7 @@ def main() -> int:
         "--robot",
         choices=sorted(ROBOT_CHOICES),
         default=DEFAULT_ROBOT,
-        help="要加载的机器人（默认 arm 固定基座机械臂）",
+        help="要加载的机器人（默认 go2 机器狗）",
     )
     args = parser.parse_args()
 

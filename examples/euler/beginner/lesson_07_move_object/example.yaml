@@ -5,7 +5,7 @@ layer: 2
 scene_mode: spawn
 prerequisites: [lesson_06_identify_object]
 entry: python -m examples.euler.beginner.lesson_07_move_object.run
-asset_packages: [BeginnerAssets]
+asset_packages: [OrcaPlaygroundAssets]
 expected_result: 方块出现在配方区指定的位置；修改 BLOCK_POSITION 后重跑，位置变化
 rebuild_scene: true
 tunable_params:

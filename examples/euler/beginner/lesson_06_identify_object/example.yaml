@@ -5,7 +5,7 @@ layer: 1
 scene_mode: spawn
 prerequisites: [lesson_05_compose_scene]
 entry: python -m examples.euler.beginner.lesson_06_identify_object.run
-asset_packages: [BeginnerAssets]
+asset_packages: [OrcaPlaygroundAssets]
 expected_result: 终端列出场景全部实例名；检索 block 命中目标
 rebuild_scene: false
 tunable_params:

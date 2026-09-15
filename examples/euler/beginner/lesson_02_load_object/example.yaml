@@ -5,10 +5,10 @@ layer: 1
 scene_mode: spawn
 prerequisites: [lesson_01_hello_world]
 entry: python -m examples.euler.beginner.lesson_02_load_object.run
-asset_packages: [BeginnerAssets]
+asset_packages: [OrcaPlaygroundAssets]
 expected_result: 视口出现地面与选定物体；换 --object 后是另一种物体
 rebuild_scene: false
 tunable_params:
   - name: --object
     default: table
-    unit: table|ball|chair
+    unit: table|ball|shelf

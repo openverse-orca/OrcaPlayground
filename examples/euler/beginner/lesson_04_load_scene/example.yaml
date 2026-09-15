@@ -5,7 +5,7 @@ layer: 1
 scene_mode: spawn
 prerequisites: [lesson_03_load_robot]
 entry: python -m examples.euler.beginner.lesson_04_load_scene.run
-asset_packages: [BeginnerAssets]
+asset_packages: [OrcaPlaygroundAssets]
 expected_result: 视口一键出现最小工作台：桌子 + 桌上方块与球
 rebuild_scene: false
 tunable_params:

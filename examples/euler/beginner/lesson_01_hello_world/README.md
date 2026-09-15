@@ -5,7 +5,7 @@ OrcaLab 视口出现地面和一个方块，终端显示连接与 spawn 成功�
 
 ## 准备
 - OrcaLab 已启动（含 Studio 视口）
-- ✅ 已在 OrcaLab 资产库中订阅 **BeginnerAssets** 资产包
+- ✅ 已在 OrcaLab 资产库中订阅 **OrcaPlaygroundAssets** 资产包
 - 首次订阅后需重启 OrcaLab（引擎侧资产表为一次性填充）
 
 ## 运行
@@ -32,7 +32,7 @@ ActorSpec(name="block_1", asset_path=_BLOCK_PATH, position=(0.0, 0.0, 0.5)),
 ## 常见问题
 | 现象 | 修复 |
 |---|---|
-| 报"资产包未订阅" | 确认已订阅 BeginnerAssets；重启 OrcaLab 后重试 |
+| 报"资产包未订阅" | 确认已订阅 OrcaPlaygroundAssets；重启 OrcaLab 后重试 |
 | 视口看不到方块 | 检查视口是否聚焦原点；确认终端出现"场景已就绪" |
 
 ## 下一课
