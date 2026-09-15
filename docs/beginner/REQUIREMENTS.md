@@ -1,6 +1,6 @@
 # OrcaPlayground 新手示例库重构 — 需求分析
 
-文档版本：v0.4（§11 决策定稿 + §3.2.1 渐进式场景主导权）
+文档版本：v0.5（目录按阶段划分 + 阶段短句章节标题）
 编写日期：2026-09-15
 编写分支：`feat/playground-beginner-redesign`（orphan 分支，从零重建）
 上游输入：`/home/guojiatao/资料/迭代资料/OrcaPlayground_新手示例库设计.md`（2026-09-10，下称"设计文档"）
@@ -182,7 +182,7 @@
 | 编号 | 需求 | 优先级 |
 |---|---|---|
 | FR-E01 | 课程导航入口 `docs/beginner/START_HERE.md`：课程总表、安装、第一课命令 | P0 |
-| FR-E02 | 每课一个模块级入口：`python -m examples.euler.beginner.lesson_01_hello_world.run` | P0 |
+| FR-E02 | 每课一个模块级入口：`python -m examples.euler.beginner.stage1_scene_basics.lesson_01_hello_world.run`（课程模块挂在阶段目录下，阶段目录名见 §6 短句映射表） | P0 |
 | FR-E03 | `.orcalab/config.toml` 增加新手课程启动菜单项，保留现有程序配置 | P0 |
 | FR-E04 | `_common/` 公共工具只做：连接/退出、版本检查、名称绑定、角度/四元数转换、dict→全量数组转换、计时。教学主题（PD 公式、差速控制、成功条件）保留在各课源码内 | P0 |
 | FR-E05 | 每课元数据采用 **`example.yaml` 单一数据源**：编号、标题、阶段、前置、运行入口、运行模式（含 §3.2.1 的 `scene_mode`: spawn/flexible/prepared）、资产包与版本、后端支持、预期结果、是否重建场景、可调参数、已验证版本组合 | P0 |
@@ -221,12 +221,32 @@ OrcaPlayground/
 │   ├── REQUIREMENTS.md                # 本文档
 │   └── previews/                      # 每课预览 GIF/图片
 ├── examples/euler/beginner/
-│   ├── lesson_01_hello_world/         # run.py + env.py + example.yaml + README.md
-│   ├── ... (lesson_02 ... lesson_18)
+│   ├── stage1_scene_basics/           # 阶段 1：第一次看见自己的场景（01–06）
+│   │   └── lesson_01_hello_world/     # run.py + env.py + example.yaml + README.md
+│   ├── stage2_scene_editing/          # 阶段 2：像搭积木一样编辑场景（07–12）
+│   ├── stage3_simulation_time/        # 阶段 3：让时间开始流动（13–18）
+│   ├── stage4_physics_interaction/    # 阶段 4：体验真实的物理交互（19–24）
+│   ├── stage5_joint_control/          # 阶段 5：从一个关节开始控制（25–30）
+│   ├── stage6_full_robot/             # 阶段 6：控制完整机器人（31–36）
+│   ├── stage7_perception/             # 阶段 7：让机器人读到世界（37–42）
+│   ├── stage8_mini_tasks/             # 阶段 8：完成小任务（43–48）
 │   ├── _common/                       # 连接/版本/命名绑定/角度转换等 + 元数据生成脚本
 │   └── assets/                        # BeginnerAssets 制作与管理（配方/清单/可分发文件）
 └── .orcalab/config.toml               # 新手启动菜单（由 example.yaml 自动生成）
 ```
+
+阶段短句（章节标题，出自设计文档，课程导航与 START_HERE 沿用同一套措辞）：
+
+| 目录 | 章节标题 | 课次 |
+|---|---|---|
+| stage1_scene_basics | 第一次看见自己的场景 | 01–06 |
+| stage2_scene_editing | 像搭积木一样编辑场景 | 07–12 |
+| stage3_simulation_time | 让时间开始流动 | 13–18 |
+| stage4_physics_interaction | 体验真实的物理交互 | 19–24 |
+| stage5_joint_control | 从一个关节开始控制 | 25–30 |
+| stage6_full_robot | 控制完整机器人 | 31–36 |
+| stage7_perception | 让机器人读到世界 | 37–42 |
+| stage8_mini_tasks | 完成小任务 | 43–48 |
 
 > 与 `dev` 分支的关系（已决策）：本分支**整体替换 `dev`**。合入主线时移除旧 Euler 01–11 课程与 embodied 高级样例；替换前在 `dev` 上打 `legacy/pre-redesign` 标签存档，README 提供旧内容指引（git 历史标签访问）。
 

@@ -1,0 +1,14 @@
+id: 5
+title: 机器人 + 桌子 + 方块
+stage: 1
+layer: 1
+scene_mode: spawn
+prerequisites: [lesson_04_load_scene]
+entry: python -m examples.euler.beginner.stage1_scene_basics.lesson_05_compose_scene.run
+asset_packages: [OrcaPlaygroundAssets]
+expected_result: 机器狗站在桌旁，桌上放着方块——第一个机器人工作区
+rebuild_scene: false
+tunable_params:
+  - name: --addr
+    default: localhost:50051
+    unit: gRPC 地址

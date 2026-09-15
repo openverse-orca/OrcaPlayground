@@ -1,0 +1,14 @@
+id: 6
+title: 找到指定物体
+stage: 1
+layer: 1
+scene_mode: spawn
+prerequisites: [lesson_05_compose_scene]
+entry: python -m examples.euler.beginner.stage1_scene_basics.lesson_06_identify_object.run
+asset_packages: [OrcaPlaygroundAssets]
+expected_result: 终端列出场景全部实例名；检索 block 命中目标
+rebuild_scene: false
+tunable_params:
+  - name: SEARCH_KEYWORD
+    default: block
+    unit: 名称关键词（源码常量）

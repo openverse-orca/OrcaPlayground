@@ -1,0 +1,14 @@
+id: 1
+title: Hello OrcaGym
+stage: 1
+layer: 1
+scene_mode: spawn
+prerequisites: []
+entry: python -m examples.euler.beginner.stage1_scene_basics.lesson_01_hello_world.run
+asset_packages: [OrcaPlaygroundAssets]
+expected_result: OrcaLab 视口出现地面与一个方块，终端显示连接与 spawn 成功
+rebuild_scene: false
+tunable_params:
+  - name: --addr
+    default: localhost:50051
+    unit: "gRPC 地址"
