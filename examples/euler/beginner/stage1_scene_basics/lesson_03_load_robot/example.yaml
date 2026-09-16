@@ -7,6 +7,8 @@ prerequisites: [lesson_02_load_object]
 entry: python -m examples.euler.beginner.stage1_scene_basics.lesson_03_load_robot.run
 asset_packages: [OrcaPlaygroundAssets]
 expected_result: 场景中出现稳定摆放的机器人（机器狗或人形），仅观察
+challenge: 在配方里再加一个机器人 robot_2（实例名不能重复），让两个机器人同时在场——同一资产，两个实例
+challenge_type: combine
 rebuild_scene: false
 tunable_params:
   - name: --robot

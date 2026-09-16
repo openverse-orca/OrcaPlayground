@@ -185,9 +185,10 @@
 | FR-E02 | 每课一个模块级入口：`python -m examples.euler.beginner.stage1_scene_basics.lesson_01_hello_world.run`（课程模块挂在阶段目录下，阶段目录名见 §6 短句映射表） | P0 |
 | FR-E03 | `.orcalab/config.toml` 增加新手课程启动菜单项，保留现有程序配置 | P0 |
 | FR-E04 | `_common/` 公共工具只做：连接/退出、版本检查、名称绑定、角度/四元数转换、dict→全量数组转换、计时。教学主题（PD 公式、差速控制、成功条件）保留在各课源码内 | P0 |
-| FR-E05 | 每课元数据采用 **`example.yaml` 单一数据源**：编号、标题、阶段、前置、运行入口、运行模式（含 §3.2.1 的 `scene_mode`: spawn/flexible/prepared）、资产包与版本、后端支持、预期结果、是否重建场景、可调参数、已验证版本组合 | P0 |
+| FR-E05 | 每课元数据采用 **`example.yaml` 单一数据源**：编号、标题、阶段、前置、运行入口、运行模式（含 §3.2.1 的 `scene_mode`: spawn/flexible/prepared）、资产包与版本、后端支持、预期结果、是否重建场景、可调参数、**小挑战（`challenge` / `challenge_type` / 阶段末课 `stage_challenge`）**、已验证版本组合 | P0 |
 | FR-E06 | 入口脚本默认 seed=None（系统熵源）；显式 `--seed` 可复现 | P1 |
 | FR-E07 | 提供**元数据生成脚本**（放 `_common/` 或 `tools/`）：从全部 `example.yaml` 汇总自动生成 `START_HERE.md` 课程总表与 `.orcalab/config.toml` 启动菜单；禁止导航与菜单手工双写，避免 48 课时多处失同步 | P0 |
+| FR-E08 | **小挑战体系**：每课必有一个小挑战（含第 01 课），只动数据不动代码结构（改参数/配方行），成功自验（README 写明"你应看到什么"，文字自验，不做脚本自动判分）；三型分布——swap（参数替换）/ combine（组合已学）/ predict（先猜再验证，每阶段≥1）；每阶段最后一课追加 `stage_challenge` 毕业挑战（仅用本阶段技能的开放任务），12/18 课创建时补齐 | P0 |
 
 ---
 
@@ -331,6 +332,7 @@ OrcaPlayground/
 | 4 | 当前阶段范围 | **只做 01–18** | P0 纵向样板调整为 01/07/13（27/45 推迟）；19–48 与选修课仅保留规划，不进首版排期 |
 | 5 | 旧 Euler 课程去留 | **去掉**（随决策 1 一并移除） | 旧用户经 git 存档标签访问；高阶用户引导至 OrcaGym/OrcaEngine 仓库（§2.2、§9） |
 | 6 | 场景准备主路径 | **B+C 混合，并升级为渐进式场景主导权**（§3.2.1）：01–06 脚本 spawn；07–12 用户改配方；13–18 倡导用户拖拽自组或自写 spawn，默认配方兜底；本地 MJCF 离线仅排障补充；`example.yaml` 增 `scene_mode`（spawn/flexible/prepared） | 用户从"运行别人的场景"成长为"搭建自己的场景"；层 3 课须场景无关设计（FR-A08）；用户拖拽场景读取链路列 P0 实测，失败则层 3 退化为自写 spawn 单路径 |
+| 7 | 小挑战安排 | **全套实施（FR-E08）**：每课必有（含 01），三型（swap/combine/predict），阶段末毕业挑战，文字自验不做脚本判分；元数据入 `example.yaml`（`challenge`/`challenge_type`/`stage_challenge`） | 设计文档原则"每课一个可调参数和一个小挑战"的完整落地；12/18 课创建时补齐对应毕业挑战 |
 
 ---
 

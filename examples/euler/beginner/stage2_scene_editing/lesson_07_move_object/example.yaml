@@ -7,6 +7,8 @@ prerequisites: [lesson_06_identify_object]
 entry: python -m examples.euler.beginner.stage2_scene_editing.lesson_07_move_object.run
 asset_packages: [OrcaPlaygroundAssets]
 expected_result: 方块出现在配方区指定的位置；修改 BLOCK_POSITION 后重跑，位置变化
+challenge: 让方块同时向 X 和 Y 各移动 0.5 米（只改 BLOCK_POSITION 一个常量）
+challenge_type: combine
 rebuild_scene: true
 tunable_params:
   - name: BLOCK_POSITION

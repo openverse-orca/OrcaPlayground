@@ -7,6 +7,8 @@ prerequisites: [lesson_04_load_scene]
 entry: python -m examples.euler.beginner.stage1_scene_basics.lesson_05_compose_scene.run
 asset_packages: [OrcaPlaygroundAssets]
 expected_result: 机器狗站在桌旁，桌上放着方块——第一个机器人工作区
+challenge: 再加一个球（ball_1），放到机器狗与桌子之间
+challenge_type: combine
 rebuild_scene: false
 tunable_params:
   - name: --addr
