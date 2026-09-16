@@ -20,6 +20,18 @@ from orca_gym.scene.orca_gym_scene import Actor, OrcaGymScene
 
 _logger = get_orca_logger()
 
+# 地板微抬偏移（米）：避免与 OrcaLab 自带地面重叠闪烁（z-fighting），
+# 取值沿用 scene_building/indoor_room 的验证值
+FLOOR_Z_OFFSET: float = 0.01
+
+
+def setup_console_logging() -> None:
+    """让 INFO 级日志进入终端（OrcaLog 默认 console_level=WARNING，仅写文件）。
+
+    每课 main() 开头调用一次，保证新手能看见课程引导输出。
+    """
+    get_orca_logger().set_console_level("INFO")
+
 # FR-N06：AddActor 失败退避重试参数
 _RETRY_ATTEMPTS = 3
 _RETRY_BACKOFF_S = 2.0

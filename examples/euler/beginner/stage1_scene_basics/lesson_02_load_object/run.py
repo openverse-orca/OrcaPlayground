@@ -21,7 +21,12 @@ import time
 
 from orca_gym.log.orca_log import get_orca_logger
 
-from examples.euler.beginner._common.scene_recipe import ActorSpec, spawn_recipe
+from examples.euler.beginner._common.scene_recipe import (
+    FLOOR_Z_OFFSET,
+    ActorSpec,
+    setup_console_logging,
+    spawn_recipe,
+)
 
 _logger = get_orca_logger()
 
@@ -44,7 +49,7 @@ def build_recipe(object_kind: str) -> list[ActorSpec]:
     """固定配方：地面 + 一个指定种类的物体（放桌子上方便于观察）。"""
     asset_path = OBJECT_CHOICES[object_kind]
     return [
-        ActorSpec(name="ground", asset_path=_GROUND_PATH),
+        ActorSpec(name="ground", asset_path=_GROUND_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
         ActorSpec(name="object_1", asset_path=asset_path, position=(0.0, 0.0, 0.5)),
     ]
 
@@ -59,6 +64,8 @@ def main() -> int:
         help="要加载的物体种类（默认 table）",
     )
     args = parser.parse_args()
+
+    setup_console_logging()
 
     _logger.info("=" * 60)
     _logger.info("第 02 课：导入一个物体 — 资产路径与实例")

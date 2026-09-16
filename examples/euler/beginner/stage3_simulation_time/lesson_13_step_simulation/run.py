@@ -33,8 +33,10 @@ from orca_gym.log.orca_log import get_orca_logger
 
 from examples.euler.beginner._common.discovery import find_body
 from examples.euler.beginner._common.scene_recipe import (
+    FLOOR_Z_OFFSET,
     ActorSpec,
     clear_scene,
+    setup_console_logging,
     spawn_recipe,
 )
 
@@ -51,7 +53,7 @@ _BLOCK_KEYWORD = "block"
 def build_default_recipe() -> list[ActorSpec]:
     """默认配方兜底：地面 + 一个方块（抬高一米，便于观察下落）。"""
     return [
-        ActorSpec(name="ground", asset_path=_GROUND_PATH),
+        ActorSpec(name="ground", asset_path=_GROUND_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
         ActorSpec(name="block_1", asset_path=_BLOCK_PATH, position=(0.0, 0.0, 1.0)),
     ]
 
@@ -76,6 +78,8 @@ def main() -> int:
     )
     parser.add_argument("--steps", type=int, default=10, help="单步模式下一次推进的步数")
     args = parser.parse_args()
+
+    setup_console_logging()
 
     _logger.info("=" * 60)
     _logger.info("第 13 课：开始、暂停、单步 — 让时间开始流动")

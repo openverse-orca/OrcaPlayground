@@ -21,7 +21,12 @@ import sys
 from orca_gym.log.orca_log import get_orca_logger
 
 from examples.euler.beginner._common.discovery import probe_body_names
-from examples.euler.beginner._common.scene_recipe import ActorSpec, spawn_recipe
+from examples.euler.beginner._common.scene_recipe import (
+    FLOOR_Z_OFFSET,
+    ActorSpec,
+    setup_console_logging,
+    spawn_recipe,
+)
 
 _logger = get_orca_logger()
 
@@ -41,7 +46,7 @@ SEARCH_KEYWORD = "block"
 def build_recipe() -> list[ActorSpec]:
     """与第 05 课同款工作区（多一个球，便于练习检索）。"""
     return [
-        ActorSpec(name="ground", asset_path=_GROUND_PATH),
+        ActorSpec(name="ground", asset_path=_GROUND_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
         ActorSpec(name="table_1", asset_path=_TABLE_PATH),
         ActorSpec(name="block_1", asset_path=_BLOCK_PATH, position=(-0.3, 0.0, _TABLE_TOP_Z + 0.1)),
         ActorSpec(name="ball_1", asset_path=_BALL_PATH, position=(0.3, 0.0, _TABLE_TOP_Z + 0.1)),
@@ -52,6 +57,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="第 06 课：找到指定物体")
     parser.add_argument("--addr", default="localhost:50051", help="OrcaLab gRPC 地址")
     args = parser.parse_args()
+
+    setup_console_logging()
 
     _logger.info("=" * 60)
     _logger.info("第 06 课：找到指定物体 — 从场景里认出你的目标")

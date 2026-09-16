@@ -20,7 +20,12 @@ import time
 
 from orca_gym.log.orca_log import get_orca_logger
 
-from examples.euler.beginner._common.scene_recipe import ActorSpec, spawn_recipe
+from examples.euler.beginner._common.scene_recipe import (
+    FLOOR_Z_OFFSET,
+    ActorSpec,
+    setup_console_logging,
+    spawn_recipe,
+)
 
 _logger = get_orca_logger()
 
@@ -39,7 +44,7 @@ DEFAULT_ROBOT = "go2"
 def build_recipe(robot_kind: str) -> list[ActorSpec]:
     """固定配方：地面 + 一个稳定摆放的机器人。"""
     return [
-        ActorSpec(name="ground", asset_path=_GROUND_PATH),
+        ActorSpec(name="ground", asset_path=_GROUND_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
         ActorSpec(name="robot_1", asset_path=ROBOT_CHOICES[robot_kind], position=(0.0, 0.0, 0.0)),
     ]
 
@@ -54,6 +59,8 @@ def main() -> int:
         help="要加载的机器人（默认 go2 机器狗）",
     )
     args = parser.parse_args()
+
+    setup_console_logging()
 
     _logger.info("=" * 60)
     _logger.info("第 03 课：导入一个机器人 — 机器人也是资产")

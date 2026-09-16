@@ -20,7 +20,12 @@ import time
 
 from orca_gym.log.orca_log import get_orca_logger
 
-from examples.euler.beginner._common.scene_recipe import ActorSpec, spawn_recipe
+from examples.euler.beginner._common.scene_recipe import (
+    FLOOR_Z_OFFSET,
+    ActorSpec,
+    setup_console_logging,
+    spawn_recipe,
+)
 
 _logger = get_orca_logger()
 
@@ -37,7 +42,7 @@ _TABLE_TOP_Z = 0.75
 def build_recipe() -> list[ActorSpec]:
     """场景配方：最小工作台（桌子 + 桌上两物）。"""
     return [
-        ActorSpec(name="ground", asset_path=_GROUND_PATH),
+        ActorSpec(name="ground", asset_path=_GROUND_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
         ActorSpec(name="table_1", asset_path=_TABLE_PATH),
         ActorSpec(name="block_1", asset_path=_BLOCK_PATH, position=(-0.3, 0.0, _TABLE_TOP_Z + 0.1)),
         ActorSpec(name="ball_1", asset_path=_BALL_PATH, position=(0.3, 0.0, _TABLE_TOP_Z + 0.1)),
@@ -48,6 +53,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="第 04 课：导入一个场景")
     parser.add_argument("--addr", default="localhost:50051", help="OrcaLab gRPC 地址")
     args = parser.parse_args()
+
+    setup_console_logging()
 
     recipe = build_recipe()
     _logger.info("=" * 60)

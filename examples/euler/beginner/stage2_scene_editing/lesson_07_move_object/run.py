@@ -23,8 +23,10 @@ import time
 from orca_gym.log.orca_log import get_orca_logger
 
 from examples.euler.beginner._common.scene_recipe import (
+    FLOOR_Z_OFFSET,
     ActorSpec,
     clear_scene,
+    setup_console_logging,
     spawn_recipe,
 )
 
@@ -45,7 +47,7 @@ BLOCK_ROTATION_DEG: tuple[float, float, float] = (0.0, 0.0, 0.0)
 def build_recipe() -> list[ActorSpec]:
     """按配方区参数生成场景配方（用户改配方区，不改这里）。"""
     return [
-        ActorSpec(name="ground", asset_path=_GROUND_PATH),
+        ActorSpec(name="ground", asset_path=_GROUND_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
         ActorSpec(
             name="block_1",
             asset_path=_BLOCK_PATH,
@@ -59,6 +61,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="第 07 课：移动物体")
     parser.add_argument("--addr", default="localhost:50051", help="OrcaLab gRPC 地址")
     args = parser.parse_args()
+
+    setup_console_logging()
 
     _logger.info("=" * 60)
     _logger.info("第 07 课：移动物体 — 编辑配方，重建场景")

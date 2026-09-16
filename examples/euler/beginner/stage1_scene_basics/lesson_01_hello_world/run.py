@@ -22,7 +22,12 @@ import time
 
 from orca_gym.log.orca_log import get_orca_logger
 
-from examples.euler.beginner._common.scene_recipe import ActorSpec, spawn_recipe
+from examples.euler.beginner._common.scene_recipe import (
+    FLOOR_Z_OFFSET,
+    ActorSpec,
+    setup_console_logging,
+    spawn_recipe,
+)
 
 _logger = get_orca_logger()
 
@@ -34,7 +39,7 @@ _BLOCK_PATH = "assets/e071469a36d3c8aa/playground/prefabs/cube_usda"
 def build_default_recipe() -> list[ActorSpec]:
     """第 01 课的固定配方：地面 + 一个红色方块。"""
     return [
-        ActorSpec(name="ground", asset_path=_GROUND_PATH),
+        ActorSpec(name="ground", asset_path=_GROUND_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
         ActorSpec(name="block_1", asset_path=_BLOCK_PATH, position=(0.0, 0.0, 0.5)),
     ]
 
@@ -43,6 +48,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="第 01 课：Hello OrcaGym")
     parser.add_argument("--addr", default="localhost:50051", help="OrcaLab gRPC 地址")
     args = parser.parse_args()
+
+    setup_console_logging()
 
     _logger.info("=" * 60)
     _logger.info("第 01 课：Hello OrcaGym — 看见你的第一个场景")
