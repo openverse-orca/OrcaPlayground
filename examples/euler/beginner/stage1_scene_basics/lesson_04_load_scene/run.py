@@ -43,7 +43,7 @@ def build_recipe() -> list[ActorSpec]:
     """场景配方：最小工作台（桌子 + 桌上两物）。"""
     return [
         ActorSpec(name="ground", asset_path=_GROUND_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
-        ActorSpec(name="table_1", asset_path=_TABLE_PATH),
+        ActorSpec(name="table_1", asset_path=_TABLE_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
         ActorSpec(name="block_1", asset_path=_BLOCK_PATH, position=(-0.3, 0.0, _TABLE_TOP_Z + 0.1)),
         ActorSpec(name="ball_1", asset_path=_BALL_PATH, position=(0.3, 0.0, _TABLE_TOP_Z + 0.1)),
     ]

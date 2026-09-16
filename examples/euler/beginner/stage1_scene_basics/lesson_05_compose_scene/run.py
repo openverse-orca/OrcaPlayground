@@ -42,7 +42,7 @@ def build_recipe() -> list[ActorSpec]:
     """组合配方：机器狗 + 工作台 + 桌上方块。"""
     return [
         ActorSpec(name="ground", asset_path=_GROUND_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
-        ActorSpec(name="table_1", asset_path=_TABLE_PATH),
+        ActorSpec(name="table_1", asset_path=_TABLE_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
         ActorSpec(name="robot_1", asset_path=_GO2_PATH, position=(0.0, -1.2, 0.0)),
         ActorSpec(name="block_1", asset_path=_BLOCK_PATH, position=(0.0, 0.0, _TABLE_TOP_Z + 0.1)),
     ]

@@ -47,7 +47,7 @@ def build_recipe() -> list[ActorSpec]:
     """与第 05 课同款工作区（多一个球，便于练习检索）。"""
     return [
         ActorSpec(name="ground", asset_path=_GROUND_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
-        ActorSpec(name="table_1", asset_path=_TABLE_PATH),
+        ActorSpec(name="table_1", asset_path=_TABLE_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
         ActorSpec(name="block_1", asset_path=_BLOCK_PATH, position=(-0.3, 0.0, _TABLE_TOP_Z + 0.1)),
         ActorSpec(name="ball_1", asset_path=_BALL_PATH, position=(0.3, 0.0, _TABLE_TOP_Z + 0.1)),
     ]
