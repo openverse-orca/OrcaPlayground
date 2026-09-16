@@ -44,13 +44,21 @@ OBJECT_CHOICES = {
 }
 DEFAULT_OBJECT = "table"
 
+# 各物体的落地高度（米）：桌子/货架原点在底部，紧贴地板顶面（FLOOR_Z_OFFSET）；
+# 球保持悬空展示下落效果
+GROUND_Z = {
+    "table": FLOOR_Z_OFFSET,
+    "shelf": FLOOR_Z_OFFSET,
+    "ball": 0.5,
+}
+
 
 def build_recipe(object_kind: str) -> list[ActorSpec]:
-    """固定配方：地面 + 一个指定种类的物体（放桌子上方便于观察）。"""
+    """固定配方：地面 + 一个指定种类的物体（桌子/货架紧贴地面）。"""
     asset_path = OBJECT_CHOICES[object_kind]
     return [
         ActorSpec(name="ground", asset_path=_GROUND_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
-        ActorSpec(name="object_1", asset_path=asset_path, position=(0.0, 0.0, 0.5)),
+        ActorSpec(name="object_1", asset_path=asset_path, position=(0.0, 0.0, GROUND_Z[object_kind])),
     ]
 
 
