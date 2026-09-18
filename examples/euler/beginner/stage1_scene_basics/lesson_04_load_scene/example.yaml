@@ -6,7 +6,7 @@ scene_mode: spawn
 prerequisites: [lesson_03_load_robot]
 entry: python -m examples.euler.beginner.stage1_scene_basics.lesson_04_load_scene.run
 asset_packages: [OrcaPlaygroundAssets]
-expected_result: 视口一键出现最小工作台：桌子 + 桌上方块与球
+expected_result: 视口一键出现完整布局：桌子居中，方块与球沿 y 分立前后地面
 challenge: 在配方里再加一个 block_2（名字不能重复），放在球的旁边
 challenge_type: combine
 rebuild_scene: false

@@ -1,0 +1,22 @@
+id: 11
+title: 复制与排列
+stage: 2
+layer: 2
+scene_mode: spawn
+prerequisites: [lesson_10_color_object]
+entry: python -m examples.euler.beginner.stage2_scene_editing.lesson_11_duplicate_objects.run
+asset_packages: [OrcaPlaygroundAssets]
+expected_result: ROWS×COLS 颗方块排成整齐阵列（默认 1×3）；实例名 block_行_列 唯一
+challenge: 改成 2 行 4 列，先猜阵列偏向原点哪一侧（偶数列中心不在格点），再验证
+challenge_type: predict
+rebuild_scene: true
+tunable_params:
+  - name: ROWS
+    default: 1
+    unit: 行数
+  - name: COLS
+    default: 3
+    unit: 列数
+  - name: SPACING_M
+    default: 2.0
+    unit: m

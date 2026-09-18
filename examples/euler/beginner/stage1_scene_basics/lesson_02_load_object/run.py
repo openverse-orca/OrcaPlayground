@@ -30,11 +30,12 @@ from examples.euler.beginner._common.scene_recipe import (
 
 _logger = get_orca_logger()
 
-# 真实 spawnable 资产（OrcaPlaygroundAssets 包，scene_building 已验证）
-_GROUND_PATH = "assets/e071469a36d3c8aa/playground/prefabs/floor_usda"
-_TABLE_PATH = "assets/e071469a36d3c8aa/playground/prefabs/desk_usda"
-_BALL_PATH = "assets/e071469a36d3c8aa/playground/prefabs/sphere_usda"
-_SHELF_PATH = "assets/e071469a36d3c8aa/playground/prefabs/metal_shelf_usda"
+# 真实 spawnable 资产（本地导入包 345a60e1cced）
+# TODO(asset-lib): 资产正式上传资产库后，将 assets/345a60e1cced/ 统一切换为云端正式包地址
+_GROUND_PATH = "assets/345a60e1cced/prefabs/floor_usda"
+_TABLE_PATH = "assets/345a60e1cced/prefabs/table_usda"
+_BALL_PATH = "assets/345a60e1cced/prefabs/sphere_usda"
+_SHELF_PATH = "assets/345a60e1cced/prefabs/metal_shelf_usda"
 
 # 可选物体清单（换一个 = 换 asset_path，实例名不变）
 OBJECT_CHOICES = {

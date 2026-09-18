@@ -29,10 +29,11 @@ from examples.euler.beginner._common.scene_recipe import (
 
 _logger = get_orca_logger()
 
-# 真实 spawnable 资产（OrcaPlaygroundAssets 包，scene_building 已验证）
-_GROUND_PATH = "assets/e071469a36d3c8aa/playground/prefabs/floor_usda"
-_GO2_PATH = "assets/e071469a36d3c8aa/default_project/prefabs/go2_usda"
-_H1_PATH = "assets/e071469a36d3c8aa/playground/prefabs/h1_usda"
+# 真实 spawnable 资产（本地导入包 345a60e1cced）
+# TODO(asset-lib): 资产正式上传资产库后，将 assets/345a60e1cced/ 统一切换为云端正式包地址
+_GROUND_PATH = "assets/345a60e1cced/prefabs/floor_usda"
+_GO2_PATH = "assets/345a60e1cced/prefabs/go2_usda"
+_H1_PATH = "assets/345a60e1cced/prefabs/h1_usda"
 
 ROBOT_CHOICES = {
     "go2": _GO2_PATH,

@@ -6,12 +6,12 @@ scene_mode: spawn
 prerequisites: [lesson_05_compose_scene]
 entry: python -m examples.euler.beginner.stage1_scene_basics.lesson_06_identify_object.run
 asset_packages: [OrcaPlaygroundAssets]
-expected_result: 终端列出场景全部实例名；检索 block 命中目标
+expected_result: 终端列出场景全部实例名；检索 ball 命中目标
 challenge: 试试用 "table" 检索：命中几个？为什么 table_1 和 ball_1 都在名单里？
 challenge_type: predict
 stage_challenge: 毕业挑战——搭"你自己的角落"：地面+桌+至少 2 个你选的物体；把 SEARCH_KEYWORD 换成你的物体名，确认检索全部命中（验收：终端名单里能看到你的每个实例名）
 rebuild_scene: false
 tunable_params:
   - name: SEARCH_KEYWORD
-    default: block
+    default: ball
     unit: 名称关键词（源码常量）

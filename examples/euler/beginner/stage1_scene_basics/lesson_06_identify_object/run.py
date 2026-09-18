@@ -9,7 +9,7 @@
 
 验证点:
     1. 终端列出场景全部 body 名称（分组显示）
-    2. 按关键词检索：找到 block 与 ball
+    2. 按关键词检索：找到 ball；动手改 "robot" 可检索机器狗
     3. 视口场景与第 05 课相同（本课只加观察，不换场景）
 """
 
@@ -30,26 +30,30 @@ from examples.euler.beginner._common.scene_recipe import (
 
 _logger = get_orca_logger()
 
-# 真实 spawnable 资产（OrcaPlaygroundAssets 包，scene_building 已验证）
-_GROUND_PATH = "assets/e071469a36d3c8aa/playground/prefabs/floor_usda"
-_TABLE_PATH = "assets/e071469a36d3c8aa/playground/prefabs/desk_usda"
-_BLOCK_PATH = "assets/e071469a36d3c8aa/playground/prefabs/cube_usda"
-_BALL_PATH = "assets/e071469a36d3c8aa/playground/prefabs/sphere_usda"
+# 真实 spawnable 资产（本地导入包 345a60e1cced）
+# TODO(asset-lib): 资产正式上传资产库后，将 assets/345a60e1cced/ 统一切换为云端正式包地址
+_GROUND_PATH = "assets/345a60e1cced/prefabs/floor_usda"
+_TABLE_PATH = "assets/345a60e1cced/prefabs/table_usda"
+_BALL_PATH = "assets/345a60e1cced/prefabs/sphere_usda"
+_GO2_PATH = "assets/345a60e1cced/prefabs/go2_usda"
 
-# 桌面高度（米）：桌上物体以此为基准（desk_usda 实测后校准）
+# 桌面高度（米）：桌上物体以此为基准（table.xml 桌面顶面 0.75）
 _TABLE_TOP_Z = 0.75
+# 球半径（米）：sphere_usda 的实际尺寸
+_BALL_RADIUS = 0.15
 
-# 本课的检索目标（小挑战：找到第二个方块时改为 "ball"）
-SEARCH_KEYWORD = "block"
+# 本课的检索目标（动手改：换成 "robot" 检索机器狗的一串 body）
+SEARCH_KEYWORD = "ball"
 
 
 def build_recipe() -> list[ActorSpec]:
-    """与第 05 课同款工作区（多一个球，便于练习检索）。"""
+    """与第 05 课同款工作区（机器狗 + 桌 + 桌上球），本课只加观察。"""
     return [
         ActorSpec(name="ground", asset_path=_GROUND_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
         ActorSpec(name="table_1", asset_path=_TABLE_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
-        ActorSpec(name="block_1", asset_path=_BLOCK_PATH, position=(-0.3, 0.0, _TABLE_TOP_Z + 0.1)),
-        ActorSpec(name="ball_1", asset_path=_BALL_PATH, position=(0.3, 0.0, _TABLE_TOP_Z + 0.1)),
+        ActorSpec(name="robot_1", asset_path=_GO2_PATH, position=(0.0, -1.2, 0.0)),
+        # 球半径 0.15：桌面 0.75 + 半径 = 相切悬停（嵌入会穿模）
+        ActorSpec(name="ball_1", asset_path=_BALL_PATH, position=(0.0, 0.0, _TABLE_TOP_Z + _BALL_RADIUS)),
     ]
 
 
