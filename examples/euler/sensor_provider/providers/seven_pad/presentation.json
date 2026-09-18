@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "numeric": ["distance", "normal_force", "tangential_force", "direction", "capacitance"],
+  "curves": ["normal_force", "tangential_force"],
+  "surface_colors": [
+    {"channel": "capacitance", "range": [0, 2], "palette": "blue_red"}
+  ]
+}

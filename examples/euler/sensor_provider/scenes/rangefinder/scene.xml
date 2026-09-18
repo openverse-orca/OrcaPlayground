@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Complete MJCF-compatible teaching fixture with geometry and collision. -->
+<mujoco model="rangefinder_chart_fixture">
+  <option timestep="0.002" integrator="Euler" gravity="0 0 0" />
+  <worldbody>
+    <body name="left_rangefinder_carrier" pos="-0.08 0 0">
+      <joint name="left_rangefinder_mount_joint" type="slide" axis="1 0 0" stiffness="1000" damping="5" />
+      <site name="left_rangefinder_site" size=".001" />
+      <geom name="left_rangefinder_surface" type="box" pos="0 0 -.006" size=".008 .008 .005" mass=".2" />
+    </body>
+    <!-- Spring-mounted targets move along the sites' positive Z ray direction. -->
+    <body name="left_rangefinder_target" pos="-0.08 0 0.055">
+      <joint name="left_rangefinder_target_joint" type="slide" axis="0 0 1" stiffness="5" damping=".015" springref="0" />
+      <geom name="left_rangefinder_target_shape" type="box" size=".018 .018 .005" mass=".1" />
+    </body>
+    <body name="right_rangefinder_carrier" pos="0.08 0 0">
+      <joint name="right_rangefinder_mount_joint" type="slide" axis="1 0 0" stiffness="1000" damping="5" />
+      <site name="right_rangefinder_site" size=".001" />
+      <geom name="right_rangefinder_surface" type="box" pos="0 0 -.006" size=".008 .008 .005" mass=".2" />
+    </body>
+    <body name="right_rangefinder_target" pos="0.08 0 0.12">
+      <joint name="right_rangefinder_target_joint" type="slide" axis="0 0 1" stiffness="5" damping=".015" springref="0" />
+      <geom name="right_rangefinder_target_shape" type="box" size=".018 .018 .005" mass=".1" />
+    </body>
+  </worldbody>
+  <!-- The playground resets to this keyframe to start both targets oscillating. -->
+  <keyframe>
+    <key name="oscillating_targets" qpos="0 .02 0 .035" />
+  </keyframe>
+  <!-- Orca computes the ray queries; no built-in sensor declaration is required. -->
+  <custom>
+    <text name="orca.sensor.v1/left_rangefinder/plugin" data="com.orca.examples.rangefinder" />
+    <tuple name="orca.sensor.v1/left_rangefinder/site">
+      <element objtype="site" objname="left_rangefinder_site" />
+    </tuple>
+    <text name="orca.sensor.v1/right_rangefinder/plugin" data="com.orca.examples.rangefinder" />
+    <tuple name="orca.sensor.v1/right_rangefinder/site">
+      <element objtype="site" objname="right_rangefinder_site" />
+    </tuple>
+  </custom>
+</mujoco>

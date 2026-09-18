@@ -1,0 +1,36 @@
+<mujoco model="educational_seven_pad">
+  <!-- Original synthetic layout: seven rigid boxes, not a product replica. -->
+  <asset>
+    <material name="pad_material" rgba="0.15 0.65 0.55 1"/>
+    <material name="housing_material" rgba="0.2 0.25 0.3 1"/>
+  </asset>
+  <worldbody>
+    <body name="sensor_root">
+      <site name="sensor_base" pos="0 0 0" size="0.001" group="4"/>
+      <site name="range_frame" pos="0 0 0.012" size="0.001" group="4"/>
+      <geom name="housing_visual" type="box" pos="0 0 0.004" size="0.032 0.028 0.004"
+            material="housing_material" contype="0" conaffinity="0" mass="0" group="1"/>
+      <body name="force_f1" pos="0 0 0.010">
+        <geom name="force_f1_shape" type="box" size="0.006 0.006 0.002" material="pad_material"/>
+      </body>
+      <body name="force_f2" pos="0.022 0 0.010">
+        <geom name="force_f2_shape" type="box" size="0.006 0.006 0.002" material="pad_material"/>
+      </body>
+      <body name="force_f3" pos="0.011 0.019 0.010">
+        <geom name="force_f3_shape" type="box" size="0.006 0.006 0.002" material="pad_material"/>
+      </body>
+      <body name="force_f4" pos="-0.011 0.019 0.010">
+        <geom name="force_f4_shape" type="box" size="0.006 0.006 0.002" material="pad_material"/>
+      </body>
+      <body name="force_f5" pos="-0.022 0 0.010">
+        <geom name="force_f5_shape" type="box" size="0.006 0.006 0.002" material="pad_material"/>
+      </body>
+      <body name="force_f6" pos="-0.011 -0.019 0.010">
+        <geom name="force_f6_shape" type="box" size="0.006 0.006 0.002" material="pad_material"/>
+      </body>
+      <body name="force_f7" pos="0.011 -0.019 0.010">
+        <geom name="force_f7_shape" type="box" size="0.006 0.006 0.002" material="pad_material"/>
+      </body>
+    </body>
+  </worldbody>
+</mujoco>

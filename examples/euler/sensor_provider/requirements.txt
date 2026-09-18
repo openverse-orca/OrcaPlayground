@@ -1,0 +1,3 @@
+# Plotting dependencies only; first install the matching OrcaGym revision described in README.md.
+matplotlib>=3.7,<4
+pillow>=9

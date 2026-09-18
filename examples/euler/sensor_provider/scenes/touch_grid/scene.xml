@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Complete MJCF-compatible teaching fixture with geometry and collision. -->
+<mujoco model="touch_grid_package_demo">
+  <option timestep="0.002" integrator="Euler" gravity="0 0 -9.81" />
+  <statistic center="0 0 .025" extent="0.24" />
+  <visual>
+    <global offwidth="1200" offheight="800" />
+    <headlight ambient=".45 .45 .45" diffuse=".65 .65 .65" />
+  </visual>
+  <worldbody>
+    <light pos="0 -.2 .5" dir="0 0 -1" />
+    <geom name="floor_visual" type="plane" size="2 2 .01" pos="0 0 -.014" rgba=".12 .16 .22 1" contype="0" conaffinity="0" mass="0" />
+    <body name="left_finger_mount" pos="-0.07 0 0">
+      <geom name="left_finger_mount_visual" type="box" size=".035 .035 .006" pos="0 0 -.006" rgba=".22 .29 .38 1" contype="0" conaffinity="0" mass="0" />
+      <body name="left_finger__sensor_root" pos="0 0 0" quat="1 0 0 0">
+        <site name="left_finger__sensor_base" pos="0 0 0" size="0.001" group="4" />
+        <body name="left_finger__force_f1" pos="0 0 0.01">
+          <geom name="left_finger__force_f1_shape" type="box" size="0.03 0.03 0.01" material="left_finger__force_f1_material" group="1" />
+        </body>
+        <site name="left_finger__surface_frame" pos="0 0 0.02" size="0.001" group="4" />
+      </body>
+    </body>
+    <!-- Independent 0.1 kg and 0.2 kg falling loads. -->
+    <body name="left_finger_load" pos="-0.07 0 .08">
+      <freejoint />
+      <geom name="left_finger_load_collision" type="box" size=".02 .02 .02" mass="0.1" rgba=".8 .8 .8 0" group="3" />
+      <geom name="left_finger_load_visual" type="box" size=".02 .02 .02" mass="0" contype="0" conaffinity="0" rgba=".74 .85 .95 .38" />
+    </body>
+    <body name="right_finger_mount" pos="0.07 0 0">
+      <geom name="right_finger_mount_visual" type="box" size=".035 .035 .006" pos="0 0 -.006" rgba=".22 .29 .38 1" contype="0" conaffinity="0" mass="0" />
+      <body name="right_finger__sensor_root" pos="0 0 0" quat="1 0 0 0">
+        <site name="right_finger__sensor_base" pos="0 0 0" size="0.001" group="4" />
+        <body name="right_finger__force_f1" pos="0 0 0.01">
+          <geom name="right_finger__force_f1_shape" type="box" size="0.03 0.03 0.01" material="right_finger__force_f1_material" group="1" />
+        </body>
+        <site name="right_finger__surface_frame" pos="0 0 0.02" size="0.001" group="4" />
+      </body>
+    </body>
+    <body name="right_finger_load" pos="0.07 0 .08">
+      <freejoint />
+      <geom name="right_finger_load_collision" type="box" size=".02 .02 .02" mass="0.2" rgba=".8 .8 .8 0" group="3" />
+      <geom name="right_finger_load_visual" type="box" size=".02 .02 .02" mass="0" contype="0" conaffinity="0" rgba=".74 .85 .95 .38" />
+    </body>
+  </worldbody>
+  <asset>
+    <material name="left_finger__force_f1_material" rgba="0.12 0.55 0.72 1" specular="0.3" shininess="0.3" />
+    <material name="right_finger__force_f1_material" rgba="0.12 0.55 0.72 1" specular="0.3" shininess="0.3" />
+  </asset>
+  <!-- Exact mount sites anchor the two model namespaces; Orca validates their internal objects. -->
+  <custom>
+    <text name="orca.sensor.v1/left_finger/plugin" data="com.orca.examples.touch_grid" />
+    <tuple name="orca.sensor.v1/left_finger/object/force_f1">
+      <element objtype="body" objname="left_finger__force_f1" />
+    </tuple>
+    <tuple name="orca.sensor.v1/left_finger/object/surface_frame">
+      <element objtype="site" objname="left_finger__surface_frame" />
+    </tuple>
+    <text name="orca.sensor.v1/left_finger/seed" data="0" />
+    <text name="orca.sensor.v1/right_finger/plugin" data="com.orca.examples.touch_grid" />
+    <tuple name="orca.sensor.v1/right_finger/object/force_f1">
+      <element objtype="body" objname="right_finger__force_f1" />
+    </tuple>
+    <tuple name="orca.sensor.v1/right_finger/object/surface_frame">
+      <element objtype="site" objname="right_finger__surface_frame" />
+    </tuple>
+    <text name="orca.sensor.v1/right_finger/seed" data="0" />
+  </custom>
+</mujoco>

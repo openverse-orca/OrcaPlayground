@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Complete MJCF-compatible teaching fixture with geometry and collision. -->
+<mujoco model="contact_grid_chart_fixture">
+  <option timestep="0.002" integrator="Euler" gravity="0 0 -9.81" />
+  <worldbody>
+    <!-- Each slide joint separates its carrier from the world's welded body group. -->
+    <body name="left_contact_grid_carrier" pos="-0.08 0 0">
+      <joint name="left_contact_grid_mount_joint" type="slide" axis="1 0 0" stiffness="1000" damping="5" />
+      <site name="left_contact_grid_site" size=".001" />
+      <geom name="left_contact_grid_surface" type="box" pos="0 0 .01" size=".03 .03 .01" mass=".2" />
+    </body>
+    <!-- Independent 0.1 kg and 0.2 kg falling loads. -->
+    <body name="left_contact_grid_load" pos="-0.08 0 .08">
+      <freejoint name="left_contact_grid_free" />
+      <geom type="box" size=".02 .02 .02" mass="0.1" />
+    </body>
+    <body name="right_contact_grid_carrier" pos="0.08 0 0">
+      <joint name="right_contact_grid_mount_joint" type="slide" axis="1 0 0" stiffness="1000" damping="5" />
+      <site name="right_contact_grid_site" size=".001" />
+      <geom name="right_contact_grid_surface" type="box" pos="0 0 .01" size=".03 .03 .01" mass=".2" />
+    </body>
+    <body name="right_contact_grid_load" pos="0.08 0 .08">
+      <freejoint name="right_contact_grid_free" />
+      <geom type="box" size=".02 .02 .02" mass="0.2" />
+    </body>
+  </worldbody>
+  <!-- Typed site references bind two independent Orca algorithm instances. -->
+  <custom>
+    <text name="orca.sensor.v1/left_contact_grid/plugin" data="com.orca.examples.contact_grid" />
+    <tuple name="orca.sensor.v1/left_contact_grid/site">
+      <element objtype="site" objname="left_contact_grid_site" />
+    </tuple>
+    <text name="orca.sensor.v1/right_contact_grid/plugin" data="com.orca.examples.contact_grid" />
+    <tuple name="orca.sensor.v1/right_contact_grid/site">
+      <element objtype="site" objname="right_contact_grid_site" />
+    </tuple>
+  </custom>
+</mujoco>

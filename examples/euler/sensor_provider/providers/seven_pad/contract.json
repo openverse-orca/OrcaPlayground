@@ -1,0 +1,39 @@
+{
+  "schema_version": 4,
+  "contract_id": "com.orca.examples.seven_pad.input.v1",
+  "c_struct": "SevenPadInput",
+  "inputs": [
+    {
+      "name": "proximity",
+      "capability": "orca.raycast.v1",
+      "frame": "range_frame",
+      "direction": [0, 0, 1],
+      "max_distance": 0.1,
+      "exclude_self": true
+    },
+    {
+      "name": "contacts",
+      "capability": "orca.contact.v1",
+      "objects": ["force_f1", "force_f2", "force_f3", "force_f4", "force_f5", "force_f6", "force_f7"],
+      "capacity": 1024,
+      "frame": "range_frame",
+      "exclude_internal": true,
+      "fields": {
+        "pad_index": "surface_index",
+        "normal": "normal_force",
+        "tangent": "tangential_force"
+      }
+    }
+  ],
+  "output": {
+    "dtype": "float64",
+    "shape": [11],
+    "channels": [
+      {"name": "distance", "offset": 0, "unit": "m", "description": "Unmodified proximity query distance; -1 means no hit within 0.1 m."},
+      {"name": "normal_force", "offset": 1, "unit": "N", "description": "Norm of the sum of all pad normal-force vectors, after independent Gaussian noise on its three components."},
+      {"name": "tangential_force", "offset": 2, "unit": "N", "description": "Norm of the sum of all pad tangential-force vectors, after independent Gaussian noise on its three components."},
+      {"name": "direction", "offset": 3, "unit": "rad", "description": "atan2 of the noisy total tangent Y and X components in range_frame, wrapped into [0, 2*pi); zero XY vector gives zero."},
+      {"name": "capacitance", "offset": 4, "shape": [7], "unit": "raw", "objects": ["force_f1", "force_f2", "force_f3", "force_f4", "force_f5", "force_f6", "force_f7"], "description": "Educational linear toy response: capacitance_base + capacitance_gain * norm(pad normal sum + pad tangent sum). Arbitrary raw values, not SI capacitance or a calibrated product model; no added noise."}
+    ]
+  }
+}

@@ -1,0 +1,22 @@
+<mujoco model="touch_grid_module">
+  <!-- Illustrative 60 mm square tactile surface, not a calibrated vendor model.
+       Local names are fixed; Orca adds a separate namespace for every instance.
+       One physical geom supplies contacts to the algorithm's 4 by 4 output grid. -->
+  <asset>
+    <material name="force_f1_material" rgba="0.12 0.55 0.72 1"
+              specular="0.3" shininess="0.3"/>
+  </asset>
+  <worldbody>
+    <body name="sensor_root">
+      <!-- Mounting origin at the bottom centre; local +Z points out of the pad. -->
+      <site name="sensor_base" pos="0 0 0" size="0.001" group="4"/>
+      <body name="force_f1" pos="0 0 0.01">
+        <geom name="force_f1_shape" type="box" size="0.03 0.03 0.01"
+              material="force_f1_material" group="1"/>
+      </body>
+      <!-- Contact positions and forces are expressed in this local frame.
+           It is a reference site only: collection is declared in contract.json. -->
+      <site name="surface_frame" pos="0 0 0.02" size="0.001" group="4"/>
+    </body>
+  </worldbody>
+</mujoco>

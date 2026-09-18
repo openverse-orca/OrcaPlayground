@@ -2,6 +2,12 @@
 
 OrcaGym 示例代码仓库，已集成 OrcaLab 支持。
 
+## 传感器插件与完整灵巧手
+
+[传感器演示入口](examples/euler/sensor_provider/README.md)提供完整机械臂与五指灵巧手场景，可选择查看五指法向力/切向力，或五指接触网格和测距；另有四种小型场景用于分别了解传感器输出。
+
+这些演示自带场景、模型资源和预编译插件，启动后显示实时传感器图表。按入口说明安装与本示例配套、支持传感器插件的 OrcaGym 版本后即可运行，无需手动向 OrcaLab 布局拖入资产。
+
 ## 🎯 快速开始
 
 ### 方式 1：使用 OrcaLab 启动（推荐）⭐
@@ -97,7 +103,8 @@ python examples/embodied/fluid/run_fluid_sim.py
 ```
 OrcaPlayground/
 ├── examples/              # 示例代码目录（每个样例自包含 env 子类 + 入口脚本）
-│   ├── euler/             #   Euler 体系教程（01_hello_euler ~ 11_scene_config）
+│   ├── euler/             #   Euler 体系教程及传感器示例
+│   │   └── sensor_provider/ # 完整灵巧手、四种传感器场景与实时图表
 │   ├── scene_building/    #   场景构建教程（资产加载 / 场景组装 / 灯光 / 随机化）
 │   ├── embodied/          #   具身场景样例（已迁移 Euler 体系的机器人/角色/流体仿真）
 │   │   ├── _common/       #     公共工具（场景模型扫描等，供 embodied 下样例使用）
@@ -122,6 +129,7 @@ OrcaPlayground/
 
 所有示例的详细使用说明请查看各目录下的 `README.md`：
 
+- **完整灵巧手与传感器插件** - [examples/euler/sensor_provider/README.md](examples/euler/sensor_provider/README.md)：五指法/切向力、接触网格和测距，另含四种小型传感器场景
 - **角色仿真** - [`examples/embodied/character/README.md`](examples/embodied/character/README.md)：Remy 角色键盘 / 路径点控制
 - **轮式底盘** - [`examples/embodied/wheeled_chassis/README.md`](examples/embodied/wheeled_chassis/README.md)：差速驱动 + 阿克曼转向
 - **XBot 机器人** - [`examples/embodied/xbot/README.md`](examples/embodied/xbot/README.md)：基于 humanoid-gym 预训练模型的双足行走
@@ -137,12 +145,14 @@ OrcaPlayground/
 
 > **⚠️ 重要提示：资产准备**
 > 
-> 每个示例都需要相应的 3D 资产才能正常运行。**请务必查看各示例目录下的 README.md 文件**，了解：
+> 需要绑定 OrcaLab 场景的示例须先准备相应的 3D 资产。**请务必查看各示例目录下的 README.md 文件**，了解：
 > - 📦 所需资产的下载地址
 > - 🔧 需要手动在 OrcaStudio/OrcaLab 中把对应 actor 拖动到布局
 > - 📝 对应的模型名称
 > 
 > 资产下载地址：https://simassets.orca3d.cn/
+>
+> [传感器插件演示](examples/euler/sensor_provider/README.md)随示例提供完整场景与模型，按其 README 运行即可。
 
 ## 📦 关于资产与扩展开发
 
@@ -150,7 +160,9 @@ OrcaPlayground 依赖 **OrcaPlaygroundAssets** 资产库中的资源。若您需
 
 ## 🔧 手动拖动资产（运行前必做）
 
-为了增添多场景物理交互，请在运行前先把对应模型手动拖动到布局中，再启动脚本。当前仓库中的机器人/角色主线示例都按“场景中已有 actor，脚本只做扫描和绑定”的思路组织。
+本节适用于需要绑定 OrcaLab 场景的机器人/角色示例。[传感器插件演示](examples/euler/sensor_provider/README.md)直接加载自带场景，无需此步骤。
+
+为了增添多场景物理交互，请在运行前先把对应模型手动拖动到布局中，再启动脚本。这些示例按“场景中已有 actor，脚本只做扫描和绑定”的思路组织。
 
 1. **打开资产面板**：在 OrcaStudio/OrcaLab 的资产窗口中搜索资产名称，例如Lite3,Remy，Hummer。
 2. **拖入布局**：将对应 actor 拖入布局或大纲，并调整到你希望的初始位置与朝向。
@@ -207,6 +219,8 @@ pip install -e ".[all]"
 > **注意**：`xbot` 依赖 PyTorch，但 `requirements.txt` 中的 `torch` 已注释，需根据 NVIDIA 驱动版本手动安装对应的 CUDA 版本。请访问 [PyTorch 官网](https://pytorch.org/get-started/locally/) 选择安装命令，或查看各示例 `requirements.txt` 顶部的已验证配置。
 
 ### 运行要求
+
+以下要求适用于连接 OrcaStudio/OrcaLab 场景的示例；[传感器插件演示](examples/euler/sensor_provider/README.md)的版本、平台及运行要求见其独立说明。
 
 1. **OrcaStudio/OrcaLab**：确保 OrcaStudio/OrcaLab 正在运行（默认地址：`localhost:50051`）
 2. **Python 版本**：Python >= 3.10（见 `setup.py` 的 `python_requires`）

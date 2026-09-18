@@ -1,0 +1,42 @@
+{
+  "sdk_version": "1.0.0",
+  "abi_version": 2,
+  "provider_id": "com.orca.examples",
+  "version": "1.0.0",
+  "library": {
+    "linux": "liborca_touch_grid.so",
+    "windows": "orca_touch_grid.dll",
+    "darwin": "liborca_touch_grid.dylib"
+  },
+  "types": [
+    {
+      "type_id": "com.orca.examples.touch_grid",
+      "display_name": "Example Tactile 4x4 Force Grid",
+      "contract_schema": "contract.json",
+      "model": {
+        "asset": "model.xml",
+        "mount_site": "sensor_base"
+      },
+      "global_parameters": [
+        {
+          "name": "extent_x",
+          "default": 0.06,
+          "min": 1e-06,
+          "max": 10.0
+        },
+        {
+          "name": "extent_y",
+          "default": 0.06,
+          "min": 1e-06,
+          "max": 10.0
+        },
+        {
+          "name": "gain",
+          "default": 1.0,
+          "min": 0.0,
+          "max": 1000.0
+        }
+      ]
+    }
+  ]
+}
