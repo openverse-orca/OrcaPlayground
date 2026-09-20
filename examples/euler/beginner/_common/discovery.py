@@ -72,5 +72,8 @@ def find_body(env: OrcaGymEulerEnv, keyword: str) -> str | None:
     for name in names:
         if keyword.lower() in name.lower():
             return name
-    _logger.warning(f"find_body: 未找到含「{keyword}」的 body（共 {len(names)} 个 body）")
+    _logger.warning(
+        f"find_body: 未找到含「{keyword}」的 body。"
+        f"当前场景共 {len(names)} 个 body：{names}"
+    )
     return None

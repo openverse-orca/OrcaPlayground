@@ -7,8 +7,8 @@
 # 前置: OrcaLab 已运行（默认 localhost:50051）、资产包已导入。
 # 原理: 每课驻留到时后发 SIGINT，课程自带的 KeyboardInterrupt 分支会
 #       优雅退出（scene.close()），不会残留场景连接。
-# 特例: 第 13 课自动带 --default-scene（批跑模式下不等待手动拖拽），
-#       且步进完成后自行退出，超时仅作兜底。
+# 特例: 第 13–18 课自动带 --default-scene（批跑模式下不等待手动拖拽），
+#       层 3 课均自行退出，超时仅作兜底。
 # 中断: 观察中途想停全流程，连按 Ctrl+C 两次。
 
 set -u
@@ -31,13 +31,18 @@ LESSONS=(
   examples.euler.beginner.stage2_scene_editing.lesson_11_duplicate_objects.run
   examples.euler.beginner.stage2_scene_editing.lesson_12_delete_object.run
   examples.euler.beginner.stage3_simulation_time.lesson_13_step_simulation.run
+  examples.euler.beginner.stage3_simulation_time.lesson_14_reset_simulation.run
+  examples.euler.beginner.stage3_simulation_time.lesson_15_read_state.run
+  examples.euler.beginner.stage3_simulation_time.lesson_16_change_gravity.run
+  examples.euler.beginner.stage3_simulation_time.lesson_17_change_timestep.run
+  examples.euler.beginner.stage3_simulation_time.lesson_18_scripted_motion.run
 )
 
 FAIL=0
 for lesson in "${LESSONS[@]}"; do
   num="$(echo "$lesson" | grep -o 'lesson_[0-9]*' | grep -o '[0-9]*')"
   extra_args=()
-  if [ "$num" = "13" ]; then
+  if [ "$num" -ge 13 ] && [ "$num" -le 18 ]; then
     extra_args+=(--default-scene)
   fi
 
@@ -59,7 +64,7 @@ done
 echo ""
 echo "=================================================================="
 if [ "$FAIL" -eq 0 ]; then
-  echo "全部 13 课跑完，无异常退出"
+  echo "全部 18 课跑完，无异常退出"
 else
   echo "跑完，但有 ${FAIL} 课异常退出，请回看上方日志"
 fi

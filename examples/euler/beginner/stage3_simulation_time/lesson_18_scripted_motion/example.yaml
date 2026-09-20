@@ -1,0 +1,28 @@
+id: 18
+title: 让物体沿路径移动
+stage: 3
+layer: 3
+scene_mode: flexible
+prerequisites: [lesson_17_change_timestep]
+entry: python -m examples.euler.beginner.stage3_simulation_time.lesson_18_scripted_motion.run
+asset_packages: [OrcaPlaygroundAssets]
+expected_result: 方块沿圆轨迹平滑绕圈；--moon 模式实测落地时间与理论值误差不超过 0.2 秒
+challenge: 阶段 3 毕业挑战（低重力落点）——先笔算月球重力下从 3m 落到静置高度约 0.5m 的时间 t=√(2×2.5/1.62)≈1.76 秒并写下预测，再运行 --moon 对照实测
+challenge_type: predict
+rebuild_scene: false
+tunable_params:
+  - name: AMPLITUDE
+    default: 0.4
+    unit: 米
+  - name: PERIOD
+    default: 4.0
+    unit: 秒
+  - name: DURATION
+    default: 8.0
+    unit: 秒
+  - name: --moon
+    default: false
+    unit: 布尔开关
+  - name: --default-scene
+    default: false
+    unit: 布尔开关

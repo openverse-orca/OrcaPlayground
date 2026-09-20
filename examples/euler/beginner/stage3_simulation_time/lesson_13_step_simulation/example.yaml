@@ -7,7 +7,7 @@ prerequisites: [lesson_12_delete_object]
 entry: python -m examples.euler.beginner.stage3_simulation_time.lesson_13_step_simulation.run
 asset_packages: [OrcaPlaygroundAssets]
 expected_result: 暂停时方块停住，单步时下落一点；默认配方与用户场景两种方式均可完成
-challenge: 先猜方块从 1 米落到地面大约需要多少步，写下数字，再改 --steps 逐步验证你的估算
+challenge: 先猜方块从 2 米落到地面大约需要多少步，写下数字，再改 --steps 逐步验证你的估算
 challenge_type: predict
 rebuild_scene: false
 tunable_params:

@@ -6,14 +6,14 @@ scene_mode: spawn
 prerequisites: [lesson_08_rotate_object]
 entry: python -m examples.euler.beginner.stage2_scene_editing.lesson_09_scale_object.run
 asset_packages: [OrcaPlaygroundAssets]
-expected_result: 同一方块以 0.5/1/2 倍并排显示；修改 SCALES 后重跑，大小对比变化
-challenge: 把中间那颗换成 1.5 倍；若穿插，同步调大 SPACING_M
+expected_result: 同一方块以 0.5/1/1.5 倍并排显示；修改 SCALES 后重跑，大小对比变化
+challenge: 把最大那颗换成 2.0 倍；若穿插或出界，同步调整 SPACING_M
 challenge_type: swap
 rebuild_scene: true
 tunable_params:
   - name: SCALES
-    default: (0.5, 1.0, 2.0)
+    default: (0.5, 1.0, 1.5)
     unit: 倍率
   - name: SPACING_M
-    default: 2.5
+    default: 1.5
     unit: m

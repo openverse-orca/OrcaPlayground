@@ -45,7 +45,8 @@ class ActorSpec:
     """一个教学物体的声明式摆放规格。
 
     position 单位为米（世界坐标）；rotation_xyz_deg 单位为度，
-    内部转换为四元数（约定实测确认后在此注明 wxyz/xyzw）。
+    内部先 deg2rad 再经 euler2quat 转为 wxyz 四元数（与 MuJoCo
+    约定一致），转换收口在 _to_actor。
     """
 
     name: str
@@ -57,8 +58,10 @@ class ActorSpec:
 
 def _to_actor(spec: ActorSpec) -> Actor:
     """把教学规格转换为 OrcaGymScene 的 Actor（四元数转换收口处）。"""
+    # euler2quat 约定输入为弧度（orca_gym.utils.rotations 模块级声明），
+    # 教学配方用度表达，此处必须先 deg2rad——漏掉会让 45° 变成 45 rad
     quat = rotations.euler2quat(
-        np.array(spec.rotation_xyz_deg, dtype=np.float64)
+        np.deg2rad(np.array(spec.rotation_xyz_deg, dtype=np.float64))
     )
     return Actor(
         name=spec.name,

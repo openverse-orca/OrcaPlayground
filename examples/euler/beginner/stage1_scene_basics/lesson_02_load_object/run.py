@@ -80,7 +80,7 @@ def main() -> int:
     _logger.info("第 02 课：导入一个物体 — 资产路径与实例")
     _logger.info(f"  物体种类: {args.object}")
     _logger.info(f"  asset_path: {OBJECT_CHOICES[args.object]}")
-    _logger.info(f"  实例名: object_1（换资产不换名）")
+    _logger.info("  实例名: object_1（换资产不换名）")
     _logger.info("=" * 60)
 
     scene = spawn_recipe(args.addr, build_recipe(args.object))

@@ -42,39 +42,50 @@ _BLOCK_PATH = "assets/345a60e1cced/prefabs/cube_usda"
 _BLOCK_REST_Z = 0.5
 
 # ======================= 配方区（改这里） =======================
-# 基础配方：三颗方块沿 X 轴排开（实例名固定，便于删除指向）
-_BASE_BLOCK_NAMES: tuple[str, ...] = ("block_1", "block_2", "block_3")
 # 要删除的实例名：填谁谁消失；清空 () 则全部恢复
 # ⚠️ 单个名字必须带尾逗号：("block_1",) 才是元组，("block_1") 只是字符串
-DELETE_NAMES: tuple[str, ...] = ("block_1",)
+DELETE_NAMES: tuple[str, ...] = ()
 # ================================================================
+
+# 基础配方：三颗方块沿 X 轴排开（实例名固定，便于删除指向）。
+# 毕业挑战：参考第 11 课的循环，把这里改成 3×3 方块阵（block_行_列）
+_BASE_BLOCK_NAMES: tuple[str, ...] = ("block_1", "block_2", "block_3")
+
+
+def _base_recipe() -> list[ActorSpec]:
+    """基础配方：地面 + _BASE_BLOCK_NAMES 里的方块沿 X 轴排开。"""
+    specs = [ActorSpec(name="ground", asset_path=_GROUND_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET))]
+    for i, name in enumerate(_BASE_BLOCK_NAMES):
+        x = (i - (len(_BASE_BLOCK_NAMES) - 1) / 2) * 2.0
+        specs.append(
+            ActorSpec(name=name, asset_path=_BLOCK_PATH, position=(x, 0.0, _BLOCK_REST_Z))
+        )
+    return specs
 
 
 def build_recipe() -> list[ActorSpec]:
-    """按配方区参数生成场景：基础配方减去 DELETE_NAMES 里的实例。"""
+    """按配方区参数生成场景：基础配方减去 DELETE_NAMES 里的实例。
+
+    删除合法性以基础配方**实际生成的实例名**为准——毕业挑战把
+    _base_recipe 改成 3×3 阵后，block_行_列 也可直接删除。
+    """
     if isinstance(DELETE_NAMES, str):
         # ("block_1") 少写尾逗号时是字符串，迭代会逐字符拆开——提前拦下
         raise ValueError(
             f'DELETE_NAMES 现在是字符串 "{DELETE_NAMES}"（少了尾逗号）。'
             f'单个名字要写成 ("{DELETE_NAMES}",)，多个写 ("a", "b")。'
         )
+    base = _base_recipe()
+    base_names = [spec.name for spec in base]
     deleted = set(DELETE_NAMES)
-    unknown = deleted - set(_BASE_BLOCK_NAMES)
+    unknown = deleted - set(base_names)
     if unknown:
         # 删除不存在的实例名大概率是拼写错误——提前指出，别让用户困惑
         raise ValueError(
             f"DELETE_NAMES 里有未知实例：{sorted(unknown)}，"
-            f"可删的实例：{list(_BASE_BLOCK_NAMES)}"
+            f"可删的实例：{base_names}"
         )
-    specs = [ActorSpec(name="ground", asset_path=_GROUND_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET))]
-    for i, name in enumerate(_BASE_BLOCK_NAMES):
-        if name in deleted:
-            continue
-        x = (i - (len(_BASE_BLOCK_NAMES) - 1) / 2) * 2.0
-        specs.append(
-            ActorSpec(name=name, asset_path=_BLOCK_PATH, position=(x, 0.0, _BLOCK_REST_Z))
-        )
-    return specs
+    return [spec for spec in base if spec.name not in deleted]
 
 
 def main() -> int:
@@ -84,18 +95,19 @@ def main() -> int:
 
     setup_console_logging()
 
-    kept = [n for n in _BASE_BLOCK_NAMES if n not in set(DELETE_NAMES)]
+    # 先构建并校验配方（DELETE_NAMES 填错在这里友好报错，不会摆出半成品）
+    specs = build_recipe()
+    kept = [spec.name for spec in specs if spec.name != "ground"]
     _logger.info("=" * 60)
     _logger.info("第 12 课：删除与恢复 — 编辑配方，重建场景")
-    _logger.info(f"  基础配方 = {_BASE_BLOCK_NAMES}")
     _logger.info(f"  本轮删除 = {DELETE_NAMES if DELETE_NAMES else '（无）'}")
-    _logger.info(f"  本轮保留 = {kept}")
+    _logger.info(f"  本轮保留 = {kept if kept else '（无）'}")
     _logger.info("  模式：改配方 → 重建（重新运行会清空教学场景）")
     _logger.info("=" * 60)
 
     # 层 2 复位语义：清空 → 按新配方重建
     clear_scene(args.addr)
-    scene = spawn_recipe(args.addr, build_recipe())
+    scene = spawn_recipe(args.addr, specs)
     if DELETE_NAMES:
         _logger.info(f"[完成] 已删除：{DELETE_NAMES}；恢复方法：清空 DELETE_NAMES 再跑")
     else:
