@@ -14,8 +14,8 @@ python -m examples.euler.beginner.stage1_scene_basics.lesson_05_compose_scene.ru
 ## 关键代码
 组合 = 在配方里多写一行，机器人不享受特殊待遇：
 ```python
-ActorSpec(name="robot_1", asset_path=_GO2_PATH, position=(0.0, -1.2, 0.0)),
-ActorSpec(name="ball_1", ..., position=(0.0, 0.0, _TABLE_TOP_Z + _BALL_RADIUS)),
+ActorSpec(name="robot_1", asset_path=GO2, position=(0.0, -1.2, 0.0)),
+ActorSpec(name="ball_1", asset_path=BALL, position=(0.0, 0.0, _TABLE_TOP_Z + _BALL_RADIUS)),
 ```
 
 ## 动手改

@@ -24,6 +24,7 @@ import time as wall_time
 
 from orca_gym.log.orca_log import get_orca_logger
 
+from examples.euler.beginner._common.assets import CUBE, FLOOR  # 按各课实际用到的常量
 from examples.euler.beginner._common.discovery import find_body
 from examples.euler.beginner._common.scene_recipe import (
     FLOOR_Z_OFFSET,
@@ -35,11 +36,6 @@ from examples.euler.beginner._common.scene_recipe import (
 from examples.euler.beginner._common import sim_link
 
 _logger = get_orca_logger()
-
-# 真实 spawnable 资产（本地导入包 345a60e1cced）
-# TODO(asset-lib): 资产正式上传资产库后，将 assets/345a60e1cced/ 统一切换为云端正式包地址
-_GROUND_PATH = "assets/345a60e1cced/prefabs/floor_usda"
-_BLOCK_PATH = "assets/345a60e1cced/prefabs/cube_usda"
 
 _BLOCK_KEYWORD = "cube"  # 关键词对齐资产内部名（cube_usda → ..._cube），与实例名前缀无关
 
@@ -54,8 +50,8 @@ SIM_DURATION: float = 1.0
 def build_default_recipe() -> list[ActorSpec]:
     """默认配方兜底：地面 + 一个方块（抬高一米）。"""
     return [
-        ActorSpec(name="ground", asset_path=_GROUND_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
-        ActorSpec(name="cube_1", asset_path=_BLOCK_PATH, position=(0.0, 0.0, 1.0)),
+        ActorSpec(name="ground", asset_path=FLOOR, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
+        ActorSpec(name="cube_1", asset_path=CUBE, position=(0.0, 0.0, 1.0)),
     ]
 
 
@@ -127,7 +123,9 @@ def main() -> int:
                     )
             finally:
                 env.close()
-        (ts_a, steps_a, _, z_a), (ts_b, steps_b, _, z_b) = results
+        # 取最细与最粗两组对比（TIME_STEPS 允许不止两组，中间组已逐组打印）
+        _, steps_a, _, z_a = results[0]
+        _, steps_b, _, z_b = results[-1]
         _logger.info(
             f"[完成] 同样 {SIM_DURATION}s 仿真时间：步数 {steps_a} vs {steps_b}"
             f"（比例 {steps_a / steps_b:.1f}）；末高度 {z_a:.4f} vs {z_b:.4f} m"

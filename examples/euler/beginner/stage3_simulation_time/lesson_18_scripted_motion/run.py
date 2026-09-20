@@ -31,8 +31,10 @@ import sys
 import time
 
 import numpy as np
+from orca_gym.environment.euler.orca_gym_euler_env import OrcaGymEulerEnv
 from orca_gym.log.orca_log import get_orca_logger
 
+from examples.euler.beginner._common.assets import CUBE, FLOOR  # 按各课实际用到的常量
 from examples.euler.beginner._common.discovery import find_body
 from examples.euler.beginner._common.scene_recipe import (
     FLOOR_Z_OFFSET,
@@ -44,11 +46,6 @@ from examples.euler.beginner._common.scene_recipe import (
 from examples.euler.beginner._common import sim_link
 
 _logger = get_orca_logger()
-
-# 真实 spawnable 资产（本地导入包 345a60e1cced）
-# TODO(asset-lib): 资产正式上传资产库后，将 assets/345a60e1cced/ 统一切换为云端正式包地址
-_GROUND_PATH = "assets/345a60e1cced/prefabs/floor_usda"
-_BLOCK_PATH = "assets/345a60e1cced/prefabs/cube_usda"
 
 _BLOCK_KEYWORD = "cube"  # 关键词对齐资产内部名（cube_usda → ..._cube），与实例名前缀无关
 
@@ -68,12 +65,12 @@ DURATION: float = 8.0
 def build_default_recipe() -> list[ActorSpec]:
     """默认配方兜底：地面 + 一个方块（抬高到 3 米，给 --moon 挑战留足下落距离）。"""
     return [
-        ActorSpec(name="ground", asset_path=_GROUND_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
-        ActorSpec(name="cube_1", asset_path=_BLOCK_PATH, position=(0.0, 0.0, _DROP_HEIGHT)),
+        ActorSpec(name="ground", asset_path=FLOOR, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
+        ActorSpec(name="cube_1", asset_path=CUBE, position=(0.0, 0.0, _DROP_HEIGHT)),
     ]
 
 
-def run_orbit(env: object, block_name: str) -> None:
+def run_orbit(env: OrcaGymEulerEnv, block_name: str) -> None:
     """运动学绕圈：每帧改写自由关节 qpos，速度清零（瞬移式位姿跟随）。"""
     joint_name, qadr = sim_link.resolve_free_joint(env, block_name)
     if joint_name is None:
@@ -87,7 +84,6 @@ def run_orbit(env: object, block_name: str) -> None:
 
     qpos = np.asarray(env.data.qpos).copy()
     cx, cy, cz = (float(qpos[qadr + i]) for i in range(3))  # 圆心 = 初始位置
-    ctrl = sim_link.zero_ctrl(env)
     n_frames = int(round(DURATION / env.dt))
     _logger.info(
         f"[绕圈] 半径 {AMPLITUDE}m，周期 {PERIOD}s，共 {n_frames} 帧（每帧 {env.dt}s 仿真时间）"
@@ -107,14 +103,13 @@ def run_orbit(env: object, block_name: str) -> None:
         env.set_joint_qvel(qvel)
         env.mj_forward()  # 更新派生量（body_xpos 等），供 render 推送正确状态
         env.render()
-        _ = ctrl  # 运动学写入不步进物理，ctrl 仅保留给需要混合模式的读者
         sim_link.pace(demo_t, wall_start)  # 实时节拍：8 秒演示 = 8 秒墙钟，视口看得见
         if frame % max(1, n_frames // 8) == 0:
             _logger.info(f"  t={demo_t:.2f}s 绕到角度 {math.degrees(theta):5.0f}°")
     _logger.info("[完成] 注意：这是'设置位姿'形成的运动——没有力，也不响应碰撞")
 
 
-def run_moon_challenge(env: object, block_name: str) -> None:
+def run_moon_challenge(env: OrcaGymEulerEnv, block_name: str) -> None:
     """毕业挑战：低重力落点——月球重力下观测触地时间，对照 t=√(2Δz/g)。
 
     触地判定用 LandingDetector（高度单拍骤停：上一拍还在快速下落、

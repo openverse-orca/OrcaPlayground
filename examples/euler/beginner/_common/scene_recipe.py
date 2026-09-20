@@ -100,8 +100,12 @@ def spawn_recipe(addr: str, specs: list[ActorSpec]) -> OrcaGymScene:
         scene.publish_scene()
         _logger.info(f"场景发布完成：{len(specs)} 个物体")
     except Exception:
-        # 失败时释放连接，避免半成品 scene 泄漏
-        scene.close()
+        # 失败时释放连接，避免半成品 scene 泄漏；close 自身的异常
+        # 只记录不抛——不能让它遮蔽真正的失败原因
+        try:
+            scene.close()
+        except Exception as close_exc:  # noqa: BLE001 — 清理路径，只记录
+            _logger.warning(f"失败清理时关闭连接出错（已忽略）：{close_exc}")
         raise
     return scene
 

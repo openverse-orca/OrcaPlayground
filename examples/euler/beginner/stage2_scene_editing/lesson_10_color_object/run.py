@@ -28,6 +28,7 @@ import numpy as np
 from orca_gym.log.orca_log import get_orca_logger
 from orca_gym.scene.orca_gym_scene import MaterialInfo
 
+from examples.euler.beginner._common.assets import CUBE, FLOOR  # 按各课实际用到的常量
 from examples.euler.beginner._common.scene_recipe import (
     FLOOR_Z_OFFSET,
     ActorSpec,
@@ -37,11 +38,6 @@ from examples.euler.beginner._common.scene_recipe import (
 )
 
 _logger = get_orca_logger()
-
-# 真实 spawnable 资产（本地导入包 345a60e1cced）
-# TODO(asset-lib): 资产正式上传资产库后，将 assets/345a60e1cced/ 统一切换为云端正式包地址
-_GROUND_PATH = "assets/345a60e1cced/prefabs/floor_usda"
-_CUBE_PATH = "assets/345a60e1cced/prefabs/cube_usda"
 
 # cube 半高 0.5 m，贴地摆放
 _CUBE_REST_Z = 0.5
@@ -55,8 +51,8 @@ BOX_RGBA: tuple[float, float, float, float] = (0.9, 0.1, 0.1, 1.0)
 def build_recipe() -> list[ActorSpec]:
     """按配方区参数生成场景配方（颜色在 spawn 后由 set_material_info 下发）。"""
     return [
-        ActorSpec(name="ground", asset_path=_GROUND_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
-        ActorSpec(name="box_1", asset_path=_CUBE_PATH, position=(0.0, 0.0, _CUBE_REST_Z)),
+        ActorSpec(name="ground", asset_path=FLOOR, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
+        ActorSpec(name="box_1", asset_path=CUBE, position=(0.0, 0.0, _CUBE_REST_Z)),
     ]
 
 

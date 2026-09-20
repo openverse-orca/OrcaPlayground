@@ -43,7 +43,7 @@ SPACING_M: float = 2.0
 |---|---|
 | 方块穿插 | cube 原始尺寸 1 m，SPACING_M 需 ≥ 2 |
 | 阵列跑出地面 | 地面 5×5 m；行列 × 间距太大就装不下了，减行列或缩间距 |
-| 只有部分方块出现 | 行列数乘错或名字重复；检查 ROWS/COLS 和循环里的命名 |
+| 只有部分方块出现 / 报 already exists | 行列数乘错则数量对不上；实例名重复会被引擎以 already exists 拒绝——检查 ROWS/COLS 与 block_行_列 命名是否唯一 |
 
 ## 下一课
 [第 12 课：删除与恢复](../lesson_12_delete_object/README.md) — 把方块从配方里删掉，再请它回来。

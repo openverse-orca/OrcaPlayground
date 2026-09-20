@@ -22,6 +22,7 @@ import time
 
 from orca_gym.log.orca_log import get_orca_logger
 
+from examples.euler.beginner._common.assets import CUBE, FLOOR  # 按各课实际用到的常量
 from examples.euler.beginner._common.scene_recipe import (
     FLOOR_Z_OFFSET,
     ActorSpec,
@@ -31,17 +32,12 @@ from examples.euler.beginner._common.scene_recipe import (
 
 _logger = get_orca_logger()
 
-# 真实 spawnable 资产（本地导入包 345a60e1cced）
-# TODO(asset-lib): 资产正式上传资产库后，将 assets/345a60e1cced/ 统一切换为云端正式包地址
-_GROUND_PATH = "assets/345a60e1cced/prefabs/floor_usda"
-_BLOCK_PATH = "assets/345a60e1cced/prefabs/cube_usda"
-
 
 def build_default_recipe() -> list[ActorSpec]:
-    """第 01 课的固定配方：地面 + 一个红色方块。"""
+    """第 01 课的固定配方：地面 + 一个方块（颜色为资产默认材质）。"""
     return [
-        ActorSpec(name="ground", asset_path=_GROUND_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
-        ActorSpec(name="block_1", asset_path=_BLOCK_PATH, position=(0.0, 0.0, 0.5)),
+        ActorSpec(name="ground", asset_path=FLOOR, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
+        ActorSpec(name="block_1", asset_path=CUBE, position=(0.0, 0.0, 0.5)),
     ]
 
 

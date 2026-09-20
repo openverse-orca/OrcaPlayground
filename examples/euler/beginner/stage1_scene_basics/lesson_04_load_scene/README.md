@@ -15,10 +15,10 @@ python -m examples.euler.beginner.stage1_scene_basics.lesson_04_load_scene.run
 `build_recipe()` 返回的列表就是**场景配方**——场景 = 多个资产的摆放组合：
 ```python
 [
-    ActorSpec(name="ground", asset_path=_GROUND_PATH),
-    ActorSpec(name="table_1", asset_path=_TABLE_PATH),
-    ActorSpec(name="block_1", ..., position=(0.0, -1.6, _REST_Z)),
-    ActorSpec(name="ball_1", ..., position=(0.0, 1.6, _REST_Z)),
+    ActorSpec(name="ground", asset_path=FLOOR),
+    ActorSpec(name="table_1", asset_path=TABLE),
+    ActorSpec(name="block_1", asset_path=CUBE, position=(0.0, -1.6, _REST_Z)),
+    ActorSpec(name="ball_1", asset_path=BALL, position=(0.0, 1.6, _REST_Z)),
 ]
 ```
 运行时终端会逐行打印这份配方。

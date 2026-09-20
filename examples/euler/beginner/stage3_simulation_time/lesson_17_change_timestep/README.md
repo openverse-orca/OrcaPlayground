@@ -23,7 +23,7 @@ python -m examples.euler.beginner.stage3_simulation_time.lesson_17_change_timest
 env = sim_link.connect_simulation_env(addr, time_step=0.01)  # 步长是构造级参数
 n_steps = int(round(SIM_DURATION / ts))                       # 1s / 0.01s = 100 步
 for _ in range(n_steps):
-    sim_link.advance(env, ctrl, 1)
+    sim_link.advance_realtime(env, ctrl, 1)   # 实时节拍，视口可见下落
 ```
 **仿真时间**（引擎里的 t）和**墙钟时间**（你手表上的秒）是两回事：
 500 步 0.002s 组也许比你手快、也许比你手慢，但仿真时间里它精确走了 1 秒。

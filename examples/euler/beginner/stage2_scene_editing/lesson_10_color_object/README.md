@@ -37,8 +37,9 @@ scene.set_material_info("box_1", MaterialInfo(base_color=np.array(BOX_RGBA)))
 
 ## 小挑战
 复制 `box_1` 的两行代码（一行 `ActorSpec`、一行 `set_material_info`），
-加一颗 `box_2` 并给它**不同颜色**，与 `box_1` 间距 0.8 米。
-提示：实例名不能重复；`set_material_info` 的第一个参数是实例名。
+加一颗 `box_2` 并给它**不同颜色**，与 `box_1` 表面间隔 0.8 米。
+提示：实例名不能重复；`set_material_info` 的第一个参数是实例名；
+方块宽 1 米——表面隔 0.8 米意味着两颗中心要相距 1.8 米。
 
 ## 常见问题
 | 现象 | 修复 |

@@ -7,7 +7,7 @@ prerequisites: [lesson_01_hello_world]
 entry: python -m examples.euler.beginner.stage1_scene_basics.lesson_02_load_object.run
 asset_packages: [OrcaPlaygroundAssets]
 expected_result: 视口出现地面与选定物体；换 --object 后是另一种物体
-challenge: 把 _SHELF_PATH 换成资产库里你感兴趣的其它 OrcaPlaygroundAssets 资产路径
+challenge: 把 OBJECT_CHOICES 里 shelf 的路径换成同前缀的其它 OrcaPlaygroundAssets 资产（参考 _common/assets.py，换资产名、前缀不动）
 challenge_type: swap
 rebuild_scene: false
 tunable_params:

@@ -20,6 +20,7 @@ import time
 
 from orca_gym.log.orca_log import get_orca_logger
 
+from examples.euler.beginner._common.assets import BALL, CUBE, FLOOR, TABLE  # 按各课实际用到的常量
 from examples.euler.beginner._common.scene_recipe import (
     FLOOR_Z_OFFSET,
     ActorSpec,
@@ -28,13 +29,6 @@ from examples.euler.beginner._common.scene_recipe import (
 )
 
 _logger = get_orca_logger()
-
-# 真实 spawnable 资产（本地导入包 345a60e1cced）
-# TODO(asset-lib): 资产正式上传资产库后，将 assets/345a60e1cced/ 统一切换为云端正式包地址
-_GROUND_PATH = "assets/345a60e1cced/prefabs/floor_usda"
-_TABLE_PATH = "assets/345a60e1cced/prefabs/table_usda"
-_BLOCK_PATH = "assets/345a60e1cced/prefabs/cube_usda"
-_BALL_PATH = "assets/345a60e1cced/prefabs/sphere_usda"
 
 # 落地物悬空量（米）：略高于地面，落地后由物理自然贴合
 _REST_Z = 0.1
@@ -47,10 +41,10 @@ def build_recipe() -> list[ActorSpec]:
     y 向半深 < 1.2 m（lesson_05 go2 @ y=-1.2 无穿模验证），±1.6 留足间隔。
     """
     return [
-        ActorSpec(name="ground", asset_path=_GROUND_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
-        ActorSpec(name="table_1", asset_path=_TABLE_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
-        ActorSpec(name="block_1", asset_path=_BLOCK_PATH, position=(0.0, -1.6, _REST_Z)),
-        ActorSpec(name="ball_1", asset_path=_BALL_PATH, position=(0.0, 1.6, _REST_Z)),
+        ActorSpec(name="ground", asset_path=FLOOR, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
+        ActorSpec(name="table_1", asset_path=TABLE, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
+        ActorSpec(name="block_1", asset_path=CUBE, position=(0.0, -1.6, _REST_Z)),
+        ActorSpec(name="ball_1", asset_path=BALL, position=(0.0, 1.6, _REST_Z)),
     ]
 
 

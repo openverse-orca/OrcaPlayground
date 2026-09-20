@@ -21,6 +21,7 @@ import time
 
 from orca_gym.log.orca_log import get_orca_logger
 
+from examples.euler.beginner._common.assets import BALL, FLOOR, SHELF, TABLE  # 按各课实际用到的常量
 from examples.euler.beginner._common.scene_recipe import (
     FLOOR_Z_OFFSET,
     ActorSpec,
@@ -30,18 +31,11 @@ from examples.euler.beginner._common.scene_recipe import (
 
 _logger = get_orca_logger()
 
-# 真实 spawnable 资产（本地导入包 345a60e1cced）
-# TODO(asset-lib): 资产正式上传资产库后，将 assets/345a60e1cced/ 统一切换为云端正式包地址
-_GROUND_PATH = "assets/345a60e1cced/prefabs/floor_usda"
-_TABLE_PATH = "assets/345a60e1cced/prefabs/table_usda"
-_BALL_PATH = "assets/345a60e1cced/prefabs/sphere_usda"
-_SHELF_PATH = "assets/345a60e1cced/prefabs/metal_shelf_usda"
-
 # 可选物体清单（换一个 = 换 asset_path，实例名不变）
 OBJECT_CHOICES = {
-    "table": _TABLE_PATH,
-    "ball": _BALL_PATH,
-    "shelf": _SHELF_PATH,
+    "table": TABLE,
+    "ball": BALL,
+    "shelf": SHELF,
 }
 DEFAULT_OBJECT = "table"
 
@@ -58,7 +52,7 @@ def build_recipe(object_kind: str) -> list[ActorSpec]:
     """固定配方：地面 + 一个指定种类的物体（桌子/货架紧贴地面）。"""
     asset_path = OBJECT_CHOICES[object_kind]
     return [
-        ActorSpec(name="ground", asset_path=_GROUND_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
+        ActorSpec(name="ground", asset_path=FLOOR, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
         ActorSpec(name="object_1", asset_path=asset_path, position=(0.0, 0.0, GROUND_Z[object_kind])),
     ]
 

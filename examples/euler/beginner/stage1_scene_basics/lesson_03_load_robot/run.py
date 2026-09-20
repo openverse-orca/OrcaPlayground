@@ -20,6 +20,7 @@ import time
 
 from orca_gym.log.orca_log import get_orca_logger
 
+from examples.euler.beginner._common.assets import FLOOR, GO2, H1  # 按各课实际用到的常量
 from examples.euler.beginner._common.scene_recipe import (
     FLOOR_Z_OFFSET,
     ActorSpec,
@@ -29,15 +30,9 @@ from examples.euler.beginner._common.scene_recipe import (
 
 _logger = get_orca_logger()
 
-# 真实 spawnable 资产（本地导入包 345a60e1cced）
-# TODO(asset-lib): 资产正式上传资产库后，将 assets/345a60e1cced/ 统一切换为云端正式包地址
-_GROUND_PATH = "assets/345a60e1cced/prefabs/floor_usda"
-_GO2_PATH = "assets/345a60e1cced/prefabs/go2_usda"
-_H1_PATH = "assets/345a60e1cced/prefabs/h1_usda"
-
 ROBOT_CHOICES = {
-    "go2": _GO2_PATH,
-    "h1": _H1_PATH,
+    "go2": GO2,
+    "h1": H1,
 }
 DEFAULT_ROBOT = "go2"
 
@@ -45,7 +40,7 @@ DEFAULT_ROBOT = "go2"
 def build_recipe(robot_kind: str) -> list[ActorSpec]:
     """固定配方：地面 + 一个稳定摆放的机器人。"""
     return [
-        ActorSpec(name="ground", asset_path=_GROUND_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
+        ActorSpec(name="ground", asset_path=FLOOR, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
         ActorSpec(name="robot_1", asset_path=ROBOT_CHOICES[robot_kind], position=(0.0, 0.0, 0.0)),
     ]
 

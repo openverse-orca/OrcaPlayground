@@ -19,10 +19,10 @@ python -m examples.euler.beginner.stage3_simulation_time.lesson_14_reset_simulat
 
 ## 关键代码
 ```python
-sim_link.reset_env(env)         # 复位 qpos / qvel / 仿真时间到初始状态（reset_simulation + render）
+sim_link.reset_env(env)         # 复位 qpos / qvel / 仿真时间到初始状态（reset_simulation + mj_forward + render）
 z_start = sim_link.read_height(env, block_name)
 for _ in range(n_calls):
-    sim_link.advance(env, ctrl, sim_link.FRAME_SKIP)   # 自由落体
+    sim_link.advance_realtime(env, ctrl, sim_link.FRAME_SKIP)   # 自由落体（实时节拍，视口可见）
 z_end = sim_link.read_height(env, block_name)
 ```
 reset 是环境级操作：不只方块，**整个场景**的状态都回到 XML 初始值。

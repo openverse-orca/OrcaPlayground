@@ -10,7 +10,4 @@ expected_result: 视口一键出现完整布局：桌子居中，方块与球沿
 challenge: 在配方里再加一个 block_2（名字不能重复），放在球的旁边
 challenge_type: combine
 rebuild_scene: false
-tunable_params:
-  - name: --addr
-    default: localhost:50051
-    unit: gRPC 地址
+tunable_params: []

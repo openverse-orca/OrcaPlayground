@@ -16,11 +16,12 @@ python -m examples.euler.beginner.stage1_scene_basics.lesson_02_load_object.run 
 `OBJECT_CHOICES` 把「物体种类」映射到「资产路径」——换物体就是换路径：
 ```python
 OBJECT_CHOICES = {
-    "table": _TABLE_PATH,
-    "ball": _BALL_PATH,
-    "shelf": _SHELF_PATH,
+    "table": TABLE,
+    "ball": BALL,
+    "shelf": SHELF,
 }
 ```
+（路径常量定义在 `_common/assets.py`，全部课程共用。）
 注意：实例名始终是 `object_1`——资产换了，名字不变。
 
 ## 动手改
@@ -31,7 +32,9 @@ OBJECT_CHOICES = {
 **实例名**（这一次摆放）。一个资产可以 spawn 多个实例（第 04 课见）。
 
 ## 小挑战
-把 `_SHELF_PATH` 换成资产库里你感兴趣的其它 OrcaPlaygroundAssets 资产路径。
+把 `OBJECT_CHOICES` 里 `"shelf"` 一项的路径换成你感兴趣的其它
+OrcaPlaygroundAssets 资产——参考 `_common/assets.py` 里的写法，
+前缀不动、换最后的资产名即可。
 
 ## 常见问题
 | 现象 | 修复 |

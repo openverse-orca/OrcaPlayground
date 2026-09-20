@@ -10,7 +10,4 @@ expected_result: OrcaLab 视口出现地面与一个方块，终端显示连接�
 challenge: 把 run.py 里方块的 x 从 0.0 改成 2.0，重跑——方块换了个位置出现（你的第一次"改了世界"）。本课只摆位置，不谈物理
 challenge_type: swap
 rebuild_scene: false
-tunable_params:
-  - name: --addr
-    default: localhost:50051
-    unit: "gRPC 地址"
+tunable_params: []

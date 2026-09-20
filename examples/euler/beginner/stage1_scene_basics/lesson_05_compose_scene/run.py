@@ -19,6 +19,7 @@ import time
 
 from orca_gym.log.orca_log import get_orca_logger
 
+from examples.euler.beginner._common.assets import BALL, FLOOR, GO2, TABLE  # 按各课实际用到的常量
 from examples.euler.beginner._common.scene_recipe import (
     FLOOR_Z_OFFSET,
     ActorSpec,
@@ -28,27 +29,20 @@ from examples.euler.beginner._common.scene_recipe import (
 
 _logger = get_orca_logger()
 
-# 真实 spawnable 资产（本地导入包 345a60e1cced）
-# TODO(asset-lib): 资产正式上传资产库后，将 assets/345a60e1cced/ 统一切换为云端正式包地址
-_GROUND_PATH = "assets/345a60e1cced/prefabs/floor_usda"
-_TABLE_PATH = "assets/345a60e1cced/prefabs/table_usda"
-_BALL_PATH = "assets/345a60e1cced/prefabs/sphere_usda"
-_GO2_PATH = "assets/345a60e1cced/prefabs/go2_usda"
-
-# 桌面高度（米）：桌上物体以此为基准（table.xml 桌面顶面 0.75）
+# 桌面高度（米）：桌上物体以此为基准（table.xml 桌面顶面 0.75；与第 06 课保持同步）
 _TABLE_TOP_Z = 0.75
-# 球半径（米）：sphere_usda 的实际尺寸
+# 球半径（米）：sphere_usda 的实际尺寸（与第 06 课保持同步）
 _BALL_RADIUS = 0.15
 
 
 def build_recipe() -> list[ActorSpec]:
     """组合配方：机器狗 + 工作台 + 桌上球（cube_usda 相对桌面偏大，改用球）。"""
     return [
-        ActorSpec(name="ground", asset_path=_GROUND_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
-        ActorSpec(name="table_1", asset_path=_TABLE_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
-        ActorSpec(name="robot_1", asset_path=_GO2_PATH, position=(0.0, -1.2, 0.0)),
+        ActorSpec(name="ground", asset_path=FLOOR, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
+        ActorSpec(name="table_1", asset_path=TABLE, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
+        ActorSpec(name="robot_1", asset_path=GO2, position=(0.0, -1.2, 0.0)),
         # 球半径 0.15：桌面 0.75 + 半径 = 相切悬停（嵌入会穿模）
-        ActorSpec(name="ball_1", asset_path=_BALL_PATH, position=(0.0, 0.0, _TABLE_TOP_Z + _BALL_RADIUS)),
+        ActorSpec(name="ball_1", asset_path=BALL, position=(0.0, 0.0, _TABLE_TOP_Z + _BALL_RADIUS)),
     ]
 
 

@@ -35,12 +35,13 @@ python -m examples.euler.beginner.stage1_scene_basics.lesson_01_hello_world.run
 ## 关键代码
 `run.py` 中 `build_default_recipe()` 定义了场景的全部物体——这就是"场景配方"：
 ```python
-ActorSpec(name="ground", asset_path=_GROUND_PATH),
-ActorSpec(name="block_1", asset_path=_BLOCK_PATH, position=(0.0, 0.0, 0.5)),
+ActorSpec(name="ground", asset_path=FLOOR),
+ActorSpec(name="block_1", asset_path=CUBE, position=(0.0, 0.0, 0.5)),
 ```
+（路径常量 `FLOOR` / `CUBE` 定义在 `_common/assets.py`，全部课程共用。）
 
 ## 动手改
-本课没有可改参数——先确保链路通。下一课开始你就能改东西了。
+本课没有物体参数——先确保链路通（连接参数 `--addr` 除外）。下一课开始你就能改东西了。
 
 ## 解释结果
 `position` 的三个数字是世界坐标 (x, y, z)，单位是米。0.5 表示方块中心离地半米。

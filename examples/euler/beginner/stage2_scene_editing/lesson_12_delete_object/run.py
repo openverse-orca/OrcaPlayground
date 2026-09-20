@@ -23,6 +23,7 @@ import time
 
 from orca_gym.log.orca_log import get_orca_logger
 
+from examples.euler.beginner._common.assets import CUBE, FLOOR  # 按各课实际用到的常量
 from examples.euler.beginner._common.scene_recipe import (
     FLOOR_Z_OFFSET,
     ActorSpec,
@@ -32,11 +33,6 @@ from examples.euler.beginner._common.scene_recipe import (
 )
 
 _logger = get_orca_logger()
-
-# 真实 spawnable 资产（本地导入包 345a60e1cced）
-# TODO(asset-lib): 资产正式上传资产库后，将 assets/345a60e1cced/ 统一切换为云端正式包地址
-_GROUND_PATH = "assets/345a60e1cced/prefabs/floor_usda"
-_BLOCK_PATH = "assets/345a60e1cced/prefabs/cube_usda"
 
 # cube_usda 半高 0.5 m，贴地摆放
 _BLOCK_REST_Z = 0.5
@@ -54,11 +50,11 @@ _BASE_BLOCK_NAMES: tuple[str, ...] = ("block_1", "block_2", "block_3")
 
 def _base_recipe() -> list[ActorSpec]:
     """基础配方：地面 + _BASE_BLOCK_NAMES 里的方块沿 X 轴排开。"""
-    specs = [ActorSpec(name="ground", asset_path=_GROUND_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET))]
+    specs = [ActorSpec(name="ground", asset_path=FLOOR, position=(0.0, 0.0, FLOOR_Z_OFFSET))]
     for i, name in enumerate(_BASE_BLOCK_NAMES):
         x = (i - (len(_BASE_BLOCK_NAMES) - 1) / 2) * 2.0
         specs.append(
-            ActorSpec(name=name, asset_path=_BLOCK_PATH, position=(x, 0.0, _BLOCK_REST_Z))
+            ActorSpec(name=name, asset_path=CUBE, position=(x, 0.0, _BLOCK_REST_Z))
         )
     return specs
 

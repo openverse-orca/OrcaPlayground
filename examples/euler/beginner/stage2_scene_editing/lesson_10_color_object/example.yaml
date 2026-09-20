@@ -7,7 +7,7 @@ prerequisites: [lesson_09_scale_object]
 entry: python -m examples.euler.beginner.stage2_scene_editing.lesson_10_color_object.run
 asset_packages: [OrcaPlaygroundAssets]
 expected_result: 方块 spawn 后变为配方区 BOX_RGBA 指定的颜色（set_material_info 运行时改材质）
-challenge: 加一颗 box_2 并用 set_material_info 给它不同颜色，与 box_1 间距 0.8 米
+challenge: 加一颗 box_2 并用 set_material_info 给它不同颜色，与 box_1 表面间隔 0.8 米（中心距 1.8 米）
 challenge_type: combine
 rebuild_scene: true
 tunable_params:

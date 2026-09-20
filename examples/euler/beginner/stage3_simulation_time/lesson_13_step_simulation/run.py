@@ -29,8 +29,10 @@ import argparse
 import sys
 import time
 
+from orca_gym.environment.euler.orca_gym_euler_env import OrcaGymEulerEnv
 from orca_gym.log.orca_log import get_orca_logger
 
+from examples.euler.beginner._common.assets import CUBE_SMALL, FLOOR  # 按各课实际用到的常量
 from examples.euler.beginner._common.discovery import find_body
 from examples.euler.beginner._common.scene_recipe import (
     FLOOR_Z_OFFSET,
@@ -43,11 +45,6 @@ from examples.euler.beginner._common import sim_link
 
 _logger = get_orca_logger()
 
-# 真实 spawnable 资产（本地导入包 345a60e1cced）
-# TODO(asset-lib): 资产正式上传资产库后，将 assets/345a60e1cced/ 统一切换为云端正式包地址
-_GROUND_PATH = "assets/345a60e1cced/prefabs/floor_usda"
-_BLOCK_PATH = "assets/345a60e1cced/prefabs/cube_small_usda"
-
 # 场景无关设计（FR-A08）：本课通过关键词发现方块，不硬编码位置
 _BLOCK_KEYWORD = "cube"  # 关键词对齐资产内部名（cube_small_usda → ..._cube_small），与实例名前缀无关
 
@@ -58,12 +55,12 @@ _DROP_HEIGHT = 2.0
 def build_default_recipe() -> list[ActorSpec]:
     """默认配方兜底：地面 + 一个小方块（抬到 2 米，便于观察下落）。"""
     return [
-        ActorSpec(name="ground", asset_path=_GROUND_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
-        ActorSpec(name="cube_1", asset_path=_BLOCK_PATH, position=(0.0, 0.0, _DROP_HEIGHT)),
+        ActorSpec(name="ground", asset_path=FLOOR, position=(0.0, 0.0, FLOOR_Z_OFFSET)),
+        ActorSpec(name="cube_1", asset_path=CUBE_SMALL, position=(0.0, 0.0, _DROP_HEIGHT)),
     ]
 
 
-def connect_env(addr: str) -> object:
+def connect_env(addr: str) -> OrcaGymEulerEnv:
     """连接仿真环境（层 3 才引入的概念：让时间流动）。
 
     在线模式从 OrcaLab 拉取当前场景 MJCF，reset 后即就绪；

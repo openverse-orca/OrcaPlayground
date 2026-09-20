@@ -23,6 +23,7 @@ import time
 
 from orca_gym.log.orca_log import get_orca_logger
 
+from examples.euler.beginner._common.assets import CUBE, FLOOR  # 按各课实际用到的常量
 from examples.euler.beginner._common.scene_recipe import (
     FLOOR_Z_OFFSET,
     ActorSpec,
@@ -32,11 +33,6 @@ from examples.euler.beginner._common.scene_recipe import (
 )
 
 _logger = get_orca_logger()
-
-# 真实 spawnable 资产（本地导入包 345a60e1cced）
-# TODO(asset-lib): 资产正式上传资产库后，将 assets/345a60e1cced/ 统一切换为云端正式包地址
-_GROUND_PATH = "assets/345a60e1cced/prefabs/floor_usda"
-_BLOCK_PATH = "assets/345a60e1cced/prefabs/cube_usda"
 
 # cube_usda 原始尺寸 1×1×1 m：半高 0.5 × scale 即为离地高度
 _BLOCK_HALF_Z = 0.5
@@ -56,13 +52,13 @@ def build_recipe() -> list[ActorSpec]:
 
     离地高度按缩放比例计算（半高 × scale），保证每一颗都刚好贴地。
     """
-    specs = [ActorSpec(name="ground", asset_path=_GROUND_PATH, position=(0.0, 0.0, FLOOR_Z_OFFSET))]
+    specs = [ActorSpec(name="ground", asset_path=FLOOR, position=(0.0, 0.0, FLOOR_Z_OFFSET))]
     for i, scale in enumerate(SCALES, start=1):
         x = (i - (len(SCALES) + 1) / 2) * SPACING_M
         specs.append(
             ActorSpec(
                 name=f"block_{i}",
-                asset_path=_BLOCK_PATH,
+                asset_path=CUBE,
                 position=(x, 0.0, _BLOCK_HALF_Z * scale),
                 scale=scale,
             )
