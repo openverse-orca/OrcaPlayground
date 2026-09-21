@@ -1,0 +1,43 @@
+{
+  "schema_version": 4,
+  "contract_id": "com.orca.examples.touch_grid.input.v3",
+  "c_struct": "TouchGridInput",
+  "inputs": [
+    {
+      "name": "sample_time",
+      "capability": "orca.sample.time.v1"
+    },
+    {
+      "name": "contacts",
+      "capability": "orca.contact.v1",
+      "objects": ["force_f1"],
+      "capacity": 64,
+      "frame": "surface_frame",
+      "exclude_internal": true,
+      "fields": {
+        "pad_index": "surface_index",
+        "object_id": "counterpart_rigid_body_id",
+        "position": "position",
+        "normal_force": "normal_force",
+        "tangent_force": "tangential_force"
+      }
+    }
+  ],
+  "output": {
+    "dtype": "float64",
+    "shape": [
+      4,
+      4
+    ],
+    "unit": "N",
+    "channels": [
+      {
+        "name": "normal_force_grid",
+        "offset": 0,
+        "shape": [4, 4],
+        "unit": "N",
+        "description": "Normal-force magnitude accumulated into each cell, scaled by gain. Rows follow local +Y and columns local +X of surface_frame. These are algorithmic grid cells, not separate physical objects or pressure readings."
+      }
+    ]
+  }
+}

@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Synthetic teaching modules, not a manufacturer's model or a calibrated sensor. -->
+<mujoco model="seven_pad_named_instances">
+  <option timestep="0.001" integrator="implicit" cone="elliptic" />
+  <worldbody>
+    <body name="mount_1" pos="-0.1 0 0">
+      <body name="SevenPad-1__sensor_root" pos="0 0 0" quat="1 0 0 0">
+        <site name="SevenPad-1__sensor_base" pos="0 0 0" size="0.001" group="4" />
+        <site name="SevenPad-1__range_frame" pos="0 0 0.012" size="0.001" group="4" />
+        <geom name="SevenPad-1__housing_visual" type="box" pos="0 0 0.004" size="0.032 0.028 0.004" material="SevenPad-1__housing_material" contype="0" conaffinity="0" mass="0" group="1" />
+        <body name="SevenPad-1__force_f1" pos="0 0 0.010">
+          <geom name="SevenPad-1__force_f1_shape" type="box" size="0.006 0.006 0.002" material="SevenPad-1__pad_material" />
+        </body>
+        <body name="SevenPad-1__force_f2" pos="0.022 0 0.010">
+          <geom name="SevenPad-1__force_f2_shape" type="box" size="0.006 0.006 0.002" material="SevenPad-1__pad_material" />
+        </body>
+        <body name="SevenPad-1__force_f3" pos="0.011 0.019 0.010">
+          <geom name="SevenPad-1__force_f3_shape" type="box" size="0.006 0.006 0.002" material="SevenPad-1__pad_material" />
+        </body>
+        <body name="SevenPad-1__force_f4" pos="-0.011 0.019 0.010">
+          <geom name="SevenPad-1__force_f4_shape" type="box" size="0.006 0.006 0.002" material="SevenPad-1__pad_material" />
+        </body>
+        <body name="SevenPad-1__force_f5" pos="-0.022 0 0.010">
+          <geom name="SevenPad-1__force_f5_shape" type="box" size="0.006 0.006 0.002" material="SevenPad-1__pad_material" />
+        </body>
+        <body name="SevenPad-1__force_f6" pos="-0.011 -0.019 0.010">
+          <geom name="SevenPad-1__force_f6_shape" type="box" size="0.006 0.006 0.002" material="SevenPad-1__pad_material" />
+        </body>
+        <body name="SevenPad-1__force_f7" pos="0.011 -0.019 0.010">
+          <geom name="SevenPad-1__force_f7_shape" type="box" size="0.006 0.006 0.002" material="SevenPad-1__pad_material" />
+        </body>
+      </body>
+    </body>
+    <!-- Independent 0.1 kg and 0.2 kg loads cover each module's seven pads. -->
+    <body name="load_1" pos="-0.1 0 0.07">
+      <freejoint />
+      <geom type="box" size="0.035 0.019 0.02" mass="0.1" />
+    </body>
+    <body name="mount_2" pos="0.1 0 0">
+      <body name="SevenPad-2__sensor_root" pos="0 0 0" quat="1 0 0 0">
+        <site name="SevenPad-2__sensor_base" pos="0 0 0" size="0.001" group="4" />
+        <site name="SevenPad-2__range_frame" pos="0 0 0.012" size="0.001" group="4" />
+        <geom name="SevenPad-2__housing_visual" type="box" pos="0 0 0.004" size="0.032 0.028 0.004" material="SevenPad-2__housing_material" contype="0" conaffinity="0" mass="0" group="1" />
+        <body name="SevenPad-2__force_f1" pos="0 0 0.010">
+          <geom name="SevenPad-2__force_f1_shape" type="box" size="0.006 0.006 0.002" material="SevenPad-2__pad_material" />
+        </body>
+        <body name="SevenPad-2__force_f2" pos="0.022 0 0.010">
+          <geom name="SevenPad-2__force_f2_shape" type="box" size="0.006 0.006 0.002" material="SevenPad-2__pad_material" />
+        </body>
+        <body name="SevenPad-2__force_f3" pos="0.011 0.019 0.010">
+          <geom name="SevenPad-2__force_f3_shape" type="box" size="0.006 0.006 0.002" material="SevenPad-2__pad_material" />
+        </body>
+        <body name="SevenPad-2__force_f4" pos="-0.011 0.019 0.010">
+          <geom name="SevenPad-2__force_f4_shape" type="box" size="0.006 0.006 0.002" material="SevenPad-2__pad_material" />
+        </body>
+        <body name="SevenPad-2__force_f5" pos="-0.022 0 0.010">
+          <geom name="SevenPad-2__force_f5_shape" type="box" size="0.006 0.006 0.002" material="SevenPad-2__pad_material" />
+        </body>
+        <body name="SevenPad-2__force_f6" pos="-0.011 -0.019 0.010">
+          <geom name="SevenPad-2__force_f6_shape" type="box" size="0.006 0.006 0.002" material="SevenPad-2__pad_material" />
+        </body>
+        <body name="SevenPad-2__force_f7" pos="0.011 -0.019 0.010">
+          <geom name="SevenPad-2__force_f7_shape" type="box" size="0.006 0.006 0.002" material="SevenPad-2__pad_material" />
+        </body>
+      </body>
+    </body>
+    <body name="load_2" pos="0.1 0 0.07">
+      <freejoint />
+      <geom type="box" size="0.035 0.019 0.02" mass="0.2" />
+    </body>
+  </worldbody>
+  <asset>
+    <material name="SevenPad-1__pad_material" rgba="0.15 0.65 0.55 1" />
+    <material name="SevenPad-1__housing_material" rgba="0.2 0.25 0.3 1" />
+    <material name="SevenPad-2__pad_material" rgba="0.15 0.65 0.55 1" />
+    <material name="SevenPad-2__housing_material" rgba="0.2 0.25 0.3 1" />
+  </asset>
+  <!-- Exact mount sites anchor local pad/ray names; each DLL instance has its own noise seed. -->
+  <custom>
+    <text name="orca.sensor.v1/SevenPad-1/plugin" data="com.orca.examples.seven_pad" />
+    <tuple name="orca.sensor.v1/SevenPad-1/object/force_f1">
+      <element objtype="body" objname="SevenPad-1__force_f1" />
+    </tuple>
+    <tuple name="orca.sensor.v1/SevenPad-1/object/force_f2">
+      <element objtype="body" objname="SevenPad-1__force_f2" />
+    </tuple>
+    <tuple name="orca.sensor.v1/SevenPad-1/object/force_f3">
+      <element objtype="body" objname="SevenPad-1__force_f3" />
+    </tuple>
+    <tuple name="orca.sensor.v1/SevenPad-1/object/force_f4">
+      <element objtype="body" objname="SevenPad-1__force_f4" />
+    </tuple>
+    <tuple name="orca.sensor.v1/SevenPad-1/object/force_f5">
+      <element objtype="body" objname="SevenPad-1__force_f5" />
+    </tuple>
+    <tuple name="orca.sensor.v1/SevenPad-1/object/force_f6">
+      <element objtype="body" objname="SevenPad-1__force_f6" />
+    </tuple>
+    <tuple name="orca.sensor.v1/SevenPad-1/object/force_f7">
+      <element objtype="body" objname="SevenPad-1__force_f7" />
+    </tuple>
+    <tuple name="orca.sensor.v1/SevenPad-1/object/range_frame">
+      <element objtype="site" objname="SevenPad-1__range_frame" />
+    </tuple>
+    <text name="orca.sensor.v1/SevenPad-1/seed" data="1" />
+    <numeric name="orca.sensor.v1/SevenPad-1/config/noise_scale" data="0.01" />
+    <text name="orca.sensor.v1/SevenPad-2/plugin" data="com.orca.examples.seven_pad" />
+    <tuple name="orca.sensor.v1/SevenPad-2/object/force_f1">
+      <element objtype="body" objname="SevenPad-2__force_f1" />
+    </tuple>
+    <tuple name="orca.sensor.v1/SevenPad-2/object/force_f2">
+      <element objtype="body" objname="SevenPad-2__force_f2" />
+    </tuple>
+    <tuple name="orca.sensor.v1/SevenPad-2/object/force_f3">
+      <element objtype="body" objname="SevenPad-2__force_f3" />
+    </tuple>
+    <tuple name="orca.sensor.v1/SevenPad-2/object/force_f4">
+      <element objtype="body" objname="SevenPad-2__force_f4" />
+    </tuple>
+    <tuple name="orca.sensor.v1/SevenPad-2/object/force_f5">
+      <element objtype="body" objname="SevenPad-2__force_f5" />
+    </tuple>
+    <tuple name="orca.sensor.v1/SevenPad-2/object/force_f6">
+      <element objtype="body" objname="SevenPad-2__force_f6" />
+    </tuple>
+    <tuple name="orca.sensor.v1/SevenPad-2/object/force_f7">
+      <element objtype="body" objname="SevenPad-2__force_f7" />
+    </tuple>
+    <tuple name="orca.sensor.v1/SevenPad-2/object/range_frame">
+      <element objtype="site" objname="SevenPad-2__range_frame" />
+    </tuple>
+    <text name="orca.sensor.v1/SevenPad-2/seed" data="2" />
+    <numeric name="orca.sensor.v1/SevenPad-2/config/noise_scale" data="0.01" />
+  </custom>
+</mujoco>

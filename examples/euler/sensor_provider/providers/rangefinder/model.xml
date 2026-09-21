@@ -1,0 +1,13 @@
+<mujoco model="rangefinder_module">
+  <!-- Illustrative visual-only housing behind the measurement origin. -->
+  <asset>
+    <material name="housing_material" rgba="0.2 0.3 0.4 1"/>
+  </asset>
+  <worldbody>
+    <body name="sensor_root">
+      <site name="sensor_base" pos="0 0 0" size="0.001" group="4"/>
+      <geom name="housing_visual" type="box" pos="0 0 -0.005" size="0.01 0.01 0.005"
+            material="housing_material" contype="0" conaffinity="0" mass="0" group="1"/>
+    </body>
+  </worldbody>
+</mujoco>

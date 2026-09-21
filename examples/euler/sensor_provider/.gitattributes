@@ -1,0 +1,3 @@
+# Preserve the pinned provider packages and model assets as ordinary Git files.
+providers/** -filter !diff !merge -text linguist-vendored
+scenes/dexhand/meshes/** -filter !diff !merge -text

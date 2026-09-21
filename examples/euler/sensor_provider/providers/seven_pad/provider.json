@@ -1,0 +1,43 @@
+{
+  "sdk_version": "1.0.0",
+  "abi_version": 2,
+  "provider_id": "com.orca.examples.seven_pad",
+  "version": "1.0.0",
+  "library": {
+    "linux": "liborca_seven_pad.so",
+    "windows": "orca_seven_pad.dll",
+    "darwin": "liborca_seven_pad.dylib"
+  },
+  "types": [
+    {
+      "type_id": "com.orca.examples.seven_pad",
+      "display_name": "Dexterous Hand Tactile Example (Seven Pads)",
+      "contract_schema": "contract.json",
+      "presentation_schema": "presentation.json",
+      "model": {
+        "asset": "model.xml",
+        "mount_site": "sensor_base"
+      },
+      "global_parameters": [
+        {
+          "name": "noise_scale",
+          "default": 0.01,
+          "min": 0.0,
+          "max": 1000000.0
+        },
+        {
+          "name": "capacitance_base",
+          "default": 1.0,
+          "min": 0.0,
+          "max": 1000000.0
+        },
+        {
+          "name": "capacitance_gain",
+          "default": 0.1,
+          "min": 0.0,
+          "max": 1000000.0
+        }
+      ]
+    }
+  ]
+}

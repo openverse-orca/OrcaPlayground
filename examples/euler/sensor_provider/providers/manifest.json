@@ -1,0 +1,41 @@
+{
+  "format_version": 1,
+  "artifact": "orca-sensor-example-providers",
+  "version": "1.0.0",
+  "sdk_version": "1.0.0",
+  "abi_version": 2,
+  "platform": "linux-x86_64",
+  "source": {
+    "distribution": "sdk-1.0.0-linux-x86_64",
+    "created_utc": "2026-09-18T04:24:59.685058+00:00",
+    "sdk_manifest_sha256": "e3e92f22c9eba760828fc56e317dc6ec5ce925962b327510e52e0a4d2432279d",
+    "note": "Provider packages built from the complete public SDK and copied unchanged; maintenance source resides in OrcaSensorHost."
+  },
+  "files": {
+    "contact_grid/LICENSE": "af4a242d7bc697c1e9f635a28500004507816cb131c6d05971b4ede4fd52047f",
+    "contact_grid/README.md": "26d3ee3145a90c217231d603d2d31977d32de7835a51ccfb480f661093e8dedd",
+    "contact_grid/contract.json": "6015bf98e8dcbdb9d491bd44045209d16a4d6cf27f765ac8398e12b16b304105",
+    "contact_grid/liborca_contact_grid.so": "6cdb95de6443df62507312c3c7b731d862d323c8a58ca8121ba19cc7e883b60b",
+    "contact_grid/model.xml": "7dfb1e2ee2685c0ea1f2d2ba341a7b38a74077f434f2bfa77ce00e0cdc6b556d",
+    "contact_grid/provider.json": "ca0bbafaed572519f731e78261c7bafb1b6a2c12fb264e58c5983ea7852e4a49",
+    "rangefinder/LICENSE": "af4a242d7bc697c1e9f635a28500004507816cb131c6d05971b4ede4fd52047f",
+    "rangefinder/README.md": "cfe0c5f9ef20e4198d74ee69bd7c6fe10a08924bb30fbd020b25ff3d93294f31",
+    "rangefinder/contract.json": "908dcb2e6b24f8940bad6d97ce7c3859d820ec2c5c70adeaedb3e73ef69176d3",
+    "rangefinder/liborca_rangefinder.so": "7ea9a951f5a12bf12bac8de5894356856c97740fbdea332dc0411c9761ee3d13",
+    "rangefinder/model.xml": "21fed6c47eaf20d09dd39b85e202874dadf7704760c86dcac529ebff8c202463",
+    "rangefinder/provider.json": "0b5c426e20b440c1a459b906e70fd65470d6b8004e98732b9ccf963f5ef3f061",
+    "seven_pad/LICENSE": "af4a242d7bc697c1e9f635a28500004507816cb131c6d05971b4ede4fd52047f",
+    "seven_pad/README.md": "0981838d14a8d35522e0ca007f13dbbd15ed5d41cfd8619e66dce2f29e4f67a3",
+    "seven_pad/contract.json": "6d2aeccba45d1237b3f72f347ca54c7b862ebb519e073b2fa27b48c1c22e37b9",
+    "seven_pad/liborca_seven_pad.so": "48ed8e4ff9267fbbbfb20c746720929b205224ac1a7ea3b913ebed9f023335b2",
+    "seven_pad/model.xml": "435d659bf68342b1ef9b5746b7d65d228c68d7979e1f25e514ecc2ac55ec8616",
+    "seven_pad/presentation.json": "179c330055595c4909249016aeb1bfc8342aa91df07e279546cfbf157d5e6f61",
+    "seven_pad/provider.json": "f02703841696468e0e3c0e8b771bf117b42065b7e1741777372cce2063b0a6ba",
+    "touch_grid/LICENSE": "af4a242d7bc697c1e9f635a28500004507816cb131c6d05971b4ede4fd52047f",
+    "touch_grid/README.md": "374e8649bc429971dc3a8e77f478993aadf758b486b391478189ea9231192833",
+    "touch_grid/contract.json": "80d7a2a3a969f6b58000e9c6382bdb90637aed77ac638370e22a21e7bb6d014e",
+    "touch_grid/liborca_touch_grid.so": "e46b359210a98463884dcce6a0506fd5d8bfd1db1041235758e30630a647aab3",
+    "touch_grid/model.xml": "30cda61e6ed3c02ea6487dacc3ac992c38f763dee746e3695aa0d051de377d30",
+    "touch_grid/provider.json": "494ee77d149d54f584ed9b8eefe0f689dad7d894a573fcbe865b441d592b5816"
+  }
+}

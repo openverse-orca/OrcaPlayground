@@ -1,0 +1,30 @@
+{
+  "sdk_version": "1.0.0",
+  "abi_version": 2,
+  "provider_id": "com.orca.examples.contact_grid",
+  "version": "1.0.0",
+  "library": {
+    "linux": "liborca_contact_grid.so",
+    "windows": "orca_contact_grid.dll",
+    "darwin": "liborca_contact_grid.dylib"
+  },
+  "types": [
+    {
+      "type_id": "com.orca.examples.contact_grid",
+      "display_name": "Example Angular Contact Force Grid",
+      "contract_schema": "contract.json",
+      "model": {
+        "asset": "model.xml",
+        "mount_site": "sensor_base"
+      },
+      "global_parameters": [
+        {
+          "name": "gain",
+          "default": 1.0,
+          "min": 0.0,
+          "max": 1000000.0
+        }
+      ]
+    }
+  ]
+}

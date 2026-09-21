@@ -1,0 +1,30 @@
+{
+  "sdk_version": "1.0.0",
+  "abi_version": 2,
+  "provider_id": "com.orca.examples.rangefinder",
+  "version": "1.0.0",
+  "library": {
+    "linux": "liborca_rangefinder.so",
+    "windows": "orca_rangefinder.dll",
+    "darwin": "liborca_rangefinder.dylib"
+  },
+  "types": [
+    {
+      "type_id": "com.orca.examples.rangefinder",
+      "display_name": "Example Site Rangefinder",
+      "contract_schema": "contract.json",
+      "model": {
+        "asset": "model.xml",
+        "mount_site": "sensor_base"
+      },
+      "global_parameters": [
+        {
+          "name": "bias_m",
+          "default": 0.0,
+          "min": -1.0,
+          "max": 1.0
+        }
+      ]
+    }
+  ]
+}

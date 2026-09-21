@@ -1,0 +1,25 @@
+{
+  "schema_version": 4,
+  "contract_id": "com.orca.examples.rangefinder.input.v1",
+  "c_struct": "RangefinderInput",
+  "inputs": [
+    {"name": "sample_time", "capability": "orca.sample.time.v1"},
+    {
+      "name": "distance",
+      "capability": "orca.site_raycast.v1",
+      "direction": [0, 0, 1],
+      "max_distance": 0.1
+    }
+  ],
+  "output": {
+    "dtype": "float64",
+    "shape": [1],
+    "unit": "m",
+    "channels": [{
+      "name": "distance",
+      "offset": 0,
+      "unit": "m",
+      "description": "Site-ray distance plus bias_m, clamped to zero for valid hits. The no-hit value -1 is preserved without bias. Positive bias can move the output beyond the geometric query range."
+    }]
+  }
+}

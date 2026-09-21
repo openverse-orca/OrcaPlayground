@@ -1,0 +1,26 @@
+{
+  "schema_version": 4,
+  "contract_id": "com.orca.examples.contact_grid.input.v1",
+  "c_struct": "ContactGridInput",
+  "inputs": [
+    {"name": "sample_time", "capability": "orca.sample.time.v1"},
+    {
+      "name": "force_grid",
+      "capability": "orca.contact_grid.v1",
+      "resolution": [4, 4],
+      "fov_degrees": [120, 120]
+    }
+  ],
+  "output": {
+    "dtype": "float64",
+    "shape": [4, 4],
+    "unit": "N",
+    "channels": [{
+      "name": "force_magnitude",
+      "offset": 0,
+      "shape": [4, 4],
+      "unit": "N",
+      "description": "Magnitude of each cell's accumulated site-local force vector, multiplied by gain. Rows increase with elevation toward +Y; columns increase with azimuth toward +X. Force in N, not pressure or a calibrated tactile response."
+    }]
+  }
+}

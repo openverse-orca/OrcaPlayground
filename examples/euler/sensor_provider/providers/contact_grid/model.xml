@@ -1,0 +1,16 @@
+<mujoco model="contact_grid_module">
+  <!-- An illustrative rigid pad. Angular grid cells are computed by Orca;
+       the model contains no native sensor or plugin definitions. -->
+  <asset>
+    <material name="pad_material" rgba="0.12 0.55 0.72 1"
+              specular="0.3" shininess="0.3"/>
+  </asset>
+  <worldbody>
+    <body name="sensor_root">
+      <!-- The upper contact surface is 20 mm in front of this +Z reference. -->
+      <site name="sensor_base" pos="0 0 0" size="0.001" group="4"/>
+      <geom name="pad_shape" type="box" pos="0 0 0.01" size="0.03 0.03 0.01"
+            material="pad_material" group="1"/>
+    </body>
+  </worldbody>
+</mujoco>
