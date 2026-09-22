@@ -21,6 +21,9 @@ BALL = f"{_PREFIX}/sphere_usda"  # 球（半径 0.15 m）
 TABLE = f"{_PREFIX}/table_usda"  # 桌子（桌面顶面 0.75 m，长边沿 x）
 SHELF = f"{_PREFIX}/metal_shelf_usda"  # 金属货架
 
+# 教具（阶段 4 桌前操作）
+BLOCK_ARM = f"{_PREFIX}/block_arm_usda"  # 积木臂（二连杆转台臂，横梁中心高于底盘底面 0.15 m）
+
 # 机器人
 GO2 = f"{_PREFIX}/go2_usda"  # go2 机器狗
 H1 = f"{_PREFIX}/h1_usda"  # h1 人形机器人

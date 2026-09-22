@@ -1,0 +1,25 @@
+id: 22
+title: 轻与重
+stage: 4
+layer: 3
+scene_mode: flexible
+prerequisites: [lesson_21_arm_push]
+entry: python -m examples.euler.beginner.stage4_physics_interaction.lesson_22_compare_mass.run
+asset_packages: [OrcaPlaygroundAssets]
+expected_result: 两个外观相同的球，add_extra_weight 动态配重至质量比 1:4（配重后复读确认），地面/两球摩擦降到精确 0 后同样的 0.4N 并排推 2.0s——施力段每 0.5s 播报两球速度（轻球一路领先，与 F/m·t 理论精确吻合）；末速 ≈ 0.57 vs 0.14 m/s、速度比 ≈ 4.0 与质量反比吻合；撤力后惯性窗内两球匀速（无摩擦 = 没有东西让它们停下来）；结束时 clear_all_forces 无残留
+challenge: 预测两次改动——PUSH_FORCE 0.4→0.8N（两球末速都 ×2，比值仍 4）与 HEAVY_RATIO 4→2（重球末速变成 2 倍，比值变 2）。先写预测再运行对照，体会 a=F/m 里 F 与 m 各自的作用
+challenge_type: predict
+rebuild_scene: false
+tunable_params:
+  - name: PUSH_FORCE
+    default: 0.4
+    unit: 牛
+  - name: FORCE_DURATION
+    default: 2.0
+    unit: 秒
+  - name: HEAVY_RATIO
+    default: 4.0
+    unit: 倍
+  - name: --default-scene
+    default: false
+    unit: 布尔开关

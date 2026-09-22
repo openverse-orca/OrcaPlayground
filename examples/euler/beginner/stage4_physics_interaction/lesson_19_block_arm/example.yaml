@@ -1,0 +1,28 @@
+id: 19
+title: 积木臂登场
+stage: 4
+layer: 3
+scene_mode: flexible
+prerequisites: [lesson_18_scripted_motion]
+entry: python -m examples.euler.beginner.stage4_physics_interaction.lesson_19_block_arm.run
+asset_packages: [OrcaPlaygroundAssets]
+expected_result: 肩关节扫掠 110° @ 30°/s、肘钳定 0°，整条臂如刚体梁旋转；梁上两点实测 v/r 都 ≈ ω=0.524 rad/s（肘盘 r≈0.20、推球头 r≈0.385），速度比 ≈ 半径比 1.9（v=ωr）；梁先后追尾两球（外球 38° 先、内球 110° 后），外球明显更快（定性印证）
+challenge: 角速度加倍预测——把 SWEEP_RATE 从 30 改到 60，先预测梁上两点（肘盘、推球头）的弧线速度与速度比（提示：每点速度精确翻倍，速度比 = 半径比与 ω 无关、仍 ≈1.9），写下预测运行对照
+challenge_type: predict
+rebuild_scene: false
+tunable_params:
+  - name: SWEEP_RATE
+    default: 30.0
+    unit: 度/秒
+  - name: SWEEP_ANGLE
+    default: 110.0
+    unit: 度
+  - name: BALL_ORBIT_R_INNER
+    default: 0.27
+    unit: 米（球心距臂底座）
+  - name: BALL_ORBIT_R_OUTER
+    default: 0.34
+    unit: 米（球心距臂底座）
+  - name: --default-scene
+    default: false
+    unit: 布尔开关

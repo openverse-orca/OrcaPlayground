@@ -1,0 +1,31 @@
+id: A09
+title: GPU 后端切换
+stage: elective
+layer: 3
+scene_mode: flexible
+prerequisites: [lesson_18_scripted_motion]
+entry: python -m examples.euler.beginner.electives.A09_gpu_backend.run
+asset_packages: [OrcaPlaygroundAssets]
+expected_result: CPU 模式触地时间与理论值同量级；--compare 模式触地时间差不超过 0.05 秒、触地前轨迹 max|Δz| 毫米级以内，并输出每帧墙钟对比
+challenge: 选修挑战（吞吐预测）——先笔算默认重力下 3m 方块触地时间，再预测 --compare 模式下 CPU 与 GPU 谁快、差几倍并写下预测，最后运行对照；小场景 GPU 不占优的原因能口头解释
+challenge_type: predict
+rebuild_scene: false
+tunable_params:
+  - name: DROP_HEIGHT
+    default: 3.0
+    unit: 米
+  - name: SIM_DURATION
+    default: 2.0
+    unit: 秒
+  - name: --device
+    default: cpu
+    unit: cpu | cuda:0
+  - name: --compare
+    default: false
+    unit: 布尔开关（与 --realtime 互斥）
+  - name: --realtime
+    default: false
+    unit: 布尔开关（实时节拍观看，不测吞吐）
+  - name: --default-scene
+    default: false
+    unit: 布尔开关

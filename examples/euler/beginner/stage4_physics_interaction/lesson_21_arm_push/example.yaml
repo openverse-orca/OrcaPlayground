@@ -1,0 +1,28 @@
+id: 21
+title: 臂式推放
+stage: 4
+layer: 3
+scene_mode: flexible
+prerequisites: [lesson_20_dual_joint]
+entry: python -m examples.euler.beginner.stage4_physics_interaction.lesson_21_arm_push.run
+asset_packages: [OrcaPlaygroundAssets]
+expected_result: 幕 1 臂慢扫 90° @ 10°/s（全程 9s）、肘钳定 0°，球被梁面一路推行 ~0.6m（速度 ≈ 0.04 m/s，介于接触点线速度与梁端 ω·r≈0.07 之间）；幕 2 复位后 0.2N 直推 2.5s（终端每 0.5s 播报实时速度，看得见从静止线性爬升），撤力后惯性滚 2s、末速 ≈ F/m×5/7×t ≈ 0.25 m/s 与理论吻合；对比结论：臂推封顶于梁线速度、直推由力自由决定；结束时 clear_all_forces 无残留
+challenge: 输入加倍对比预测——SWEEP_RATE 10→20（臂扫快一倍）与 PUSH_FORCE 0.2→0.4N（直推力加倍），预测各幕球速怎么变、直推幕每 0.5s 播报的速度增量怎么变（提示：都约翻倍——v=ωr 与 v=F/m×t 同为线性），写下预测后运行对照
+challenge_type: predict
+rebuild_scene: false
+tunable_params:
+  - name: SWEEP_RATE
+    default: 10.0
+    unit: 度/秒
+  - name: SWEEP_ANGLE
+    default: 90.0
+    unit: 度
+  - name: PUSH_FORCE
+    default: 0.2
+    unit: 牛
+  - name: FORCE_DURATION
+    default: 2.5
+    unit: 秒
+  - name: --default-scene
+    default: false
+    unit: 布尔开关
