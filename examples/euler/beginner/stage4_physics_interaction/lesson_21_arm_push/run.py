@@ -110,16 +110,11 @@ def build_default_recipe() -> list[ActorSpec]:
     ]
 
 
-def _read_xy(env: OrcaGymEulerEnv, body_name: str) -> np.ndarray:
-    """按名称读取 body 的世界坐标 xy（copy 脱离 MuJoCo 视图）。"""
-    return np.asarray(env.data.body_xpos(body_name)).copy()[:2]
-
-
 def _window_speed(
     env: OrcaGymEulerEnv, ball: str, start_xy: np.ndarray, window_frames: int
 ) -> float:
     """读当前窗末速度：窗口位移 / 窗口时长（调用方保证已滚过整窗）。"""
-    xy = _read_xy(env, ball)
+    xy = sim_link.read_xy(env, ball)
     return float(np.linalg.norm(xy - start_xy) / (window_frames * env.dt))
 
 
@@ -142,7 +137,7 @@ def run_arm_push(env: OrcaGymEulerEnv, arm_base_name: str, ball: str) -> float:
     elbow_name = arm_base_name.replace("arm_base", "elbow")
     elbow_joint, e_qadr, e_vadr = sim_link.resolve_hinge_joint(env, elbow_name)
     if elbow_joint is not None:
-        _logger.info(f"[幕1] {elbow_joint} 钳定 0°——肘不锁会被球反踢弯，推球变蹭球")
+        _logger.info(f"[幕 1] {elbow_joint} 钳定 0°——肘不锁会被球反踢弯，推球变蹭球")
 
     rate_rad = np.deg2rad(SWEEP_RATE)
     total_rad = np.deg2rad(SWEEP_ANGLE)
@@ -150,12 +145,12 @@ def run_arm_push(env: OrcaGymEulerEnv, arm_base_name: str, ball: str) -> float:
     # 理论参考：梁端线速度（接触点在梁中部，球速略低于此值）
     tip_speed = rate_rad * _TIP_RADIUS
     _logger.info(
-        f"[幕1·臂推] 肩扫掠 {SWEEP_ANGLE}° @ {SWEEP_RATE}°/s（全程 "
+        f"[幕 1·臂推] 肩扫掠 {SWEEP_ANGLE}° @ {SWEEP_RATE}°/s（全程 "
         f"{SWEEP_ANGLE / SWEEP_RATE:.0f}s）——梁端线速度 ω·r = {tip_speed:.2f} m/s"
     )
 
     window_frames = int(round(_SPEED_WINDOW_S / env.dt))
-    xy0 = _read_xy(env, ball)
+    xy0 = sim_link.read_xy(env, ball)
     contact_xy: np.ndarray | None = None
     contact_frame = -1
     speed = 0.0
@@ -178,20 +173,20 @@ def run_arm_push(env: OrcaGymEulerEnv, arm_base_name: str, ball: str) -> float:
         env.render()
         sim_link.pace(t, wall_start)
 
-        xy = _read_xy(env, ball)
+        xy = sim_link.read_xy(env, ball)
         if contact_xy is None and float(np.linalg.norm(xy - xy0)) > _CONTACT_TRAVEL_M:
             contact_xy = xy.copy()
             contact_frame = frame
-            _logger.info(f"[幕1] 球在 t={t:.2f}s 被撞（扫掠角 ≈ {np.rad2deg(rate_rad * t):.0f}°）——之后被梁一路推着走")
+            _logger.info(f"[幕 1] 球在 t={t:.2f}s 被撞（扫掠角 ≈ {np.rad2deg(rate_rad * t):.0f}°）——之后被梁一路推着走")
         elif contact_xy is not None and speed == 0.0 and frame - contact_frame >= window_frames:
             speed = _window_speed(env, ball, contact_xy, window_frames)
 
     if contact_xy is None:
-        _logger.warning("[幕1] 臂没碰到球——检查球是否在扫掠弧线上（45° 方位）")
+        _logger.warning("[幕 1] 臂没碰到球——检查球是否在扫掠弧线上（45° 方位）")
         return 0.0
-    travel = float(np.linalg.norm(_read_xy(env, ball) - xy0))
+    travel = float(np.linalg.norm(sim_link.read_xy(env, ball) - xy0))
     _logger.info(
-        f"[幕1·结果] 球被推 {travel:.2f} m，全程速度 {speed:.2f} m/s"
+        f"[幕 1·结果] 球被推 {travel:.2f} m，全程速度 {speed:.2f} m/s"
         f"（梁端线速度 ω·r≈{tip_speed:.2f}，接触点在梁中部、球速略低）"
     )
     return speed
@@ -205,17 +200,17 @@ def run_force_push(env: OrcaGymEulerEnv, arm_base_name: str, ball: str) -> float
     """
     sim_link.reset_env(env)
     env.clear_all_forces()  # 复位保险：外力是持续状态，绝不跨幕残留
-    ball_rel = _read_xy(env, ball) - _read_xy(env, arm_base_name)
+    ball_rel = sim_link.read_xy(env, ball) - sim_link.read_xy(env, arm_base_name)
     tangent = np.array([-ball_rel[1], ball_rel[0]])
     tangent = tangent / np.linalg.norm(tangent)
     _logger.info(
-        f"[幕2·直推] 场景已复位，绕开臂对球直接施力 {PUSH_FORCE}N × {FORCE_DURATION}s，"
+        f"[幕 2·直推] 场景已复位，绕开臂对球直接施力 {PUSH_FORCE}N × {FORCE_DURATION}s，"
         f"方向沿臂推的切线 ({tangent[0]:+.2f}, {tangent[1]:+.2f})"
     )
 
     m = env.body_subtree_mass(ball)
     _logger.info(
-        f"[幕2] 球质量 {m:.2f} kg——理论末速 ≈ F/m×5/7×t = "
+        f"[幕 2] 球质量 {m:.2f} kg——理论末速 ≈ F/m×5/7×t = "
         f"{PUSH_FORCE / m * 5 / 7 * FORCE_DURATION:.2f} m/s（5/7 为滚动因子）"
     )
 
@@ -225,7 +220,7 @@ def run_force_push(env: OrcaGymEulerEnv, arm_base_name: str, ball: str) -> float
     report_frames = int(round(_SPEED_REPORT_S / env.dt))
     ctrl = sim_link.zero_ctrl(env)
     wall_start = time.perf_counter()
-    report_xy = _read_xy(env, ball)
+    report_xy = sim_link.read_xy(env, ball)
     for frame in range(n_frames):
         t = frame * env.dt
         env.apply_body_force(ball, np.array([*tangent * PUSH_FORCE, 0.0]), np.zeros(3))
@@ -233,22 +228,22 @@ def run_force_push(env: OrcaGymEulerEnv, arm_base_name: str, ball: str) -> float
         env.render()
         sim_link.pace(t, wall_start)
         if (frame + 1) % report_frames == 0:
-            xy = _read_xy(env, ball)
+            xy = sim_link.read_xy(env, ball)
             v_now = float(np.linalg.norm(xy - report_xy)) / _SPEED_REPORT_S
-            _logger.info(f"[幕2] 施力 t={t + env.dt:.1f}s：球速 {v_now:.2f} m/s——还在涨")
+            _logger.info(f"[幕 2] 施力 t={t + env.dt:.1f}s：球速 {v_now:.2f} m/s——还在涨")
             report_xy = xy
 
     # 撤力（惯性还在——牛顿第一定律）+ 惯性观察窗测速（窗加长看得见球滚）
     env.clear_body_force(ball)
-    _logger.info("[幕2] 撤力 clear_body_force——球靠惯性继续滚")
-    xy_start = _read_xy(env, ball)
+    _logger.info("[幕 2] 撤力 clear_body_force——球靠惯性继续滚")
+    xy_start = sim_link.read_xy(env, ball)
     window_frames = int(round(_COAST_WINDOW_S / env.dt))
     for frame in range(window_frames):
         env.do_simulation(ctrl, sim_link.FRAME_SKIP)
         env.render()
         sim_link.pace(FORCE_DURATION + frame * env.dt, wall_start)
     speed = _window_speed(env, ball, xy_start, window_frames)
-    _logger.info(f"[幕2·结果] 球撤力后速度 {speed:.2f} m/s")
+    _logger.info(f"[幕 2·结果] 球撤力后速度 {speed:.2f} m/s")
     return speed
 
 
@@ -297,8 +292,8 @@ def main() -> int:
             f"场景里有 {len(balls)} 个球：{balls}——取离臂最近的。"
             "建议清理多余球体或用 --default-scene"
         )
-    arm_xy = _read_xy(env, arm_base)
-    ball = min(balls, key=lambda n: float(np.linalg.norm(_read_xy(env, n) - arm_xy)))
+    arm_xy = sim_link.read_xy(env, arm_base)
+    ball = min(balls, key=lambda n: float(np.linalg.norm(sim_link.read_xy(env, n) - arm_xy)))
 
     try:
         v_arm = run_arm_push(env, arm_base, ball)

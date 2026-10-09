@@ -1,7 +1,7 @@
 """第 30 课：手写 PD 控制器 — 阶段 5 毕业课，把电机会同弹簧阻尼一起复刻。
 
 层 3（用户主导）：场景无关设计——连上 OrcaLab 当前场景，通过关键词
-发现力矩旋臂（body 名含 rotor）；没摆就加 --default-scene 兜底。
+发现力矩旋臂（body 名含 rotor）；没旋臂就加 --default-scene 兜底。
 
 本课新知识：**PD 控制器**（比例-微分）。29 课的裸力矩没有目标概念，
 本课用两行公式把它升级成「有目标的电机」：
@@ -23,11 +23,13 @@ kp=5 → ωn=3.87 rad/s，临界 kv=2.58：kv=0.5（ζ=0.19）振荡超调
     python -m examples.euler.beginner.stage5_joint_control.lesson_30_pd_control.run --default-scene
 
 验证点:
-    1. 欠阻尼：超调实测 ≈54% vs 理论 exp(−πζ/√(1−ζ²))，振荡周期
+    1. 铭牌：nu=1、ctrlrange=±5 N·m——ctrl 语义是 PD 每拍算出的力矩
+       （峰值 kp·θ ≈ 2.6 N·m，不触限幅）
+    2. 欠阻尼：超调实测 ≈54% vs 理论 exp(−πζ/√(1−ζ²))，振荡周期
        ≈1.65 s vs 理论 2π/(ωn√(1−ζ²))
-    2. 过阻尼：无超调、迟缓（慢极点 λ=ωn(ζ−√(ζ²−1))≈0.51，
+    3. 过阻尼：无超调、迟缓（慢极点 λ=ωn(ζ−√(ζ²−1))≈0.51，
        8 s 才勉强站稳）
-    3. 临界阻尼：无超调、≈1.5 s 收敛——三组里最快见到稳态
+    4. 临界阻尼：无超调、≈1.5 s 收敛——三组里最快见到稳态
 """
 
 from __future__ import annotations
@@ -162,6 +164,19 @@ def run_pd_course(env: OrcaGymEulerEnv, rotor_body: str) -> None:
             "拖入教具或加 --default-scene 运行默认配方。"
         )
         raise SystemExit(1)
+
+    # 铭牌：四教具课统一模式（25 关节铭牌 / 27-29 执行器铭牌）——
+    # 每次换电机先读铭牌，确认 ctrl 语义与限幅
+    names = list(env.model.get_actuator_dict().keys())
+    ctrlrange = np.asarray(env.model.get_actuator_ctrlrange())
+    _logger.info(f"[铭牌] 执行器数量 nu = {nu}")
+    _logger.info(f"[铭牌] 执行器名   : {', '.join(names)}")
+    _logger.info(f"[铭牌] ctrlrange  = {ctrlrange[0].round(1)} N·m")
+    _logger.info(
+        "[铭牌] ctrl 语义  : 力矩（N·m，29 课同款裸电机）——本课不再是"
+        "你发的固定值，而是 PD 每拍算出来的 τ = kp·误差 − kv·角速度"
+        f"（30° 步进峰值 kp·θ = {KP * np.deg2rad(TARGET_DEG):.1f} N·m，不触限幅）"
+    )
 
     target = np.deg2rad(TARGET_DEG)
     omega_n = np.sqrt(KP / _I_ROTOR)

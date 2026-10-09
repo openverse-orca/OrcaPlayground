@@ -1,4 +1,4 @@
-"""仿真连接助手 — 层 3 课（13–18）共用的 EulerEnv 连接与驱动原语。
+"""仿真连接助手 — 层 3 课（13–30）共用的 EulerEnv 连接与驱动原语。
 
 职责（高内聚）：
     1. connect_simulation_env：在线模式连接 OrcaLab 当前场景（XML 从
@@ -22,7 +22,7 @@ from orca_gym.log.orca_log import get_orca_logger
 
 _logger = get_orca_logger()
 
-# 13–18 课统一的基础参数；17 课专门把 time_step 拿出来做对比实验
+# 13–30 课统一的基础参数；17 课专门把 time_step 拿出来做对比实验
 TIME_STEP = 0.002  # 物理步长（秒）
 FRAME_SKIP = 5  # 每次 do_simulation 推进的物理步数 → dt = 0.01 s
 
@@ -79,6 +79,28 @@ def zero_ctrl(env: OrcaGymEulerEnv) -> np.ndarray:
 def read_height(env: OrcaGymEulerEnv, body_name: str) -> float:
     """按名称读取 body 的世界坐标高度 z（copy 脱离 MuJoCo 视图）。"""
     return float(np.asarray(env.data.body_xpos(body_name)).copy()[2])
+
+
+def read_xy(env: OrcaGymEulerEnv, body_name: str) -> np.ndarray:
+    """按名称读取 body 的世界坐标 xy（copy 脱离 MuJoCo 视图）。
+
+    第 19 课引入（19/21/22 课逐字重复后上收）——平面测速/测位移的
+    公共读数入口。
+    """
+    return np.asarray(env.data.body_xpos(body_name)).copy()[:2]
+
+
+def body_geoms(env: OrcaGymEulerEnv, body_name: str) -> list[str]:
+    """列出属于目标 body 的全部 geom 名（spawn 后 geom 名带 UUID 后缀）。
+
+    第 22 课引入（22/23 课逐字重复后上收）——set_geom_friction 前的
+    "哪个 body 有哪些 geom"检索。
+    """
+    return [
+        name
+        for name, info in env.model.get_geom_dict().items()
+        if info["BodyName"] == body_name
+    ]
 
 
 def read_linear_velocity(env: OrcaGymEulerEnv, body_name: str) -> np.ndarray:
@@ -144,7 +166,7 @@ def resolve_hinge_joint(
 ) -> tuple[str | None, int, int]:
     """解析目标 body 挂载的铰链关节（hinge），返回 (关节名, qpos 地址, dof 地址)。
 
-    第 20 课引入：积木臂等关节体（ articulated Actor）的驱动入口。
+    第 19 课引入：积木臂等关节体（ articulated Actor）的驱动入口。
     qpos 地址给 set_joint_qpos 用（弧度），dof 地址给 set_joint_qvel
     用（角速度 rad/s）。无铰链关节返回 (None, -1, -1)。
     Type=3 对应 mjJNT_HINGE（MuJoCo mjtJoint 枚举）。
@@ -225,7 +247,7 @@ def kick_body(env: OrcaGymEulerEnv, body_name: str, velocity: np.ndarray) -> Non
 
 
 class LandingDetector:
-    """单拍骤停式触地检测（场景无关，13/16/18/19 课共用）。
+    """单拍骤停式触地检测（场景无关，13/16/18 课共用）。
 
     判据：上一拍还在快速下落（单拍位移 < -fall_per_tick），这一拍
     不再快速下落（单拍位移 > -stop_per_tick，允许微小回弹），且
@@ -238,8 +260,8 @@ class LandingDetector:
     按名称读取数值做展示对照没问题（第 15 课的用法）。
     为什么"不再快速下落"而非"|位移|骤停"：地球重力末速约 7.7m/s 时
     软接触回弹猛烈，实测 dz 序列为 -0.043 → -0.0025 → +0.006——
-    骤停窗口只有一拍且带残余位移，绝对值阈值会整窗错过（第 19 课
-    实测踩坑）；"位移 > -阈值"既接得住骤停拍也接得住回弹拍。
+    骤停窗口只有一拍且带残余位移，绝对值阈值会整窗错过（实测踩坑）；
+    "位移 > -阈值"既接得住骤停拍也接得住回弹拍。
     起点低速段（初速 0，前几拍 |dz| < 阈值）由 was_falling 前置
     条件挡住，不会误触发。
     阈值按 dt=0.01s 标定：fall/stop_per_tick=0.005 即 0.5m/s。

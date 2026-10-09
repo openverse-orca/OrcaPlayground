@@ -19,7 +19,7 @@ tunable_params:
     unit: 度
   - name: PUSH_FORCE
     default: 0.2
-    unit: 牛
+    unit: N
   - name: FORCE_DURATION
     default: 2.5
     unit: 秒

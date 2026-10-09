@@ -13,7 +13,7 @@ rebuild_scene: false
 tunable_params:
   - name: PUSH_FORCE
     default: 0.4
-    unit: 牛
+    unit: N
   - name: FORCE_DURATION
     default: 2.0
     unit: 秒

@@ -7,8 +7,9 @@ prerequisites: [lesson_17_change_timestep]
 entry: python -m examples.euler.beginner.stage3_simulation_time.lesson_18_scripted_motion.run
 asset_packages: [OrcaPlaygroundAssets]
 expected_result: 方块沿圆轨迹平滑绕圈；--moon 模式实测落地时间与理论值误差不超过 0.2 秒
-challenge: 阶段 3 毕业挑战（低重力落点）——先笔算月球重力下从 3m 落到静置高度约 0.5m 的时间 t=√(2×2.5/1.62)≈1.76 秒并写下预测，再运行 --moon 对照实测
+challenge: 线速度翻几倍——把 AMPLITUDE 0.4→0.8、PERIOD 4.0→2.0，先笔算绕圈线速度 v=2πr/T（0.63→2.51 m/s，半径与转速都翻倍、速度 ×4），写下预测运行对照
 challenge_type: predict
+stage_challenge: 阶段 3 毕业挑战（低重力落点）——先笔算月球重力下从 3m 落到静置高度约 0.5m 的时间 t=√(2×2.5/1.62)≈1.76 秒并写下预测，再运行 --moon 对照实测
 rebuild_scene: false
 tunable_params:
   - name: AMPLITUDE

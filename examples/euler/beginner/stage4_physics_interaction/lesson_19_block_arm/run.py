@@ -78,8 +78,9 @@ BALL_ORBIT_R_INNER: float = 0.27  # 内侧球摆放轨道半径（m），方位 
 BALL_ORBIT_R_OUTER: float = 0.34  # 外侧球摆放轨道半径（m），方位 38°（先撞）
 _INNER_AZIMUTH_DEG = 110.0  # 内侧球方位角：避底盘对角（约束 1）
 _OUTER_AZIMUTH_DEG = 38.0  # 外侧球方位角
-# 梁上测速点：肘 body 沿局部 +y 伸出该长度即推球头中心（XML 约定）
-_TIP_OFFSET: float = 0.185
+# 前臂长度（m）：肘 body 沿局部 +y 伸出该长度即推球头中心（XML 约定，
+# 与 20 课 _FOREARM_LEN 同一物理量、同名）
+_FOREARM_LEN: float = 0.185
 # 梁上两点的测速窗口：跳过起步瞬态的秒数 + 开窗秒数
 _MEASURE_SKIP_S: float = 0.3
 _MEASURE_WINDOW_S: float = 0.5
@@ -123,11 +124,6 @@ def build_default_recipe() -> list[ActorSpec]:
     ]
 
 
-def _read_xy(env: OrcaGymEulerEnv, body_name: str) -> np.ndarray:
-    """按名称读取 body 的世界坐标 xy（copy 脱离 MuJoCo 视图）。"""
-    return np.asarray(env.data.body_xpos(body_name)).copy()[:2]
-
-
 def _read_polar(
     env: OrcaGymEulerEnv, body_name: str, center_xy: np.ndarray
 ) -> tuple[float, float]:
@@ -136,7 +132,7 @@ def _read_polar(
     测速用弧长不用弦长：方位角增量×半径只反映绕臂底的切向运动，
     径向分量（球被推后的离心外滑）不污染切向速度。
     """
-    d = _read_xy(env, body_name) - center_xy
+    d = sim_link.read_xy(env, body_name) - center_xy
     return float(np.arctan2(-d[0], d[1])), float(np.linalg.norm(d))
 
 
@@ -146,13 +142,13 @@ def _beam_polars(
     """梁上两测速点的极坐标（方位角 rad、半径 m）——v=ωr 的定量载体。
 
     肘盘中心 = elbow body 原点（梁根，r≈0.20m）；推球头中心 =
-    肘 body 沿局部 +y 伸出 _TIP_OFFSET 处（梁端，r≈0.385m）。
+    肘 body 沿局部 +y 伸出 _FOREARM_LEN 处（梁端，r≈0.385m）。
     两点都在梁轴线上，肘钳 0° 时半径恒定——刚体上的点，v=ωr
     精确成立，不受接触物理（弹跳/外滑）干扰。
     """
     elbow_pos = np.asarray(env.data.body_xpos(elbow_name)).copy()
     xmat = np.asarray(env.data.body_xmat(elbow_name)).reshape(3, 3).copy()
-    tip_pos = elbow_pos + _TIP_OFFSET * xmat[:, 1]
+    tip_pos = elbow_pos + _FOREARM_LEN * xmat[:, 1]
     out: dict[str, tuple[float, float]] = {}
     for label, p in (("肘盘", elbow_pos), ("推球头", tip_pos)):
         d = p[:2] - arm_xy
@@ -197,7 +193,7 @@ def run_sweep(env: OrcaGymEulerEnv, arm_base_name: str, inner_name: str, outer_n
         f"[扫掠] 角速度 {SWEEP_RATE}°/s，共扫 {SWEEP_ANGLE}°（{n_frames} 帧，dt={env.dt}s）"
     )
 
-    arm_xy = _read_xy(env, arm_base_name)
+    arm_xy = sim_link.read_xy(env, arm_base_name)
     # 梁上两点的测速状态：窗口起点极坐标 → 窗口末算弧线速度（定量验证）
     beam_polar0: dict[str, tuple[float, float]] = {}
     beam_speed: dict[str, float] = {}
@@ -208,7 +204,7 @@ def run_sweep(env: OrcaGymEulerEnv, arm_base_name: str, inner_name: str, outer_n
     contact_frame: dict[str, int] = {}
     window_polar: dict[str, tuple[float, float]] = {}
     ball_speed: dict[str, float] = {}
-    xy0 = {inner_name: _read_xy(env, inner_name), outer_name: _read_xy(env, outer_name)}
+    xy0 = {inner_name: sim_link.read_xy(env, inner_name), outer_name: sim_link.read_xy(env, outer_name)}
     b_skip = int(round(_BALL_SKIP_S / env.dt))
     b_window = int(round(_BALL_WINDOW_S / env.dt))
 
@@ -245,7 +241,7 @@ def run_sweep(env: OrcaGymEulerEnv, arm_base_name: str, inner_name: str, outer_n
 
         # 4) 球接触检测（累计位移 > _CONTACT_TRAVEL_M）+ 定性观察速度
         for name in (inner_name, outer_name):
-            xy = _read_xy(env, name)
+            xy = sim_link.read_xy(env, name)
             if name not in contact_frame and float(np.linalg.norm(xy - xy0[name])) > _CONTACT_TRAVEL_M:
                 contact_frame[name] = frame
                 _logger.info(
@@ -341,8 +337,8 @@ def main() -> int:
             "建议清理多余球体或用 --default-scene"
         )
     # 离臂近的为内侧球
-    arm_xy = _read_xy(env, arm_base)
-    balls_by_dist = sorted(balls, key=lambda n: float(np.linalg.norm(_read_xy(env, n) - arm_xy)))
+    arm_xy = sim_link.read_xy(env, arm_base)
+    balls_by_dist = sorted(balls, key=lambda n: float(np.linalg.norm(sim_link.read_xy(env, n) - arm_xy)))
     inner_name, outer_name = balls_by_dist[0], balls_by_dist[1]
 
     try:

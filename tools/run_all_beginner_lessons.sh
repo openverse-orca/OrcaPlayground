@@ -24,9 +24,9 @@ ADDR="${ORCAGYM_ADDR:-localhost:50051}"
 PY="${ORCA_PYTHON:-python}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-# 自动发现全部课程模块并按课号排序
+# 自动发现全部课程模块并按课号排序（保留完整点分模块名，含 .run 后缀）
 LESSONS=($(cd "$ROOT" && ls examples/euler/beginner/stage*/lesson_*/run.py 2>/dev/null \
-  | sed -E 's|examples/euler/beginner/||; s|/run\.py$||; s|/|.|g' \
+  | sed -E 's|\.py$||; s|/|.|g' \
   | sort -t_ -k2 -n))
 if [ "${#LESSONS[@]}" -eq 0 ]; then
   echo "未发现任何课程（examples/euler/beginner/stage*/lesson_*/run.py）" >&2
@@ -34,6 +34,9 @@ if [ "${#LESSONS[@]}" -eq 0 ]; then
 fi
 echo "发现 ${#LESSONS[@]} 课："
 printf '  %s\n' "${LESSONS[@]}"
+
+# -m 解析依赖 cwd 在仓库根（脚本可能从任意目录调起）
+cd "$ROOT"
 
 FAIL=0
 for lesson in "${LESSONS[@]}"; do
@@ -47,14 +50,14 @@ for lesson in "${LESSONS[@]}"; do
   echo "=================================================================="
   echo ">>> 第 ${num} 课（驻留 ${DUR}s 后自动进入下一课，Ctrl+C 中断全流程）"
   echo "=================================================================="
-  if ! timeout --signal=INT --kill-after=10 "${DUR}s" \
-      "$PY" -m "$lesson" --addr "$ADDR" "${extra_args[@]+"${extra_args[@]}"}"; then
-    rc=$?
-    # 124/137 = 超时正常翻页；其余码记录失败但继续
-    if [ "$rc" -ne 124 ] && [ "$rc" -ne 137 ]; then
-      echo ">>> 第 ${num} 课异常退出（rc=${rc}），已记录，继续下一课"
-      FAIL=$((FAIL + 1))
-    fi
+  # 注意：不能写成 if ! timeout; then rc=$? —— 取反后 $? 恒为 0，rc 失真
+  timeout --signal=INT --kill-after=10 "${DUR}s" \
+    "$PY" -m "$lesson" --addr "$ADDR" "${extra_args[@]+"${extra_args[@]}"}"
+  rc=$?
+  # 124 = 超时 SIGINT 后正常翻页；137 = 超时强杀兜底；其余码记录失败但继续
+  if [ "$rc" -ne 0 ] && [ "$rc" -ne 124 ] && [ "$rc" -ne 137 ]; then
+    echo ">>> 第 ${num} 课异常退出（rc=${rc}），已记录，继续下一课"
+    FAIL=$((FAIL + 1))
   fi
 done
 

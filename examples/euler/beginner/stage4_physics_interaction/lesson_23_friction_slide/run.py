@@ -84,30 +84,16 @@ def _read_x(env: OrcaGymEulerEnv, body_name: str) -> float:
     return float(np.asarray(env.data.body_xpos(body_name)).copy()[0])
 
 
-def _body_geoms(env: OrcaGymEulerEnv, body_name: str) -> list[str]:
-    """列出属于目标 body 的全部 geom 名（spawn 后 geom 名带 UUID 后缀）。"""
-    return [
-        name
-        for name, info in env.model.get_geom_dict().items()
-        if info["BodyName"] == body_name
-    ]
-
-
 def _set_friction(env: OrcaGymEulerEnv, floor: str, slick: str, rough: str) -> None:
     """配两档"鞋底"：地面统一 μ=0.05，光滑块 0.05、粗糙块 0.6。"""
     friction: dict[str, np.ndarray] = {}
-    for geom in _body_geoms(env, floor):
+    for geom in sim_link.body_geoms(env, floor):
         friction[geom] = np.array([MU_SLICK, 0.004, 0.0003])
-    for geom in _body_geoms(env, slick):
+    for geom in sim_link.body_geoms(env, slick):
         friction[geom] = np.array([MU_SLICK, 0.004, 0.0003])
-    for geom in _body_geoms(env, rough):
+    for geom in sim_link.body_geoms(env, rough):
         friction[geom] = np.array([MU_ROUGH, 0.004, 0.0003])
     env.set_geom_friction(friction)
-
-
-def _kick(env: OrcaGymEulerEnv, body: str, speed: float) -> None:
-    """给方块写初速度（委托 sim_link.kick_body，set_joint_qvel 写状态）。"""
-    sim_link.kick_body(env, body, np.array([speed, 0.0, 0.0]))
 
 
 def _observe_slide(
@@ -198,8 +184,9 @@ def main() -> int:
         ctrl = sim_link.zero_ctrl(env)
         for _ in range(50):
             env.do_simulation(ctrl, sim_link.FRAME_SKIP)
-        _kick(env, slick, INIT_SPEED)
-        _kick(env, rough, INIT_SPEED)
+        _kick_speed = np.array([INIT_SPEED, 0.0, 0.0])
+        sim_link.kick_body(env, slick, _kick_speed)
+        sim_link.kick_body(env, rough, _kick_speed)
         _logger.info(
             f"[发车] set_joint_qvel 写入初速度 {INIT_SPEED} m/s——两块同时出发，"
             f"之后没有任何力再推它们，剩下的全交给摩擦"

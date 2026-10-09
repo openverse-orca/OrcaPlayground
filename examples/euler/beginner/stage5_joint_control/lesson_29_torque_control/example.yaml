@@ -13,7 +13,7 @@ rebuild_scene: false
 tunable_params:
   - name: TORQUE_NM
     default: 0.5
-    unit: 牛·米（恒力矩）
+    unit: N·m（恒力矩）
   - name: EXTRA_WEIGHT_KG
     default: 1.333
     unit: 千克（幕 3 配重，加在臂质心 0.5 m 处）

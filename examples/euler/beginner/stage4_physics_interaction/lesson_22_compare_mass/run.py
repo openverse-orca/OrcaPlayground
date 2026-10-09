@@ -79,20 +79,6 @@ def build_default_recipe() -> list[ActorSpec]:
     ]
 
 
-def _read_xy(env: OrcaGymEulerEnv, body_name: str) -> np.ndarray:
-    """按名称读取 body 的世界坐标 xy（copy 脱离 MuJoCo 视图）。"""
-    return np.asarray(env.data.body_xpos(body_name)).copy()[:2]
-
-
-def _body_geoms(env: OrcaGymEulerEnv, body_name: str) -> list[str]:
-    """列出属于目标 body 的全部 geom 名（spawn 后 geom 名带 UUID 后缀）。"""
-    return [
-        name
-        for name, info in env.model.get_geom_dict().items()
-        if info["BodyName"] == body_name
-    ]
-
-
 def _make_frictionless(env: OrcaGymEulerEnv, bodies: list[str]) -> None:
     """把涉及接触的 geom 摩擦全部降到 ~0——搭"无摩擦世界"。
 
@@ -101,7 +87,7 @@ def _make_frictionless(env: OrcaGymEulerEnv, bodies: list[str]) -> None:
     """
     friction: dict[str, np.ndarray] = {}
     for body in bodies:
-        for geom in _body_geoms(env, body):
+        for geom in sim_link.body_geoms(env, body):
             friction[geom] = _FRICTIONLESS.copy()
     env.set_geom_friction(friction)
     _logger.info(f"[场景] {len(friction)} 个 geom 摩擦降到 0——先关掉摩擦，下一课专门讲它")
@@ -128,7 +114,7 @@ def run_mass_race(env: OrcaGymEulerEnv, light: str, heavy: str) -> tuple[float, 
     ctrl = sim_link.zero_ctrl(env)
     report_frames = int(round(_SPEED_REPORT_S / env.dt))
     n_frames = int(round(FORCE_DURATION / env.dt))
-    last_xy = {light: _read_xy(env, light), heavy: _read_xy(env, heavy)}
+    last_xy = {light: sim_link.read_xy(env, light), heavy: sim_link.read_xy(env, heavy)}
     wall_start = time.perf_counter()
 
     _logger.info(f"[施力] 两球并排，同样的 {PUSH_FORCE}N 推 {FORCE_DURATION}s——开跑")
@@ -142,7 +128,7 @@ def run_mass_race(env: OrcaGymEulerEnv, light: str, heavy: str) -> tuple[float, 
         if (frame + 1) % report_frames == 0:
             msg = []
             for ball, theory in ((light, v_theory_light), (heavy, v_theory_heavy)):
-                xy = _read_xy(env, ball)
+                xy = sim_link.read_xy(env, ball)
                 v_now = float(np.linalg.norm(xy - last_xy[ball])) / _SPEED_REPORT_S
                 last_xy[ball] = xy
                 # 窗口位移测速 = 窗口平均速度 = 窗口中点时刻的速度
@@ -156,7 +142,7 @@ def run_mass_race(env: OrcaGymEulerEnv, light: str, heavy: str) -> tuple[float, 
     env.clear_body_force(heavy)
     _logger.info("[撤力] clear_body_force——无摩擦世界里没有东西能让它们停下来")
     coast_frames = int(round(_COAST_WINDOW_S / env.dt))
-    xy0 = {light: _read_xy(env, light), heavy: _read_xy(env, heavy)}
+    xy0 = {light: sim_link.read_xy(env, light), heavy: sim_link.read_xy(env, heavy)}
     for frame in range(coast_frames):
         env.do_simulation(ctrl, sim_link.FRAME_SKIP)
         env.render()
@@ -165,7 +151,7 @@ def run_mass_race(env: OrcaGymEulerEnv, light: str, heavy: str) -> tuple[float, 
     speeds = []
     for ball in (light, heavy):
         # 惯性窗起点与终点的位移速度 = 撤力时末速（匀速）
-        v_end = float(np.linalg.norm(_read_xy(env, ball) - xy0[ball])) / _COAST_WINDOW_S
+        v_end = float(np.linalg.norm(sim_link.read_xy(env, ball) - xy0[ball])) / _COAST_WINDOW_S
         speeds.append(v_end)
     return speeds[0], speeds[1]
 

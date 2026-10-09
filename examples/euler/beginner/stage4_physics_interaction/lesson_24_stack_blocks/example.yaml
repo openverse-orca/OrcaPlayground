@@ -9,6 +9,7 @@ asset_packages: [OrcaPlaygroundAssets]
 expected_result: 幕 1 三块塔静置后打印静力链——顶↔中 0.49 N ≈ mg、中↔底 0.98 ≈ 2mg、底↔地 1.47 ≈ 3mg（接触力金字塔，每级扛住上方全部重量）；幕 2 撞球（set_joint_qvel 写 2.0 m/s 初速度）滚 0.9s 撞塔腰（首起碰撞事件法向力 ~13 N），塔倒；倒塌全程按 0.1s 扫描接触对，新接触对 = 碰撞事件逐条打印（共 ~15 起：球↔块、块↔地、块↔块连环）；结束时 clear_all_forces 无残留
 challenge: 预测两次改动——STRIKER_SPEED 2.0→4.0（撞球快一倍，冲击力和倒塌范围怎么变？）与给底块换大块（build_default_recipe 里给 block_bottom 加 scale=1.5，底块变宽变重，塔更容易还是更难倒？）。先写预测再运行对照，体会动量与支撑面各自的角色
 challenge_type: predict
+stage_challenge: 毕业挑战——搭一座歪塔：不传 --default-scene，在 OrcaLab 里自己拖三块 cube_small 搭一座故意偏心的塔（每层往同侧偏 ~1cm），先预测：① 塔还站得住吗（重心投影仍在底块支撑面内：三层累计偏 ~2cm < 底块半宽 5cm——站得住）；② 若站住，静力链还是 mg/2mg/3mg 吗（是——静力平衡只看力矩平衡，不看对不对称）；写下预测运行对照（脚本按高度自动识别底/中/顶），最后撞球推倒看倒塌事件流（验收：歪塔静置不倒 + 静力链 ±10% 命中 + 能说出它比正塔更易倒的原因——重心更贴近支撑面边缘）
 rebuild_scene: false
 tunable_params:
   - name: STRIKER_SPEED

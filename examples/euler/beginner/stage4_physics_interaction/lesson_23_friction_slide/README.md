@@ -58,7 +58,8 @@ python -m examples.euler.beginner.stage4_physics_interaction.lesson_23_friction_
   取 max，粗糙块的 0.6 才能生效）
 - **写状态 vs 施力**：`set_joint_qvel` 直接写初速度，比"踢一脚"
   （apply_body_force）可控——踢的时长不可控，写状态才能保证
-  对照实验起点条件完全相同
+  对照实验起点条件完全相同。这套「直接写状态」的写法你在 19 课
+  掰关节角时就用过，阶段 5 的 26 课会给它正式命名——**上帝模式**
 
 ## 关键代码
 

@@ -86,11 +86,6 @@ def build_default_recipe() -> list[ActorSpec]:
     ]
 
 
-def _read_z(env: OrcaGymEulerEnv, body_name: str) -> float:
-    """按名称读取 body 的世界坐标高度 z（copy 脱离 MuJoCo 视图）。"""
-    return float(np.asarray(env.data.body_xpos(body_name)).copy()[2])
-
-
 def _contact_pairs(env: OrcaGymEulerEnv) -> dict[tuple[str, str], float]:
     """归约当前接触：body 对 → 该对全部接触点的法向力之和（牛）。
 
@@ -225,7 +220,7 @@ def main() -> int:
         striker = find_body(env, "striker")
     else:
         cubes = [n for n in env.model.get_body_names() if _CUBE_KEYWORD in n.lower()]
-        cubes.sort(key=lambda n: _read_z(env, n))  # 按高度排：低→高 = 底→顶
+        cubes.sort(key=lambda n: sim_link.read_height(env, n))  # 按高度排：低→高 = 底→顶
         bottom = cubes[0] if len(cubes) >= 3 else None
         middle = cubes[1] if len(cubes) >= 3 else None
         top = cubes[2] if len(cubes) >= 3 else None
