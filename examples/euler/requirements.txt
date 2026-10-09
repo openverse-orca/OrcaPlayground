@@ -32,3 +32,15 @@ onnxruntime>=1.18.0
 # 数值计算与 Gymnasium API（orca_gym 已附带，此处仅声明）
 # numpy>=1.24.0
 # gymnasium>=0.29.0
+
+# 12_slam（第 12 课）专用依赖 — 安装到 ros2_bridge conda 环境（非 orca 环境）：
+#   该环境 Python 3.10 与 ROS2 Humble rclpy ABI 匹配，且已实测可加载 Euler env
+#   （mujoco/onnxruntime/gymnasium/numpy 均可用，ros2_bootstrap 自动注入
+#   /opt/ros/humble 路径）。
+#   BreezySLAM 不在 PyPI，从 GitHub 安装：
+#   /home/orca/miniconda3/envs/ros2_bridge/bin/python -m pip install \
+#     "git+https://github.com/simondlevy/BreezySLAM#subdirectory=python"
+#   若 GitHub 访问慢，可 clone 镜像后本地安装：
+#   git clone https://gitcode.com/gh_mirrors/br/BreezySLAM /tmp/BreezySLAM
+#   /home/orca/miniconda3/envs/ros2_bridge/bin/python -m pip install /tmp/BreezySLAM/python
+# breezyslam  # GitHub subdirectory 安装，见上方说明
