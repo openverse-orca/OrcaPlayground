@@ -35,20 +35,12 @@ def connect_simulation_env(
     *,
     time_step: float = TIME_STEP,
     frame_skip: int = FRAME_SKIP,
-    device: str = "cpu",
 ) -> OrcaGymEulerEnv:
     """连接 OrcaLab 当前场景并 reset，返回就绪的仿真环境。
 
     前置：OrcaLab 已运行且场景已就绪（spawn 过或用户拖拽过）。
     后置：env 已 reset（模型加载、初始状态就位）；调用方负责 close()。
     连接耗尽重试后 raise RuntimeError（指引见消息）。
-
-    device（第 19 课引入）：
-        "cpu"（默认）→ MuJoCo CPU 后端（1-18 课的路径）；
-        "cuda:0" 等 → Euler GPU 后端（构造期切换，timestep/gravity
-        随构造固化——运行中 setter 只读，见 OrcaGym SimConfig 契约）。
-        GPU 构造失败（无 CUDA / 依赖缺失）不重试——重试无意义，
-        直接抛 RuntimeError 并附排查指引。
     """
     last_error: Exception | None = None
     for attempt in range(1, _CONNECT_ATTEMPTS + 1):
@@ -59,29 +51,16 @@ def connect_simulation_env(
                 agent_names=["SceneProbe"],
                 time_step=time_step,
                 render_mode="human",
-                device=device,
             )
         except Exception as exc:  # noqa: BLE001 — 引擎错误类型跨版本不稳定，按消息重试
             last_error = exc
-            msg = str(exc)
-            transient = "not been initialized" in msg or "Try again later" in msg
-            if device != "cpu" and not transient:
-                # GPU 环境性失败（无 CUDA / Euler 依赖缺失 / sandbox 剥离
-                # 进程能力）重试无意义——立即失败并给出排查路径；
-                # 竞态类错误（publish 后引擎侧初始化未完成）与 CPU 同款重试
-                raise RuntimeError(
-                    f"GPU 后端环境构造失败（device={device}）：{exc}\n"
-                    "排查：1) GPU 可用性（nvidia-smi）；2) 是否在 sandbox 内运行"
-                    "（cuInit 报 CUDA_ERROR_304 时需白名单解释器直跑，见"
-                    "DEVELOPER_GUIDE.md）；3) orca.euler / orca.flow 依赖已安装。"
-                ) from exc
             _logger.warning(f"环境连接失败（第 {attempt}/{_CONNECT_ATTEMPTS} 次）：{exc}")
             if attempt < _CONNECT_ATTEMPTS:
                 time.sleep(_CONNECT_BACKOFF_S * attempt)
             continue
         reset_env(env)
         _logger.info(
-            f"仿真环境就绪（device={device}）：nq={env.model.nq}, nv={env.model.nv}, "
+            f"仿真环境就绪：nq={env.model.nq}, nv={env.model.nv}, "
             f"nu={env.model.nu}, dt={env.dt}s"
         )
         return env

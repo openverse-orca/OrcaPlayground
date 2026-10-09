@@ -20,7 +20,7 @@
 - **挑战驱动**：每课带一个 swap / combine / predict 型小挑战，
   "先预测再运行对照"是贯穿全程的学习方法
 
-## 课程地图（已交付 01–30 课 + 选修 A09）
+## 课程地图（已交付 01–30 课）
 
 | 阶段 | 主题 | 你将学会 |
 |---|---|---|
@@ -31,24 +31,41 @@
 | **5. 单关节控制**（25–30） | 读关节 / 写状态 / 三种伺服 / 手写 PD | 从"上帝模式"到真电机，亲手复刻 PD 控制器 |
 | 6. 机器人控制（31–36） | 差速小车 / 机械臂 / 夹爪 | ⏳ 规划中 |
 | 7–8. 任务实践（37–48） | 相机 / 测距 / 任务判定 / 随机化评测 | ⏳ 规划中 |
-| 选修 | GPU 后端 A09 等 9 个专题 | CPU vs GPU 轨迹逐位一致、吞吐对比 |
+| 选修 | GPU 后端等 9 个专题 | ⏳ 暂缓发布 |
 
 完整规划见 [docs/beginner/REQUIREMENTS.md](docs/beginner/REQUIREMENTS.md)。
 
-## 快速开始
+## 如何开始（从零到跑起第一课，只需这一次）
 
+**第 1 步 · 拿到本仓库源码**
 ```bash
-# 前置：安装并启动 OrcaLab（含资产订阅，详见课程 README）
-
-# 1. 激活 orca 环境
-conda activate orca
-
-# 2. 跑你的第一课——脚本自动摆好场景，终端报出实测 vs 理论
-python -m examples.euler.beginner.stage5_joint_control.lesson_25_inspect_joint.run --default-scene
-
-# 3. 批跑全部课程（每课驻留 20 s 供视口观察，自动翻页）
-bash tools/run_all_beginner_lessons.sh
+git clone https://github.com/openverse-orca/OrcaPlayground.git OrcaPlayground
+cd OrcaPlayground
 ```
+（示例库是"可读可改的源码包"，不装进 site-packages——你改的每一行都直接生效。）
+
+**第 2 步 · 准备 Python 环境**
+需要 `orca` conda 环境（内置本库全部依赖，含 orca_gym 开发版）：
+```bash
+conda activate orca
+```
+> 还没有这个环境？先克隆并安装 OrcaGym 开发版
+> （https://github.com/openverse-orca/OrcaGym ，安装指引见其 README），再回来继续。
+
+**第 3 步 · 启动 OrcaLab**
+打开 OrcaLab 客户端并进入 Studio 视口（课程通过 `localhost:50051` 与它通信）。
+
+**第 4 步 · 订阅教学资产包**
+在资产库 [https://simassets.orca3d.cn/](https://simassets.orca3d.cn/) 搜索并订阅
+**OrcaPlaygroundAssets**（详细步骤见[第 01 课 README](examples/euler/beginner/stage1_scene_basics/lesson_01_hello_world/README.md)）。
+订阅后要在 OrcaLab 中进行资产同步：顶栏 资产 → 同步资产（也可以重新启动 OrcaLab）。
+
+**第 5 步 · 跑你的第一课**
+```bash
+python -m examples.euler.beginner.stage1_scene_basics.lesson_01_hello_world.run
+```
+终端出现"场景已就绪"、视口出现地面和方块——恭喜，链路全通。
+之后每一课都只是换一个模块名运行，环境再也不用动。
 
 ## 项目约定
 

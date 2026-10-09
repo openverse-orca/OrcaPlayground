@@ -75,4 +75,3 @@ env.render()                            # 推送视口
 
 ## 阶段 4 预告
 [第 19 课](../../stage4_physics_interaction/lesson_19_block_arm/README.md) — 积木臂登场：从"摆位姿"到"驱动关节"，同一根梁验证 v = ω·r。
-（GPU 加速主题移入选修 [A09](../../electives/A09_gpu_backend/README.md)，可与主线并行学习。）
