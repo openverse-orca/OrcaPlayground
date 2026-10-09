@@ -1,0 +1,60 @@
+<mujoco model="table">
+  <option integrator="implicitfast" timestep="0.005" gravity="0 0 -9.81"/>
+  <size memory="1000M" nuser_site="6"/>
+  <compiler coordinate="local"/>
+
+  <default>
+    <default class="table_top">
+      <geom type="box" contype="1" conaffinity="1" density="600"
+            rgba="0.55 0.38 0.22 1"
+            solimp="0.9 0.95 0.001" friction="0.8 0.005 0.0001"
+            solref="0.02 1" priority="0" margin="0" condim="3" group="0"/>
+    </default>
+    <default class="table_leg">
+      <geom type="box" contype="1" conaffinity="1" density="600"
+            rgba="0.40 0.28 0.16 1"
+            solimp="0.9 0.95 0.001" friction="0.8 0.005 0.0001"
+            solref="0.02 1" priority="0" margin="0" condim="3" group="0"/>
+    </default>
+  </default>
+
+  <worldbody>
+    <light cutoff="30" pos="0 1 1" dir="0 -1 -2"/>
+    <light cutoff="30" pos="0 -1 1" dir="0 1 -2"/>
+
+    <!--
+      Wooden table (native MJCF; distinct name from the USDZ-era desk_usda)
+      Overall: 2.4m (X, long edge) x 1.2m (Y) x 0.75m (Z, standard height)
+      Tabletop top surface exactly at z=0.75 (lessons' _TABLE_TOP_Z contract)
+      Static body: no joint, welded to world (same pattern as metal_shelf)
+      Body origin at bottom (z=0) — lessons spawn it at FLOOR_Z_OFFSET
+    -->
+    <body name="table" pos="0 0 0">
+
+      <!-- ====== Tabletop (2.4 x 1.2 x 0.06), top at z=0.75 ====== -->
+      <geom class="table_top" pos="0 0 0.72"
+            size="1.2 0.6 0.03" name="table_top"/>
+
+      <!-- ====== 4 Legs (0.06 x 0.06 x 0.69), bottom at z=0 ====== -->
+      <!-- Front-Left -->
+      <geom class="table_leg" pos="-1.1 -0.53 0.345"
+            size="0.03 0.03 0.345" name="leg_fl"/>
+      <!-- Front-Right -->
+      <geom class="table_leg" pos="1.1 -0.53 0.345"
+            size="0.03 0.03 0.345" name="leg_fr"/>
+      <!-- Back-Left -->
+      <geom class="table_leg" pos="-1.1 0.53 0.345"
+            size="0.03 0.03 0.345" name="leg_bl"/>
+      <!-- Back-Right -->
+      <geom class="table_leg" pos="1.1 0.53 0.345"
+            size="0.03 0.03 0.345" name="leg_br"/>
+
+    </body>
+  </worldbody>
+
+  <tendon/>
+  <actuator/>
+  <contact/>
+  <equality/>
+  <asset/>
+</mujoco>

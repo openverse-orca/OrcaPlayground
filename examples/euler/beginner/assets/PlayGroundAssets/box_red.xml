@@ -1,0 +1,29 @@
+<mujoco model="box_red">
+  <option integrator="implicitfast" timestep="0.005" gravity="0 0 -9.81"/>
+  <size memory="1000M" nuser_site="6"/>
+  <compiler coordinate="local"/>
+
+  <worldbody>
+    <light cutoff="30" pos="0 1 1" dir="0 -1 -2"/>
+    <light cutoff="30" pos="0 -1 1" dir="0 1 -2"/>
+
+    <!-- 0.3x0.3x0.3 free-floating red box: color-teaching variant
+         (pair of box_blue.xml; spawn API has no runtime recolor,
+          so "change color" = swap color-variant assets) -->
+    <body name="box_red" pos="0 0 0.15">
+      <freejoint name="box_red_joint"/>
+      <geom type="box" contype="1" conaffinity="1" density="50"
+            rgba="0.90 0.15 0.15 1"
+            solimp="0.5 0.7 0.01" friction="0.5 0.004 0.0003"
+            solref="0.02 1" priority="0" margin="0" condim="3" group="0"
+            size="0.15 0.15 0.15"
+            name="box_red_geom"/>
+    </body>
+  </worldbody>
+
+  <tendon/>
+  <actuator/>
+  <contact/>
+  <equality/>
+  <asset/>
+</mujoco>

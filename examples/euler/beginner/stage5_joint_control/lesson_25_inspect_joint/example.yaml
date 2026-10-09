@@ -1,0 +1,25 @@
+id: 25
+title: 认识关节
+stage: 5
+layer: 3
+scene_mode: flexible
+prerequisites: [lesson_24_stack_blocks]
+entry: python -m examples.euler.beginner.stage5_joint_control.lesson_25_inspect_joint.run
+asset_packages: [OrcaPlaygroundAssets]
+expected_result: 打印摆的关节铭牌（名字/挂载 body/类型 hinge/qpos 与 dof 地址）；静读角度 0° 角速度 0 与视口一致；2.2 N × 0.3 s 脉冲起摆后实时读数：摆幅 ≈15°，角度过零时角速度绝对值最大、峰值角处角速度 ≈0（动能/势能交换，单摆能量守恒）
+challenge: 换关节读——把 inspect 目标从摆的铰链换成支架 mount 的自由关节，观察 qpos 槽位从 1 个（角度）变成 7 个（3 位置 + 4 四元数），为 26 课全量数组伏笔
+challenge_type: swap
+rebuild_scene: false
+tunable_params:
+  - name: NUDGE_FORCE_N
+    default: 2.4
+    unit: 牛（起摆脉冲力，力臂在杆中部 0.5 m）
+  - name: NUDGE_DURATION_S
+    default: 0.3
+    unit: 秒（脉冲时长）
+  - name: REPORT_INTERVAL_S
+    default: 0.2
+    unit: 秒（读数打印间隔）
+  - name: --default-scene
+    default: false
+    unit: 布尔开关

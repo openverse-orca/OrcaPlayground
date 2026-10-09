@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
-# 批跑 beginner 01–13 课：逐课启动，每课驻留 N 秒供视口观察，自动进入下一课。
+# 批跑全部 beginner 课程（自动发现，无需维护清单）：
+# 逐课启动，每课驻留 N 秒供视口观察，自动进入下一课。
 #
 # 用法:
 #   bash tools/run_all_beginner_lessons.sh [每课秒数，默认 20]
+#   ORCA_PYTHON=/path/to/python bash tools/run_all_beginner_lessons.sh
 #
 # 前置: OrcaLab 已运行（默认 localhost:50051）、资产包已导入。
-# 原理: 每课驻留到时后发 SIGINT，课程自带的 KeyboardInterrupt 分支会
-#       优雅退出（scene.close()），不会残留场景连接。
-# 特例: 第 13–18 课自动带 --default-scene（批跑模式下不等待手动拖拽），
-#       层 3 课均自行退出，超时仅作兜底。
+# 原理: 扫描 examples/euler/beginner/stage*/lesson_*/run.py 自动发现课程，
+#       按课号排序；每课驻留到时后发 SIGINT，课程自带的 KeyboardInterrupt
+#       分支优雅退出（scene.close()），不会残留场景连接。
+# 特例: 第 13 课起自动带 --default-scene（批跑模式下不等待手动拖拽，
+#       层 3 课均自行退出，超时仅作兜底）。
 # 中断: 观察中途想停全流程，连按 Ctrl+C 两次。
 
 set -u
@@ -16,33 +19,24 @@ set -u
 DUR="${1:-20}"
 ADDR="${ORCAGYM_ADDR:-localhost:50051}"
 PY="${ORCA_PYTHON:-python}"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-LESSONS=(
-  examples.euler.beginner.stage1_scene_basics.lesson_01_hello_world.run
-  examples.euler.beginner.stage1_scene_basics.lesson_02_load_object.run
-  examples.euler.beginner.stage1_scene_basics.lesson_03_load_robot.run
-  examples.euler.beginner.stage1_scene_basics.lesson_04_load_scene.run
-  examples.euler.beginner.stage1_scene_basics.lesson_05_compose_scene.run
-  examples.euler.beginner.stage1_scene_basics.lesson_06_identify_object.run
-  examples.euler.beginner.stage2_scene_editing.lesson_07_move_object.run
-  examples.euler.beginner.stage2_scene_editing.lesson_08_rotate_object.run
-  examples.euler.beginner.stage2_scene_editing.lesson_09_scale_object.run
-  examples.euler.beginner.stage2_scene_editing.lesson_10_color_object.run
-  examples.euler.beginner.stage2_scene_editing.lesson_11_duplicate_objects.run
-  examples.euler.beginner.stage2_scene_editing.lesson_12_delete_object.run
-  examples.euler.beginner.stage3_simulation_time.lesson_13_step_simulation.run
-  examples.euler.beginner.stage3_simulation_time.lesson_14_reset_simulation.run
-  examples.euler.beginner.stage3_simulation_time.lesson_15_read_state.run
-  examples.euler.beginner.stage3_simulation_time.lesson_16_change_gravity.run
-  examples.euler.beginner.stage3_simulation_time.lesson_17_change_timestep.run
-  examples.euler.beginner.stage3_simulation_time.lesson_18_scripted_motion.run
-)
+# 自动发现全部课程模块并按课号排序
+LESSONS=($(cd "$ROOT" && ls examples/euler/beginner/stage*/lesson_*/run.py 2>/dev/null \
+  | sed -E 's|examples/euler/beginner/||; s|/run\.py$||; s|/|.|g' \
+  | sort -t_ -k2 -n))
+if [ "${#LESSONS[@]}" -eq 0 ]; then
+  echo "未发现任何课程（examples/euler/beginner/stage*/lesson_*/run.py）" >&2
+  exit 1
+fi
+echo "发现 ${#LESSONS[@]} 课："
+printf '  %s\n' "${LESSONS[@]}"
 
 FAIL=0
 for lesson in "${LESSONS[@]}"; do
   num="$(echo "$lesson" | grep -o 'lesson_[0-9]*' | grep -o '[0-9]*')"
   extra_args=()
-  if [ "$num" -ge 13 ] && [ "$num" -le 18 ]; then
+  if [ "$num" -ge 13 ]; then
     extra_args+=(--default-scene)
   fi
 
@@ -64,7 +58,7 @@ done
 echo ""
 echo "=================================================================="
 if [ "$FAIL" -eq 0 ]; then
-  echo "全部 18 课跑完，无异常退出"
+  echo "全部 ${#LESSONS[@]} 课跑完，无异常退出"
 else
   echo "跑完，但有 ${FAIL} 课异常退出，请回看上方日志"
 fi

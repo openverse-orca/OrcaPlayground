@@ -1,0 +1,54 @@
+<mujoco model="RotorTorque">
+  <!-- 力矩旋臂教具（阶段 5 课 29/30）：竖轴旋臂 + 力矩执行器（motor）。
+
+  本文件是教学资产包的源资产，经资产包导入后由课程经
+  _common/assets.py 的 ROTOR_TORQUE 常量引用（常量待上架后启用）。
+
+  结构：旋臂沿 +x 伸出 1 m、绕竖直轴(z)水平扫掠，红色端球为标定点。
+  臂 m=1 kg、L=1 m → I = mL²/3 ≈ 0.333 kg·m²。静态支柱(mount)在转轴下方。
+  竖轴 = 无重力矩：恒力矩下 ω(t) 严格线性爬升（α = τ/I），
+  且与 19 课积木臂的「上帝模式竖轴扫掠」同机构——「手掰 vs 电动机」对照。
+
+  碰撞设计（实测踩坑）：MuJoCo 的父子碰撞过滤对 world 例外——无关节的
+  mount 被焊接(world)到 world 后，mount 与旋臂的碰撞是激活的。利用旋转
+  不变轴保安全：绕 z 旋转不改变 z 坐标，臂下沿 z=−0.025，支柱上沿
+  z=−0.035，留 1 cm 永久间隙 → 任意转速不相碰。
+
+  伺服参数（电机铭牌）：
+    motor 执行器 gear=1 → ctrl 数值 = 力矩数值（N·m），免换算歧义；
+    ctrl 限幅 ±5 N·m（此处限的是力矩本身——与 27 课限目标角对比必讲）。
+    例：τ=0.5 N·m → α = τ/I = 1.5 rad/s²，2 s 达 3.0 rad/s。
+
+  spawn 摆放：mount 原点 = 竖轴铰链心，pos 的 z = 轴心离地高度（如 0.5 m），
+  支柱自轴心向下延伸 0.125 m（悬浮摆放即可，无落地要求）。
+
+  课程用法：
+    29 课 torque_control：发恒力矩，验证 ω(t) 斜率 = τ/I（换配重复验
+    斜率反比）；30 课 pd_control：把 27 课的位置伺服拆开，用本教具
+    手写 PD（kp/kv 三组预置：欠阻尼/过阻尼/临界，详见 30 课 README）。
+  -->
+
+  <compiler angle="radian"/>
+  <default>
+    <joint type="hinge" damping="0"/>
+  </default>
+
+  <worldbody>
+    <!-- 静态支柱：灰色短柱（无关节 → spawn 后固定不动），标出转轴，与臂留 1 cm 间隙 -->
+    <body name="mount">
+      <geom name="pillar" type="cylinder" size="0.03 0.045" pos="0 0 -0.08" rgba="0.40 0.40 0.44 1"/>
+
+      <!-- 旋臂：绕 z 轴水平扫掠，白色梁 + 红色端球（mass=0 视觉标定） -->
+      <body name="rotor">
+        <joint name="turn" axis="0 0 1"/>
+        <geom name="arm" type="box" size="0.5 0.025 0.025" pos="0.5 0 0" mass="1" rgba="0.92 0.92 0.90 1"/>
+        <geom name="tip" type="sphere" size="0.07" pos="1.0 0 0" mass="0" rgba="0.95 0.20 0.20 1"/>
+        <site name="tip" pos="1.0 0 0"/>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <motor name="turn_motor" joint="turn" gear="1" ctrlrange="-5 5"/>
+  </actuator>
+</mujoco>

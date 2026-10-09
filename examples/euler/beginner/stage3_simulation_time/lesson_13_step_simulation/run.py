@@ -20,7 +20,8 @@ spawn 负责「把东西放进去」，环境负责「让时间流动」。
     3. 两种方式（默认配方 / 你的场景）都能完成
 
 链路状态：spawn 实体 ↔ EulerEnv 按名称发现与驱动已经 P0 实测通过
-（06 课探针日志 + tools/verify_spawn_env_link.py 三段验证）。
+（06 课探针日志 + 三段验证，归档于
+.trae_history/BeginnerLessonsSkeleton/99_实施记录.md）。
 """
 
 from __future__ import annotations

@@ -5,7 +5,8 @@
 
 实现依据：OrcaGymEulerEnv 在线模式连接后，model.get_body_names()
 返回当前 Studio 场景的全部 body 名（dev 分支 scene_scanner 探针
-同款机制）。P0 实测（tools/verify_spawn_env_link.py）进一步验证。
+同款机制）。P0 三段实测（spawn/发现/驱动）已归档：
+.trae_history/BeginnerLessonsSkeleton/99_实施记录.md。
 """
 
 from __future__ import annotations

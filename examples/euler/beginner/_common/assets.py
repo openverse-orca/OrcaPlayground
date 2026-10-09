@@ -24,6 +24,13 @@ SHELF = f"{_PREFIX}/metal_shelf_usda"  # 金属货架
 # 教具（阶段 4 桌前操作）
 BLOCK_ARM = f"{_PREFIX}/block_arm_usda"  # 积木臂（二连杆转台臂，横梁中心高于底盘底面 0.15 m）
 
+# 教具（阶段 5 关节控制；源 XML 在 assets/PlayGroundAssets/，
+# 已导入本地资产包 345a60e1cced）
+PENDULUM = f"{_PREFIX}/pendulum_passive_usda"    # 被动摆（25/26 课，无执行器）
+PENDULUM_POS = f"{_PREFIX}/pendulum_position_usda"  # 位置伺服摆（27 课，kp=100 kv=8）
+WHEEL_VEL = f"{_PREFIX}/wheel_velocity_usda"     # 速度伺服轮（28 课，kv=0.1）
+ROTOR_TORQUE = f"{_PREFIX}/rotor_torque_usda"    # 力矩旋臂（29/30 课，gear=1）
+
 # 机器人
 GO2 = f"{_PREFIX}/go2_usda"  # go2 机器狗
 H1 = f"{_PREFIX}/h1_usda"  # h1 人形机器人

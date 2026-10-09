@@ -1,0 +1,25 @@
+id: 26
+title: 写关节状态
+stage: 5
+layer: 3
+scene_mode: flexible
+prerequisites: [lesson_25_inspect_joint]
+entry: python -m examples.euler.beginner.stage5_joint_control.lesson_26_set_joint_pose.run
+asset_packages: [OrcaPlaygroundAssets]
+expected_result: 上帝模式写入 30°（set_joint_qpos 全量数组改 1 个槽位、qvel 清零）回读精确 30.0°；放手后摆从 30° 起振，第一峰回到 ≈30°（±0.3°，无阻尼能量守恒——上帝模式只改初始状态，之后的物理是真实的）；大摆周期实测 ≈1.67 s vs 理论 T₀(1+θ₀²/16)=1.67 s
+challenge: 90° 预测——把 INITIAL_ANGLE_DEG 改成 90，先预测第一峰与周期（提示：第一峰仍回 90°，周期按 +16% 漂到 ≈1.90 s），写下预测运行对照
+challenge_type: predict
+rebuild_scene: false
+tunable_params:
+  - name: INITIAL_ANGLE_DEG
+    default: 30.0
+    unit: 度（上帝模式写入的初始摆角）
+  - name: WATCH_S
+    default: 8.0
+    unit: 秒（放手后观察时长）
+  - name: REPORT_INTERVAL_S
+    default: 0.2
+    unit: 秒（读数打印间隔）
+  - name: --default-scene
+    default: false
+    unit: 布尔开关

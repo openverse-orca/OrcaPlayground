@@ -1,0 +1,28 @@
+id: 30
+title: 手写 PD 控制器
+stage: 5
+layer: 3
+scene_mode: flexible
+prerequisites: [lesson_29_torque_control]
+entry: python -m examples.euler.beginner.stage5_joint_control.lesson_30_pd_control.run
+asset_packages: [OrcaPlaygroundAssets]
+expected_result: 同目标 30° 三组增益对比——欠阻尼 kv=0.5（ζ=0.19）：超调 ≈54% vs 理论 exp(−πζ/√(1−ζ²))，振荡周期 ≈1.65 s vs 理论 2π/(ωn√(1−ζ²))；过阻尼 kv=10（ζ=3.87）：无超调、8 s 慢极点爬行；临界 kv=2.6（ζ≈1.0）：无超调 ≈1.5 s 收敛最快。PD 公式 τ=kp·误差−kv·角速度 即 27 课位置伺服的内核
+challenge: 纯 P 预测——把 KV_CRIT 改成 0.0（拆掉 D），先预测：会停在 30° 吗（不会）、会振荡吗周期多少（永振，2π/ωn≈1.62 s，与 26 课摆 1.67 s 同一物理）、振幅会衰减吗（不衰减——无阻尼弹簧-质量系统，26 课放手摆的电子版），写下预测运行对照
+challenge_type: predict
+rebuild_scene: false
+tunable_params:
+  - name: TARGET_DEG
+    default: 30.0
+    unit: 度（PD 目标角）
+  - name: KV_CRIT
+    default: 2.6
+    unit: N·m·s/rad（临界组 kv，挑战载体）
+  - name: WATCH_S
+    default: 8.0
+    unit: 秒（每组观察时长）
+  - name: REPORT_INTERVAL_S
+    default: 0.2
+    unit: 秒（读数打印间隔）
+  - name: --default-scene
+    default: false
+    unit: 布尔开关

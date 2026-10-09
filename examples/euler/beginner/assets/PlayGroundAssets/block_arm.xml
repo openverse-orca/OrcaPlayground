@@ -1,0 +1,52 @@
+<mujoco model="BlockArm">
+  <!-- 积木臂（阶段 4 教具）：转台吊臂造型的平面二连杆臂。
+
+  本文件是 OrcaPlaygroundAssets 包的源资产（与其余教具 XML 同源），
+  经资产包导入后由课程经 _common/assets.py 的 BLOCK_ARM 常量引用。
+
+  结构（俯视，桌面平面内扫掠）：
+    底盘(方板) + 立柱(静) ─ 肩转台(橙,绕z) ─ 上臂梁(白) ─ 肘关节盘(橙,绕z) ─ 前臂梁(白) ─ 推球头(红球)
+
+  几何连续无悬空：立柱顶=转台底，横梁从转台侧面伸出，关节盘盖住梁端。
+  工作高度：横梁中心 z=0.15（自底座底面起）——与静置于桌面的圆球
+  (r=0.15m)球心等高，推球最稳。
+  spawn 摆放：底座原点在底盘**底面**，pos 的 z = 桌面顶高（如桌子 0.75）。
+
+  课程驱动方式（阶段 4，尚未学执行器控制）：
+    set_joint_qpos 运动学驱动关节角——「无限强伺服」心智模型。
+    阶段 5 关节控制课不复用积木臂（二连杆多关节，不适合单关节教学），
+    换用独立教具：pendulum_position / wheel_velocity / rotor_torque（本目录）。
+  -->
+
+  <compiler angle="degree"/>
+  <default>
+    <joint type="hinge" axis="0 0 1" damping="0.5" armature="0.01"/>
+    <geom friction="1.0 0.005 0.0001" condim="4" density="600"/>
+  </default>
+
+  <worldbody>
+    <!-- 底座：底盘 + 立柱（无关节 → spawn 后固定不动）。颜色：炭灰 -->
+    <body name="arm_base" pos="0 0 0">
+      <geom name="base_plate" type="box" size="0.09 0.09 0.025" pos="0 0 0.025" rgba="0.24 0.24 0.27 1"/>
+      <geom name="pedestal" type="cylinder" size="0.04 0.05" pos="0 0 0.10" rgba="0.24 0.24 0.27 1"/>
+
+      <!-- 肩转台：橙色圆盘，绕竖直轴(z)在桌面平面内扫掠，盖在立柱顶上 -->
+      <body name="shoulder" pos="0 0 0.15">
+        <joint name="shoulder_joint" range="-110 110"/>
+        <geom name="turntable" type="cylinder" size="0.055 0.02" pos="0 0 0.02" rgba="0.95 0.55 0.15 1"/>
+        <!-- 上臂梁：白色，从转台侧面沿 +y 伸出 0.20m，梁中心与球心等高 -->
+        <geom name="upper_arm" type="box" size="0.03 0.10 0.025" pos="0 0.11 0" rgba="0.92 0.92 0.90 1"/>
+
+        <!-- 肘：橙色关节盘（绕z），盖住上臂梁端 -->
+        <body name="elbow" pos="0 0.20 0">
+          <joint name="elbow_joint" range="-130 130"/>
+          <geom name="elbow_puck" type="cylinder" size="0.035 0.028" pos="0 0 0" rgba="0.95 0.55 0.15 1"/>
+          <!-- 前臂梁：白色，沿 +y 再延伸 0.16m -->
+          <geom name="forearm" type="box" size="0.024 0.08 0.02" pos="0 0.10 0" rgba="0.92 0.92 0.90 1"/>
+          <!-- 推球头：红色圆端（推/拨物体的工作端） -->
+          <geom name="push_tip" type="sphere" size="0.028" pos="0 0.185 0" rgba="0.85 0.20 0.20 1"/>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+</mujoco>

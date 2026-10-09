@@ -1,0 +1,28 @@
+id: 29
+title: 力矩控制
+stage: 5
+layer: 3
+scene_mode: flexible
+prerequisites: [lesson_28_velocity_control]
+entry: python -m examples.euler.beginner.stage5_joint_control.lesson_29_torque_control.run
+asset_packages: [OrcaPlaygroundAssets]
+expected_result: 打印执行器铭牌（nu=1、名字、ctrlrange=±5 N·m，ctrl 语义=力矩本身，gear=1 免换算）；恒力矩 τ=0.5 N·m 下转速线性爬升 2 s 达 ≈3.0 rad/s，斜率 α 实测 1.50 = 理论 τ/I₀（I₀=mL²/3=0.333，竖轴无重力矩）；加 4/3 kg 配重（I 加倍）后同款力矩斜率精确减半 α=0.75——α=τ/I 分子分母各动一次均精确命中
+challenge: 组合预测——把 TORQUE_NM 改成 1.0（配重照加），先预测两幕斜率：基准幕 τ×2 → α=3.0；配重幕 τ×2 且 I×2 → α=1.5 与原基准幕相同（分子分母同倍商复原——力矩翻倍刚好抵消惯量翻倍），写下预测运行对照
+challenge_type: combine
+rebuild_scene: false
+tunable_params:
+  - name: TORQUE_NM
+    default: 0.5
+    unit: 牛·米（恒力矩）
+  - name: EXTRA_WEIGHT_KG
+    default: 1.333
+    unit: 千克（幕 3 配重，加在臂质心 0.5 m 处）
+  - name: SPIN_S
+    default: 2.0
+    unit: 秒（每幕加速时长）
+  - name: REPORT_INTERVAL_S
+    default: 0.2
+    unit: 秒（读数打印间隔）
+  - name: --default-scene
+    default: false
+    unit: 布尔开关
