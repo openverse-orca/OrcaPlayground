@@ -5,7 +5,6 @@
 - 资产平台：https://simassets.orca3d.cn/
 - 订阅方式：见 [01 课 README](../../examples/euler/beginner/stage1_scene_basics/lesson_01_hello_world/README.md)（订阅后需重启 OrcaLab 才生效）
 - 课程侧引用：[assets.py](../../examples/euler/beginner/_common/assets.py) 单一事实源——当前为本地导入包 `345a60e1cced` 的过渡路径，正式上架后只需切换 `_PREFIX` 一处即可全课换源
-- 包制作源：本机 `OrcaWorkStation/OrcaPlaygroundAssets/`（教具 XML 修改后需重新导入/上架，双侧同步）
 
 ## 包内容总览
 
