@@ -33,7 +33,9 @@
 | 7–8. 任务实践（37–48） | 相机 / 测距 / 任务判定 / 随机化评测 | ⏳ 规划中 |
 | 选修 | GPU 后端等 9 个专题 | ⏳ 暂缓发布 |
 
-完整规划见 [docs/beginner/REQUIREMENTS.md](docs/beginner/REQUIREMENTS.md)。
+完整规划见 [docs/beginner/REQUIREMENTS.md](docs/beginner/REQUIREMENTS.md)，
+全部课程使用的配套资产包（教具 / 机器人模型 / 美术与物理资源储备）
+见 [docs/beginner/ASSETS.md](docs/beginner/ASSETS.md)。
 
 ## 如何开始（从零到跑起第一课，只需这一次）
 
@@ -57,7 +59,8 @@ conda activate orca
 
 **第 4 步 · 订阅教学资产包**
 在资产库 [https://simassets.orca3d.cn/](https://simassets.orca3d.cn/) 搜索并订阅
-**OrcaPlaygroundAssets**（详细步骤见[第 01 课 README](examples/euler/beginner/stage1_scene_basics/lesson_01_hello_world/README.md)）。
+**OrcaPlaygroundAssets**（详细步骤见[第 01 课 README](examples/euler/beginner/stage1_scene_basics/lesson_01_hello_world/README.md)；
+包里有哪些教具、机器人和美术资源，见[配套资产包介绍](docs/beginner/ASSETS.md)）。
 订阅后要在 OrcaLab 中进行资产同步：顶栏 资产 → 同步资产（也可以重新启动 OrcaLab）。
 
 **第 5 步 · 跑你的第一课**

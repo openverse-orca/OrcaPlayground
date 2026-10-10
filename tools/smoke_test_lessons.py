@@ -5,7 +5,7 @@
   - 每课 example.yaml 字段齐全（id/title/entry/challenge/challenge_type）
 
 为什么不连引擎真跑：课程核心验收是"实测数字命中理论"（需 OrcaLab
-+ 资产订阅，见各课 README 与 .trae_history 实跑记录）；本脚本只覆盖
++ 资产订阅，见各课 README ）；本脚本只覆盖
 静态可验证的分层，真跑用 tools/run_all_beginner_lessons.sh。
 
 用法:
