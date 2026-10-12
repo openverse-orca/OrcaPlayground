@@ -5,11 +5,14 @@ OrcaGym 提供；Playground 不复制 Host 或厂商算法源码。
 
 ## 配套版本与本地安装
 
-当前配套功能尚未正式发布，验证基线为 OrcaGym `feat/sensor-provider-integration` 的
-`8896ad77`。该提交支持已装配模型的 site 和对象绑定；仅支持旧 site 接口的版本不能运行全部示例。
-合并前以配套 PR 的最终提交为准，不将当前开发版本号当作已发布的最低 OrcaGym 版本。
+OrcaGym 最新 `dev` 分支及当前 pip 发布包已支持本示例所需的传感器插件接口，
+包括已装配模型的 site 和对象绑定。在 `orca` conda 环境中，可通过 pip 安装或升级：
 
-在 `orca` conda 环境中，进入已检出配套实现的 **OrcaGym 源码目录**执行：
+```bash
+python -m pip install --upgrade orca-gym
+```
+
+也可选择源码安装：进入已更新至最新 `dev` 分支的 **OrcaGym 源码目录**执行：
 
 ```bash
 python -m pip install -e .
@@ -22,15 +25,16 @@ python -m pip install -r examples/euler/sensor_provider/requirements.txt
 python -m examples.euler.sensor_provider.run --example touch_grid
 ```
 
-绘图依赖不会安装或升级 OrcaGym。遇到导入缺失或未知绑定格式时，先确认环境实际加载的
-OrcaGym 是否为配套提交，避免可编辑安装仍指向另一个源码工作区：
+绘图依赖不会安装或升级 OrcaGym。遇到 `orca_gym.sensor.providers` 导入缺失或未知绑定格式时，
+先确认环境实际加载的 OrcaGym 是否已升级，避免仍使用旧 pip 包或可编辑安装指向另一个源码工作区：
 
 ```bash
 python -c "import orca_gym; print(orca_gym.__file__)"
+python -c "from orca_gym.sensor.providers.native import default_host_path; print(default_host_path())"
 ```
 
-正式发布时，须更新依赖说明中的最低 OrcaGym 版本和安装步骤，并在干净环境安装正式
-构建产物验收。SDK `1.0.0` 和 ABI `2` 是独立版本，不能代替 OrcaGym 版本。
+最低 OrcaGym 版本要求以官方发布说明为准；更新依赖或预编译包时，须在干净环境安装
+发布包验收。SDK `1.0.0` 和 ABI `2` 是独立版本，不能代替 OrcaGym 版本。
 当前随包 Runtime 面向 Linux x86_64、glibc ≥ 2.35；更新任何二进制后须重新验证目标平台。
 
 ## 本地覆盖与回归
