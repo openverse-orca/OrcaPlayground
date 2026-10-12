@@ -9,16 +9,16 @@ OrcaLab 视口出现地面和一个方块，终端显示连接与 spawn 成功�
 
 ## 准备
 - OrcaLab 已启动（含 Studio 视口）
-- ✅ 已在 OrcaLab 资产库中订阅 **OrcaPlaygroundAssets** 资产包
+- ✅ 已在 OrcaLab 资产库中订阅 **新手实例库配套资产**（英文名 OrcaPlaygroundAssets）资产包
 - 首次订阅后需重启 OrcaLab（引擎侧资产表为一次性填充）
 
 ### 怎么订阅资产包（第一次来的同学看这里）
 1. 打开资产库 [https://simassets.orca3d.cn/](https://simassets.orca3d.cn/)，用你的
    OrcaLab 账号登录（OrcaLab 客户端底部资产栏的【打开资产库】按钮也能跳过去）
-2. 搜索 **OrcaPlaygroundAssets**，进入资产包详情页，点击【订阅】
+2. 搜索 **新手实例库配套资产**（英文名 OrcaPlaygroundAssets），进入资产包详情页，点击【订阅】
 3. **重启 OrcaLab**——订阅不会立即生效：客户端只在启动时同步已订阅的资产包，
    右下角【资产同步】按钮可以查看下载进度
-4. 验证：OrcaLab 底部【资产栏】里能看到 OrcaPlaygroundAssets 的资产，即可运行本课
+4. 验证：OrcaLab 底部【资产栏】里能看到 新手实例库配套资产（OrcaPlaygroundAssets）的资产，即可运行本课
 
 > 更多资产操作（以图搜资产、分类浏览、取消订阅）见官方文档：
 > [如何搜索和订阅资产](https://docs.orca3d.cn/#/FAQ-list/045-如何搜索和订阅资产.md) ·

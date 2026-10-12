@@ -17,7 +17,7 @@
 
 ## 前置条件
 
-- ✅ 已在 OrcaLab 资产库中订阅 **OrcaPlaygroundAssets** 资产包
+- ✅ 已在 OrcaLab 资产库中订阅 **新手实例库配套资产**（英文名 OrcaPlaygroundAssets）资产包
 - ✅ 完成 21 课（知道 apply_body_force 怎么持续施力）
 - ✅ OrcaLab 已启动（gRPC `localhost:50051`）
 - 运行期间手离开视口（拖拽会物理干扰演示）

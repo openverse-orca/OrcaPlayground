@@ -14,7 +14,7 @@
 
 ## 前置条件
 
-- ✅ 已在 OrcaLab 资产库中订阅 **OrcaPlaygroundAssets** 资产包
+- ✅ 已在 OrcaLab 资产库中订阅 **新手实例库配套资产**（英文名 OrcaPlaygroundAssets）资产包
 - ✅ 完成 23 课（知道 set_joint_qvel 怎么写初速度）
 - ✅ OrcaLab 已启动（gRPC `localhost:50051`）
 - 运行期间手离开视口（拖拽会物理干扰演示）

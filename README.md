@@ -59,7 +59,7 @@ conda activate orca
 
 **第 4 步 · 订阅教学资产包**
 在资产库 [https://simassets.orca3d.cn/](https://simassets.orca3d.cn/) 搜索并订阅
-**OrcaPlaygroundAssets**（详细步骤见[第 01 课 README](examples/euler/beginner/stage1_scene_basics/lesson_01_hello_world/README.md)；
+**新手实例库配套资产**（英文名 OrcaPlaygroundAssets）（详细步骤见[第 01 课 README](examples/euler/beginner/stage1_scene_basics/lesson_01_hello_world/README.md)；
 包里有哪些教具、机器人和美术资源，见[配套资产包介绍](docs/beginner/ASSETS.md)）。
 订阅后要在 OrcaLab 中进行资产同步：顶栏 资产 → 同步资产（也可以重新启动 OrcaLab）。
 

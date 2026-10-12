@@ -1,10 +1,10 @@
-# 配套资产包介绍（OrcaPlaygroundAssets）
+# 配套资产包介绍（新手实例库配套资产 / OrcaPlaygroundAssets）
 
-新手课程（01–30）使用的全部教具与机器人来自同一个配套资产包 **OrcaPlaygroundAssets**。本文介绍包里有什么、课程用了什么、还有哪些资产可供后续课程或自组场景时浏览查阅。
+新手课程（01–30）使用的全部教具与机器人来自同一个配套资产包 **新手实例库配套资产**（英文名 OrcaPlaygroundAssets，下文简称 OrcaPlaygroundAssets）。本文介绍包里有什么、课程用了什么、还有哪些资产可供后续课程或自组场景时浏览查阅。
 
 - 资产平台：https://simassets.orca3d.cn/
 - 订阅方式：见 [01 课 README](../../examples/euler/beginner/stage1_scene_basics/lesson_01_hello_world/README.md)（订阅后需重启 OrcaLab 才生效）
-- 课程侧引用：[assets.py](../../examples/euler/beginner/_common/assets.py) 单一事实源——当前为本地导入包 `345a60e1cced` 的过渡路径，正式上架后只需切换 `_PREFIX` 一处即可全课换源
+- 课程侧引用：[assets.py](../../examples/euler/beginner/_common/assets.py) 单一事实源——已切换为正式资产包云端路径（`assets/e071469a36d3c8aa/default_project/prefabs`），全部课程经此一处引用教具
 
 ## 包内容总览
 
@@ -65,5 +65,5 @@
 
 ## 维护提醒
 
-- 教具 XML 源在 OrcaPlayground 仓库 `examples/euler/beginner/assets/PlayGroundAssets/`（课程运行时单一事实源）；包制作源在本机 `OrcaPlaygroundAssets/` 目录——修改教具后需双侧同步并重新导入/上架
+- 教具 XML 源在 OrcaPlayground 仓库 `examples/euler/beginner/assets/PlayGroundAssets/`（课程运行时单一事实源）；包制作源在本机 `OrcaPlaygroundAssets/` 目录——修改教具后需双侧同步、上架新版本并同步订阅端（重启 OrcaLab）
 - robots/ 各模型的"超纲"标注是快照：阶段 6 开课后需更新本文使用状态
