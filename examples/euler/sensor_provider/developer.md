@@ -5,11 +5,12 @@ OrcaGym 提供；Playground 不复制 Host 或厂商算法源码。
 
 ## 配套版本与本地安装
 
-OrcaGym 最新 `dev` 分支及当前 pip 发布包已支持本示例所需的传感器插件接口，
-包括已装配模型的 site 和对象绑定。在 `orca` conda 环境中，可通过 pip 安装或升级：
+OrcaGym 最新 `dev` 分支已支持本示例所需的传感器插件接口，包括已装配模型的 site 和对象绑定。
+配套 pip 包目前暂时发布在 TestPyPI 测试环境，最新版本为 `26.10.1.1`。
+在 `orca` conda 环境中，可通过以下命令安装该测试版本：
 
 ```bash
-python -m pip install --upgrade orca-gym
+python -m pip install --upgrade -i https://test.pypi.org/simple/ orca-gym==26.10.1.1
 ```
 
 也可选择源码安装：进入已更新至最新 `dev` 分支的 **OrcaGym 源码目录**执行：
