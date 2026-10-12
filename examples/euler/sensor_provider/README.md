@@ -17,10 +17,10 @@
 
 ## 运行前准备
 
-本示例依赖配套的 OrcaGym `feat/sensor-provider-integration` 分支，当前验证提交为 `8896ad77`。
-**该功能尚未正式发布**；现有 PyPI 版本不保证包含本例所需接口。验证本 PR 时，先按
-[配套源码安装步骤](developer.md#配套版本与本地安装)安装对应实现。正式发布后，可按
-[OrcaGym 官方安装说明](https://github.com/openverse-orca/OrcaGym#安装)安装支持该功能的官方 `orca-gym` 发布版本。
+OrcaGym 最新 `dev` 分支已支持本示例所需的传感器插件接口，也可通过 pip 安装或升级
+官方 `orca-gym` 发布版本。下面给出 pip 安装步骤；需要从源码开发时，可按
+[源码安装说明](developer.md#配套版本与本地安装)使用最新 `dev` 分支。
+更多安装选项见 [OrcaGym 官方安装说明](https://github.com/openverse-orca/OrcaGym#安装)。
 
 在支持的平台上，Host 随 OrcaGym 提供并自动加载；不需要另外安装 Host、厂商 SDK 或编译插件。
 当前演示面向 Linux x86_64（glibc ≥ 2.35），具体系统兼容范围以 OrcaGym 发布说明为准。
@@ -38,9 +38,10 @@ conda create -n orca python=3.12
 conda activate orca
 ```
 
-请在此环境中按上述配套版本说明完成 OrcaGym 的安装，然后安装示例的绘图依赖：
+在此环境中安装或升级 OrcaGym，再安装示例的绘图依赖。已从最新 `dev` 源码安装的用户只需安装绘图依赖：
 
 ```bash
+python -m pip install --upgrade orca-gym
 python -m pip install -r examples/euler/sensor_provider/requirements.txt
 ```
 
