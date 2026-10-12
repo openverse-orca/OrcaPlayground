@@ -17,8 +17,8 @@
 
 ## 运行前准备
 
-OrcaGym 最新 `dev` 分支已支持本示例所需的传感器插件接口，也可通过 pip 安装或升级
-官方 `orca-gym` 发布版本。下面给出 pip 安装步骤；需要从源码开发时，可按
+OrcaGym 最新 `dev` 分支已支持本示例所需的传感器插件接口。配套 pip 包目前暂时发布在
+TestPyPI 测试环境，最新版本为 `26.10.1.1`。下面给出该测试版本的安装步骤；需要从源码开发时，可按
 [源码安装说明](developer.md#配套版本与本地安装)使用最新 `dev` 分支。
 更多安装选项见 [OrcaGym 官方安装说明](https://github.com/openverse-orca/OrcaGym#安装)。
 
@@ -38,10 +38,10 @@ conda create -n orca python=3.12
 conda activate orca
 ```
 
-在此环境中安装或升级 OrcaGym，再安装示例的绘图依赖。已从最新 `dev` 源码安装的用户只需安装绘图依赖：
+在此环境中从 TestPyPI 安装指定版本的 OrcaGym，再安装示例的绘图依赖。已从最新 `dev` 源码安装的用户只需安装绘图依赖：
 
 ```bash
-python -m pip install --upgrade orca-gym
+python -m pip install --upgrade -i https://test.pypi.org/simple/ orca-gym==26.10.1.1
 python -m pip install -r examples/euler/sensor_provider/requirements.txt
 ```
 
