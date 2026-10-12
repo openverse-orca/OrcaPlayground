@@ -23,7 +23,8 @@ def test_user_docs_do_not_require_a_special_runtime_or_local_build():
     developer = (EXAMPLE_ROOT / "developer.md").read_text(encoding="utf-8")
     requirements = (EXAMPLE_ROOT / "requirements.txt").read_text(encoding="utf-8")
     for document in (readme, developer):
-        assert "pip install --upgrade -i https://test.pypi.org/simple/ orca-gym==26.10.1.1" in document
+        assert "pip install --upgrade -i https://test.pypi.org/simple/" in document
+        assert '--extra-index-url https://pypi.org/simple/ "orca-gym[sensors]==26.10.1.1"' in document
     assert "Host 随 OrcaGym 提供并自动加载" in readme
     assert "完整运行包" not in readme
     assert "具体系统兼容范围以 OrcaGym 发布说明为准" in readme

@@ -38,12 +38,17 @@ conda create -n orca python=3.12
 conda activate orca
 ```
 
-在此环境中从 TestPyPI 安装指定版本的 OrcaGym，再安装示例的绘图依赖。已从最新 `dev` 源码安装的用户只需安装绘图依赖：
+在此环境中从 TestPyPI 安装指定版本的 OrcaGym，再安装示例的绘图依赖。
+已从最新 `dev` 源码安装并包含 `sensors` 依赖的用户只需安装绘图依赖：
 
 ```bash
-python -m pip install --upgrade -i https://test.pypi.org/simple/ orca-gym==26.10.1.1
+python -m pip install --upgrade -i https://test.pypi.org/simple/ \
+  --extra-index-url https://pypi.org/simple/ "orca-gym[sensors]==26.10.1.1"
 python -m pip install -r examples/euler/sensor_provider/requirements.txt
 ```
+
+`[sensors]` 安装环境导入所需的传感器依赖（包括 `websockets`）。TestPyPI 未提供全部第三方依赖，
+因此通过 `--extra-index-url` 从正式 PyPI 获取 NumPy 等依赖。
 
 本示例的插件和模型资源使用普通 Git 保存，正常克隆即可取得完整文件，无需 Git LFS。
 

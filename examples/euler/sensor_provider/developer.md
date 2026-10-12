@@ -10,13 +10,17 @@ OrcaGym 最新 `dev` 分支已支持本示例所需的传感器插件接口，�
 在 `orca` conda 环境中，可通过以下命令安装该测试版本：
 
 ```bash
-python -m pip install --upgrade -i https://test.pypi.org/simple/ orca-gym==26.10.1.1
+python -m pip install --upgrade -i https://test.pypi.org/simple/ \
+  --extra-index-url https://pypi.org/simple/ "orca-gym[sensors]==26.10.1.1"
 ```
+
+干净环境需要安装 `[sensors]` 可选依赖，否则导入环境类时会缺少 `websockets`。
+TestPyPI 缺少 `numpy==2.2.6` 等第三方依赖，需保留正式 PyPI 的附加索引。
 
 也可选择源码安装：进入已更新至最新 `dev` 分支的 **OrcaGym 源码目录**执行：
 
 ```bash
-python -m pip install -e .
+python -m pip install -e ".[sensors]"
 ```
 
 然后回到 **OrcaPlayground 仓库根目录**：
@@ -47,6 +51,7 @@ python -c "from orca_gym.sensor.providers.native import default_host_path; print
 ```bash
 python -m examples.euler.sensor_provider.dexhand_euler \
   --build-dir /path/to/build --steps 5
+python -m pip install pytest ruff
 python -m pytest tests/sensor_provider -q
 python -m ruff check --select SLF001 envs/ examples/
 ```
