@@ -1,0 +1,25 @@
+id: 20
+title: 双关节协调
+stage: 4
+layer: 3
+scene_mode: flexible
+prerequisites: [lesson_19_block_arm]
+entry: python -m examples.euler.beginner.stage4_physics_interaction.lesson_20_dual_joint.run
+asset_packages: [OrcaPlaygroundAssets]
+expected_result: 逆解两路先后到达同一目标点——路 A 前臂折进（肩 +6° 肘 +99°）、路 B 整臂转身（肩 +100° 肘 −99°），臂形完全不同而末端实测均距目标 < 1cm
+challenge: 肘角预测——把目标改远（TARGET 改 −0.28/0.21，距离 0.25→0.35m），预测肘角变大还是变小（提示：越远臂越伸直，|θ2| 从 99° 缩到约 49°），写下预测后运行对照
+challenge_type: predict
+rebuild_scene: false
+tunable_params:
+  - name: TARGET_X
+    default: -0.20
+    unit: 米
+  - name: TARGET_Y
+    default: 0.15
+    unit: 米
+  - name: MOVE_DURATION
+    default: 2.0
+    unit: 秒
+  - name: --default-scene
+    default: false
+    unit: 布尔开关

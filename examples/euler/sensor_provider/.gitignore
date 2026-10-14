@@ -1,5 +1,0 @@
-__pycache__/
-*.pyc
-!providers/**/*.so
-!providers/**/*.dll
-!providers/**/*.dylib

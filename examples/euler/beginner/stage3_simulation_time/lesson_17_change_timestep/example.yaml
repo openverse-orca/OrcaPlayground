@@ -1,0 +1,22 @@
+id: 17
+title: 调整时间步长
+stage: 3
+layer: 3
+scene_mode: flexible
+prerequisites: [lesson_16_change_gravity]
+entry: python -m examples.euler.beginner.stage3_simulation_time.lesson_17_change_timestep.run
+asset_packages: [OrcaPlaygroundAssets]
+expected_result: 两组步数严格成 5:1，仿真时间都精确到 1.0s，末状态存在离散化误差
+challenge: 把 TIME_STEPS 改成 (0.004, 0.008)，先笔算两组各需多少步，再运行验证日志步数与答案一致
+challenge_type: predict
+rebuild_scene: false
+tunable_params:
+  - name: TIME_STEPS
+    default: (0.002, 0.01)
+    unit: 秒
+  - name: SIM_DURATION
+    default: 1.0
+    unit: 秒
+  - name: --default-scene
+    default: false
+    unit: 布尔开关

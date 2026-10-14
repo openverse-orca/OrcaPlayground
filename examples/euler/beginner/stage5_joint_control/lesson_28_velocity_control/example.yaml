@@ -1,0 +1,25 @@
+id: 28
+title: 速度伺服
+stage: 5
+layer: 3
+scene_mode: flexible
+prerequisites: [lesson_27_position_control]
+entry: python -m examples.euler.beginner.stage5_joint_control.lesson_28_velocity_control.run
+asset_packages: [OrcaPlaygroundAssets]
+expected_result: 打印执行器铭牌（nu=1、名字、ctrlrange=±10 rad/s，ctrl 语义=目标转速）；目标 +3 rad/s 转速指数爬升稳态 3.00（±0.01），t63 实测 ≈0.9 s = 理论 τ=I/kv=0.09/0.1；反转目标 −3 从 +3 跨越，时间常数不变、稳态精确 −3.00——正反转完全对称（无重力偏置，速度伺服没有静差）
+challenge: 目标加倍预测——把 TARGET_SPEED 改成 6.0，先预测稳态转速（精确 6.00）与爬升 t63（仍 0.9 s——τ=I/kv 与目标幅值无关，指数曲线只拉高不变形状），写下预测运行对照
+challenge_type: predict
+rebuild_scene: false
+tunable_params:
+  - name: TARGET_SPEED
+    default: 3.0
+    unit: rad/s（目标转速，正反转两档取 ±值）
+  - name: WATCH_S
+    default: 7.0
+    unit: 秒（每档观察时长，≈7.8 个时间常数）
+  - name: REPORT_INTERVAL_S
+    default: 0.2
+    unit: 秒（读数打印间隔）
+  - name: --default-scene
+    default: false
+    unit: 布尔开关

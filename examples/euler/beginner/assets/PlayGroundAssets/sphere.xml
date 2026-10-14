@@ -1,0 +1,28 @@
+<mujoco model="sphere">
+  <option integrator="implicitfast" timestep="0.005" gravity="0 0 -9.81"/>
+  <size memory="1000M" nuser_site="6"/>
+  <compiler coordinate="local"/>
+
+  <worldbody>
+    <light cutoff="30" pos="0 1 1" dir="0 -1 -2"/>
+    <light cutoff="30" pos="0 -1 1" dir="0 1 -2"/>
+
+    <!-- Sphere: radius 0.15m, cyan for visibility -->
+    <body name="sphere" pos="0 0 0">
+      <freejoint name="sphere_root"/>
+      <geom type="sphere" contype="1" conaffinity="1" density="100"
+            rgba="0.20 0.90 0.80 1"
+            solimp="0.9 0.95 0.001" friction="0.8 0.005 0.0001"
+            solref="0.02 1" priority="0" margin="0" condim="3" group="0"
+            size="0.15"
+            name="sphere"/>
+      <site name="sphere_site" pos="0 0 0" size="0.005" rgba="1 0 0 1" type="sphere"/>
+    </body>
+  </worldbody>
+
+  <tendon/>
+  <actuator/>
+  <contact/>
+  <equality/>
+  <asset/>
+</mujoco>

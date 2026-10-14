@@ -9,12 +9,11 @@ AI 代理执行测试、调试、运行示例脚本时，**必须使用 `orca` c
 ```bash
 # 正确
 conda activate orca
-python examples/character/run_character.py
-python examples/euler/run_simple.py --orcagym_addr localhost:50051 --scene scene.xml
+python -m examples.euler.beginner.stage1_scene_basics.lesson_01_hello_world.run
 
 # 错误 — 不要使用 base 或其他环境
 conda activate base
-python examples/character/run_character.py
+python -m examples.euler.beginner.stage1_scene_basics.lesson_01_hello_world.run
 ```
 
 `orca` 是 README 推荐的环境名称，已安装本项目所有依赖。使用其他环境会导致依赖缺失或版本不一致。
@@ -23,11 +22,10 @@ python examples/character/run_character.py
 
 新开发的 example（位于 `examples/` 和 `envs/` 下）**必须使用 Euler 体系**，即基于 `OrcaGymEulerEnv` 而非 `OrcaGymLocalEnv`。
 
-Euler 体系的架构约束参考 OrcaGym 仓库的架构文档：
-
-`../OrcaGym/docs/design/architecture/orca_gym_euler_architecture.md`
-
-该文档定义了：
+Euler 体系的架构约束参考 OrcaGym 仓库（克隆地址 https://github.com/openverse-orca/OrcaGym ），
+Euler 环境源码位于
+[orca_gym/environment/euler/orca_gym_euler_env.py](https://github.com/openverse-orca/OrcaGym/blob/main/orca_gym/environment/euler/orca_gym_euler_env.py)，
+该源码定义了：
 
 - `OrcaGymEulerEnv` 的公共 API 契约（状态读取 / 写入 / 仿真步进 / 求解器配置 / 名称空间）
 - 封装隔离机制（禁止直接访问 `_mjModel` / `_mjData`）
@@ -46,13 +44,13 @@ Euler 体系的架构约束参考 OrcaGym 仓库的架构文档：
 
 若开发过程中发现 Euler 体系缺少所需功能，或架构约束与 example 需求存在冲突，**请联系 OrcaGym 开发者寻求协助**，不要在 example 代码中绕过封装隔离机制。
 
-配套的开发阶段分解见：`../OrcaGym/docs/design/development/orca_gym_euler_development.md`
-
 ## 规则 3：GPU 加速与 Sandbox 旁路
 
 Euler 体系使用 GPU 加速时（MuJoCoFlow / Flow 在 GPU 上求解），**无法在 TRAE sandbox 内正确运行**。sandbox 剥离了所有进程能力，导致 `cuInit` 返回 `CUDA_ERROR_304`。AI agent 必须使用 **TRAE 命令白名单** 旁路 sandbox，才能调用 GPU。
 
-> 用户侧的白名单配置教程见 `DEVELOPER_GUIDE.md`。本规则约束 AI agent 的命令格式。
+> 用户侧的白名单配置教程见 OrcaGym 仓库的
+> [DEVELOPER_GUIDE.md](https://github.com/openverse-orca/OrcaGym/blob/main/DEVELOPER_GUIDE.md)。
+> 本规则约束 AI agent 的命令格式。
 
 ### 核心规则
 
@@ -63,10 +61,10 @@ Euler 体系使用 GPU 加速时（MuJoCoFlow / Flow 在 GPU 上求解），**�
 3. **输出捕获用重定向，不用管道**。如需捕获输出，将日志重定向到文件，再单独读取：
    ```bash
    # 正确 — 重定向到文件（通常安全）
-   <conda-base>/envs/orca/bin/python examples/euler/run_simple.py > /tmp/out.log 2>&1
+   <conda-base>/envs/orca/bin/python -m examples.euler.beginner.stage1_scene_basics.lesson_01_hello_world.run > /tmp/out.log 2>&1
 
    # 错误 — 管道触发 sandbox 包裹
-   <conda-base>/envs/orca/bin/python examples/euler/run_simple.py 2>&1 | tail -30
+   <conda-base>/envs/orca/bin/python -m examples.euler.beginner.stage1_scene_basics.lesson_01_hello_world.run 2>&1 | tail -30
    ```
 
 4. **若需切换目录，用 `cd` 链接**。`cd` 已在白名单中，`cd <repo-root> && <conda-base>/envs/orca/bin/python script.py` 整条链在宿主执行。
@@ -75,19 +73,19 @@ Euler 体系使用 GPU 加速时（MuJoCoFlow / Flow 在 GPU 上求解），**�
 
 ```bash
 # ✅ 正确 — 白名单解释器直接调用，无管道
-<conda-base>/envs/orca/bin/python examples/euler/run_simple.py --orcagym_addr localhost:50051 --scene scene.xml
+<conda-base>/envs/orca/bin/python -m examples.euler.beginner.stage1_scene_basics.lesson_01_hello_world.run
 
 # ✅ 正确 — cd 链接 + 白名单解释器
-cd <repo-root> && <conda-base>/envs/orca/bin/python examples/euler/run_loop.py
+cd <repo-root> && <conda-base>/envs/orca/bin/python -m examples.euler.beginner.stage1_scene_basics.lesson_01_hello_world.run
 
 # ✅ 正确 — 重定向到文件捕获输出
-<conda-base>/envs/orca/bin/python examples/euler/run_force.py > /tmp/out.log 2>&1
+<conda-base>/envs/orca/bin/python -m examples.euler.beginner.stage1_scene_basics.lesson_01_hello_world.run > /tmp/out.log 2>&1
 
 # ❌ 错误 — 管道触发 sandbox 包裹，GPU 不可用
-<conda-base>/envs/orca/bin/python examples/euler/run_simple.py 2>&1 | tail -30
+<conda-base>/envs/orca/bin/python -m examples.euler.beginner.stage1_scene_basics.lesson_01_hello_world.run 2>&1 | tail -30
 
 # ❌ 错误 — 非白名单首 token
-bash -c "<conda-base>/envs/orca/bin/python examples/euler/run_simple.py"
+bash -c "<conda-base>/envs/orca/bin/python -m examples.euler.beginner.stage1_scene_basics.lesson_01_hello_world.run"
 ```
 
 ### 识别 sandbox 包裹

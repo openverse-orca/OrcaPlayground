@@ -1,0 +1,28 @@
+id: 27
+title: 位置伺服
+stage: 5
+layer: 3
+scene_mode: flexible
+prerequisites: [lesson_26_set_joint_pose]
+entry: python -m examples.euler.beginner.stage5_joint_control.lesson_27_position_control.run
+asset_packages: [OrcaPlaygroundAssets]
+expected_result: 打印执行器铭牌（nu=1、名字、ctrlrange=±1.57 rad，ctrl 语义=目标角）；目标 45° 稳态 ≈43.1° 静差 ≈1.9°、目标 20° 稳态 ≈19.0° 静差 ≈0.9°，均与理论 mg·(L/2)·sinθ/kp 吻合；两档静差比 ≈2.1 ≈ sin 比值（目标越高重力矩越大，P 弹簧留更大误差才扛得住）
+challenge: 目标角改 90°——先猜摆能否到 90°（提示：ctrl=1.5708 超 ctrlrange 上限 1.57 会被 clamp 到 89.95°）、静差变大还是变小（sin 90°=1 为全行程最大 ≈2.8°），写下预测运行对照
+challenge_type: swap
+rebuild_scene: false
+tunable_params:
+  - name: TARGET_ANGLE_DEG
+    default: 45.0
+    unit: 度（主目标角）
+  - name: SECOND_TARGET_DEG
+    default: 20.0
+    unit: 度（复验目标角）
+  - name: WATCH_S
+    default: 4.0
+    unit: 秒（每个目标的观察时长）
+  - name: REPORT_INTERVAL_S
+    default: 0.1
+    unit: 秒（读数打印间隔）
+  - name: --default-scene
+    default: false
+    unit: 布尔开关

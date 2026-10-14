@@ -1,0 +1,19 @@
+id: 9
+title: 缩放物体
+stage: 2
+layer: 2
+scene_mode: spawn
+prerequisites: [lesson_08_rotate_object]
+entry: python -m examples.euler.beginner.stage2_scene_editing.lesson_09_scale_object.run
+asset_packages: [OrcaPlaygroundAssets]
+expected_result: 同一方块以 0.5/1/1.5 倍并排显示；修改 SCALES 后重跑，大小对比变化
+challenge: 把最大那颗换成 2.0 倍；若穿插或出界，同步调整 SPACING_M
+challenge_type: swap
+rebuild_scene: true
+tunable_params:
+  - name: SCALES
+    default: (0.5, 1.0, 1.5)
+    unit: 倍率
+  - name: SPACING_M
+    default: 1.5
+    unit: m

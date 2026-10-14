@@ -1,0 +1,50 @@
+<mujoco model="PendulumPassive">
+  <!-- 被动摆教具（阶段 5 课 25/26）：单摆杆 + 视觉摆锤，无执行器。
+
+  本文件是教学资产包的源资产，经资产包导入后由课程经
+  _common/assets.py 的 PENDULUM 常量引用（常量待上架后启用）。
+
+  结构：铰链轴沿 y（摆杆在 x-z 平面内摆动），杆长 1 m、质量 1 kg
+  全部挂在杆上（摆锤 mass=0 仅作视觉配重）→ I = mL²/3 ≈ 0.333 kg·m²。
+  小摆周期 T = 2π√(I/(mg·L_com)) ≈ 1.64 s，课程用此做定量验证。
+  关节无阻尼、无限位——摆动纯靠重力，物理干净。
+
+  碰撞设计（实测踩坑）：MuJoCo 的父子碰撞过滤对 world 例外——无关节的
+  mount 被焊接(world)到 world 后，过滤不生效，mount 与摆体的碰撞是激活的。
+  因此支撑几何必须与运动件几何永不相交：支点夹板双板贴住摆杆两侧
+  （板内沿 y = ±0.028，摆杆 y ∈ [−0.025, 0.025]，每侧 3 mm 间隙），
+  绕 y 旋转不改变 y 坐标 → 任意摆角（含 360° 回旋）都不可能相碰。
+
+  spawn 摆放：mount 原点 = 铰链轴心，pos 的 z = 悬挂点高度（如 1.5 m），
+  摆杆自然下垂（qpos=0 时摆锤指向 -z）。
+
+  课程用法：
+    25 课 inspect_joint 读关节名/角度/角速度（读数与视口对照）；
+    26 课 set_joint_qpos 写初始角后观察起振（写状态 = 上帝模式）。
+    无执行器是刻意设计——与 27 课起的执行器驱动形成「手掰 vs 电动机」对照。
+  -->
+
+  <compiler angle="radian"/>
+  <default>
+    <joint type="hinge" damping="0"/>
+  </default>
+
+  <worldbody>
+    <!-- 静态支点夹板：灰色双板（无关节 → spawn 后固定不动），从 ±y 两侧
+         夹住摆杆顶端，铰链轴心居中，每侧留 3 mm 间隙 -->
+    <body name="mount">
+      <geom name="pivot_block_pos" type="box" size="0.04 0.015 0.04" pos="0 0.043 0" rgba="0.40 0.40 0.44 1"/>
+      <geom name="pivot_block_neg" type="box" size="0.04 0.015 0.04" pos="0 -0.043 0" rgba="0.40 0.40 0.44 1"/>
+
+      <!-- 摆体：绕 y 轴摆动，质量集中在杆上保 I=mL²/3 公式干净 -->
+      <body name="pendulum">
+        <joint name="hinge" axis="0 1 0"/>
+        <!-- 摆杆：白色，质量 1 kg，顶端被支点夹板从两侧夹住（杆顶面中心 = 铰链轴心） -->
+        <geom name="rod" type="box" size="0.025 0.025 0.5" pos="0 0 -0.5" mass="1" rgba="0.92 0.92 0.90 1"/>
+        <!-- 摆锤：蓝色球，视觉配重（mass=0） -->
+        <geom name="bob" type="sphere" size="0.08" pos="0 0 -1.0" mass="0" rgba="0.25 0.45 0.85 1"/>
+        <site name="tip" pos="0 0 -1.0"/>
+      </body>
+    </body>
+  </worldbody>
+</mujoco>

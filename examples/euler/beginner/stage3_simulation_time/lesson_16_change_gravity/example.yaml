@@ -1,0 +1,22 @@
+id: 16
+title: 修改重力
+stage: 3
+layer: 3
+scene_mode: flexible
+prerequisites: [lesson_15_read_state]
+entry: python -m examples.euler.beginner.stage3_simulation_time.lesson_16_change_gravity.run
+asset_packages: [OrcaPlaygroundAssets]
+expected_result: 地球/月球/零重力三组落地时间依次变长，实测与 t=√(2h/g) 理论值同量级，零重力漂浮
+challenge: 配方区只留月球重力 (1.62)，起点 1 米、方块静置高约 0.5 米，先算 t=√(2×0.5/1.62)≈0.79 秒写下来，再运行对照实测值
+challenge_type: predict
+rebuild_scene: false
+tunable_params:
+  - name: GRAVITY_SCENES
+    default: (地球 9.81, 月球 1.62, 零重力 0.0)
+    unit: m/s²
+  - name: FALL_TIME
+    default: 3.0
+    unit: 秒
+  - name: --default-scene
+    default: false
+    unit: 布尔开关

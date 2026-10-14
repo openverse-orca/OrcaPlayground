@@ -1,0 +1,53 @@
+<mujoco model="PendulumPosition">
+  <!-- 位置伺服摆教具（阶段 5 课 27）：与 pendulum_passive 同一机构 + 位置执行器。
+
+  本文件是教学资产包的源资产，经资产包导入后由课程经
+  _common/assets.py 的 PENDULUM_POS 常量引用（常量待上架后启用）。
+
+  与 pendulum_passive 的差异只有 <actuator> 一块（≤3 行）——
+  「同一台机器换一种电机」：diff 两个文件即是 27 课的核心教具。
+
+  伺服参数（电机铭牌，教学配置可见性三层中的「源码层」）：
+    position 执行器 kp=100、kv=8 → ωn=√(kp/I)=17.3 rad/s、ζ=kv/(2√(kp·I))≈0.70
+    （近临界阻尼，摆到位基本不振荡）
+    ctrl 单位 = 目标角（弧度），限幅 ±1.57（≈±90°）；
+    力矩由 kp 内部生成，不受 ctrlrange 限制——与 29 课力矩版对比必讲。
+
+  静差是知识点不是缺陷：P 型伺服在重力负载下必有静差，
+  稳态角 = 目标 − mg·L_com·sinθ/kp（45° 时 ≈ 2.0°），实测吻合理论即验证。
+
+  碰撞设计：同 pendulum_passive——支点夹板贴住摆杆两侧、各留 3 mm 间隙
+  （绕 y 旋转不改 y 坐标，任意摆角不相碰；父子过滤对 world 例外，见彼端注释）。
+
+  spawn 摆放：同 pendulum_passive（mount 原点 = 铰链轴心，z = 悬挂高度）。
+
+  课程用法：
+    27 课 position_control：发目标角（如 0.785 = 45°），观察摆动到位，
+    读稳态角对比静差理论；改目标角复验。
+  -->
+
+  <compiler angle="radian"/>
+  <default>
+    <joint type="hinge" damping="0"/>
+  </default>
+
+  <worldbody>
+    <!-- 静态支点夹板：同 pendulum_passive（双板从 ±y 两侧夹住摆杆顶端） -->
+    <body name="mount">
+      <geom name="pivot_block_pos" type="box" size="0.04 0.015 0.04" pos="0 0.043 0" rgba="0.40 0.40 0.44 1"/>
+      <geom name="pivot_block_neg" type="box" size="0.04 0.015 0.04" pos="0 -0.043 0" rgba="0.40 0.40 0.44 1"/>
+
+      <!-- 摆体：与 pendulum_passive 完全一致（body/joint/geom 命名不变） -->
+      <body name="pendulum">
+        <joint name="hinge" axis="0 1 0"/>
+        <geom name="rod" type="box" size="0.025 0.025 0.5" pos="0 0 -0.5" mass="1" rgba="0.92 0.92 0.90 1"/>
+        <geom name="bob" type="sphere" size="0.08" pos="0 0 -1.0" mass="0" rgba="0.25 0.45 0.85 1"/>
+        <site name="tip" pos="0 0 -1.0"/>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <position name="hinge_servo" joint="hinge" kp="100" kv="8" ctrlrange="-1.57 1.57"/>
+  </actuator>
+</mujoco>

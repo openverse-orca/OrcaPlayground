@@ -1,0 +1,25 @@
+id: 23
+title: 光滑与粗糙
+stage: 4
+layer: 3
+scene_mode: flexible
+prerequisites: [lesson_22_compare_mass]
+entry: python -m examples.euler.beginner.stage4_physics_interaction.lesson_23_friction_slide.run
+asset_packages: [OrcaPlaygroundAssets]
+expected_result: 两个相同小方块躺在同一块地面（地面 μ 统一 0.05），光滑块"鞋底" μ=0.05、粗糙块 μ=0.6（MuJoCo 接触摩擦取逐项最大值），set_joint_qvel 写入同样的 1.0 m/s 初速度后纯靠惯性滑行——粗糙块 ~0.1 m 半秒内停、光滑块 ~1 m 滑两秒才停；滑行距离与 d=v²/(2μg) 理论值各自吻合、距离比 ≈ 12 = μ 反比；公式里没有 m——质量管加速（22 课），摩擦管刹车（本课）
+challenge: 预测两次改动——INIT_SPEED 1.0→2.0（初速加倍，滑行距离变 4 倍——d∝v²）与 MU_ROUGH 0.6→0.3（粗糙块鞋底变滑，距离变 2 倍）。先写预测再运行对照，体会 v 和 μ 各自的角色
+challenge_type: predict
+rebuild_scene: false
+tunable_params:
+  - name: MU_SLICK
+    default: 0.05
+    unit: 摩擦系数
+  - name: MU_ROUGH
+    default: 0.6
+    unit: 摩擦系数
+  - name: INIT_SPEED
+    default: 1.0
+    unit: 米/秒
+  - name: --default-scene
+    default: false
+    unit: 布尔开关
