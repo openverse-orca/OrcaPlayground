@@ -80,9 +80,26 @@ python -m examples.euler.beginner.stage1_scene_basics.lesson_01_hello_world.run
 - 所有 AI 代理与贡献者必须遵守 [AGENTS.md](AGENTS.md)：
   使用 `orca` conda 环境、禁止穿墙访问 `_` 前缀内部属性
 
-## 分支说明
+## 旧样例去哪了（老用户必读）
 
-当前分支 `feat/playground-beginner-redesign` 正在从零重建新手主线，
-最终将**整体替换 `dev` 分支**：旧 Euler 课程（01–11）与 embodied
-高级样例在合入主线时移除，替换前在 `dev` 上打 `legacy/pre-redesign`
-存档标签供历史访问。
+本仓库 `dev` 分支已于 2026-10-14 由新手主线（原 `feat/playground-beginner-redesign`）
+**整体重建**。重建前 dev 上的旧样例**没有删除**，全部冻结在分支
+`code-frozen-dev-20261014`（重建前 dev 的完整快照，末位提交 `71c38f9`），
+包括：
+
+- `examples/embodied/` — 布料（cloth）、无人机（drone_driver）、G1、
+  数字人（character / Remy）、流体（fluid）、d12、replicator、
+  轮式底盘（wheeled_chassis）、xbot、zq_sa01 等高级样例
+- `examples/euler/` — 旧编号课程 00–12（含 SLAM 建图）与
+  `sensor_provider/`（灵巧手、传感器）
+- `examples/scene_building/` — 旧场景搭建教程
+- `tests/sensor_provider/` 及 `DEVELOPER_GUIDE.md` 等配套文件
+
+找回某个旧样例（以 cloth 为例）：
+
+```bash
+git fetch origin
+git checkout code-frozen-dev-20261014 -- examples/embodied/cloth
+```
+
+或完整检出旧线：`git checkout code-frozen-dev-20261014`。
