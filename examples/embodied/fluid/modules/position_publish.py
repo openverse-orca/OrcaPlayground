@@ -163,7 +163,16 @@ class PositionPublishModule:
             if hasattr(self.env, 'get_body_xpos_xmat_xquat_xvel'):
                 _poses = self.env.get_body_xpos_xmat_xquat_xvel(body_names)
             else:
-                _poses = self.env.get_body_xpos_xmat_xquat(body_names)
+                # 无 xvel 接口的 env：get_body_xpos_xmat_xquat 返回扁平三元组，转 dict 形状供下方统一消费
+                _xpos, _xmat, _xquat = self.env.get_body_xpos_xmat_xquat(body_names)
+                _poses = {
+                    b: {
+                        "xpos": _xpos[3 * i : 3 * i + 3],
+                        "xmat": _xmat[9 * i : 9 * i + 9],
+                        "xquat": _xquat[4 * i : 4 * i + 4],
+                    }
+                    for i, b in enumerate(body_names)
+                }
             
             # 4. 解析扁平数组（Euler 返回 dict[body_name -> {"xpos", "xmat", "xquat", ...}]）
             num_bodies = len(body_names)
