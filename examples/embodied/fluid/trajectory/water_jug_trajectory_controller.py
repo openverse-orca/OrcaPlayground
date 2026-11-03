@@ -272,14 +272,15 @@ class WaterJugTrajectoryController:
             self._block_rel_rot = None
             return
         try:
-            _jug_pose = env.get_body_xpos_xmat_xquat([jug_body])[jug_body]
-            jug_pos = np.asarray(_jug_pose["xpos"], dtype=np.float64).reshape(3)
-            jug_mat = np.asarray(_jug_pose["xmat"], dtype=np.float64).reshape(3, 3)
-            jug_quat = np.asarray(_jug_pose["xquat"], dtype=np.float64).reshape(4)
-            _block_pose = env.get_body_xpos_xmat_xquat([block])[block]
-            block_pos = np.asarray(_block_pose["xpos"], dtype=np.float64).reshape(3)
-            block_mat = np.asarray(_block_pose["xmat"], dtype=np.float64).reshape(3, 3)
-            block_quat = np.asarray(_block_pose["xquat"], dtype=np.float64).reshape(4)
+            # Euler 体系 get_body_xpos_xmat_xquat 返回扁平三元组 (xpos(n*3), xmat(n*9), xquat(n*4))
+            jug_xpos, jug_xmat, jug_xquat = env.get_body_xpos_xmat_xquat([jug_body])
+            jug_pos = np.asarray(jug_xpos, dtype=np.float64).reshape(3)
+            jug_mat = np.asarray(jug_xmat, dtype=np.float64).reshape(3, 3)
+            jug_quat = np.asarray(jug_xquat, dtype=np.float64).reshape(4)
+            block_xpos, block_xmat, block_xquat = env.get_body_xpos_xmat_xquat([block])
+            block_pos = np.asarray(block_xpos, dtype=np.float64).reshape(3)
+            block_mat = np.asarray(block_xmat, dtype=np.float64).reshape(3, 3)
+            block_quat = np.asarray(block_xquat, dtype=np.float64).reshape(4)
         except Exception as e:
             logger.warning("fluidblock 相对位姿采集失败: %s", e)
             self._block_rel_pos = None
