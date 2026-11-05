@@ -122,3 +122,7 @@ git checkout code-frozen-dev-20261014 -- examples/embodied/cloth
 ```
 
 或完整检出旧线：`git checkout code-frozen-dev-20261014`。
+
+> ⚠️ **冻结分支维护状态**：`code-frozen-dev-20261014` 已冻结，其代码只兼容
+> **OrcaLab 26.9.1**（配套关系见上方版本对照表），与 26.9.1 之后的
+> OrcaLab 版本不做兼容性保证，该分支今后不再维护。
