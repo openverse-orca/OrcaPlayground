@@ -83,7 +83,11 @@ python -m examples.euler.beginner.stage1_scene_basics.lesson_01_hello_world.run
 ## 旧样例去哪了（老用户必读）
 
 本仓库 `dev` 分支已于 2026-10-14 由新手主线（原 `feat/playground-beginner-redesign`）
-**整体重建**。重建前 dev 上的旧样例**没有删除**，全部冻结在分支
+**整体重建**。
+
+⚠️ 冻结分支维护状态：code-frozen-dev-20261014 已冻结，其代码只兼容 OrcaLab 26.9.1（配套关系见正式版本分支 `release/**.**.*`），与 26.9.1 之后的 OrcaLab 版本不做兼容性保证，该分支今后不再维护。
+
+重建前 dev 上的旧样例**没有删除**，全部冻结在分支
 `code-frozen-dev-20261014`（重建前 dev 的完整快照，末位提交 `71c38f9`），
 包括：
 
