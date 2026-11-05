@@ -1,0 +1,17 @@
+id: 12
+title: 删除与恢复
+stage: 2
+layer: 2
+scene_mode: spawn
+prerequisites: [lesson_11_duplicate_objects]
+entry: python -m examples.euler.beginner.stage2_scene_editing.lesson_12_delete_object.run
+asset_packages: [OrcaPlaygroundAssets]
+expected_result: DELETE_NAMES 点名的方块重建后消失；清空后恢复；配方是场景唯一事实源
+challenge: 一次删除两颗（block_1 和 block_3），重跑后场景里剩下谁？
+challenge_type: predict
+stage_challenge: 毕业挑战——搭 3×3 九宫格方块阵（第 11 课循环），删除正中心 block_2_2 确认阵型中空，清空 DELETE_NAMES 恢复完整（验收：视口 9→8→9 颗）
+rebuild_scene: true
+tunable_params:
+  - name: DELETE_NAMES
+    default: ()
+    unit: 实例名元组

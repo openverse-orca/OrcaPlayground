@@ -1,0 +1,26 @@
+<mujoco model="floor">
+  <option integrator="implicitfast" timestep="0.005" gravity="0 0 -9.81"/>
+  <size memory="1000M" nuser_site="6"/>
+  <compiler coordinate="local"/>
+
+  <worldbody>
+    <light cutoff="30" pos="0 1 1" dir="0 -1 -2"/>
+    <light cutoff="30" pos="0 -1 1" dir="0 1 -2"/>
+
+    <!-- Floor: 0.05 x 5 x 5 horizontal plate, top surface at z=0 -->
+    <geom type="box" contype="1" conaffinity="1" density="50"
+          rgba="0.35 0.55 0.75 1"
+          solimp="0.5 0.7 0.01" friction="0.5 0.004 0.0003"
+          solref="0.02 1" priority="0" margin="0" condim="3" group="0"
+          pos="0 0 -0.025"
+          quat="0.707107 0 0.707107 0"
+          size="0.025 2.5 2.5"
+          name="floor"/>
+  </worldbody>
+
+  <tendon/>
+  <actuator/>
+  <contact/>
+  <equality/>
+  <asset/>
+</mujoco>

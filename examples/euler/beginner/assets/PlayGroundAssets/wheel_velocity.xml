@@ -1,0 +1,56 @@
+<mujoco model="WheelVelocity">
+  <!-- 速度伺服轮教具（阶段 5 课 28）：竖立圆盘绕自身轴 + 速度执行器。
+
+  本文件是教学资产包的源资产，经资产包导入后由课程经
+  _common/assets.py 的 WHEEL_VEL 常量引用（常量待上架后启用）。
+
+  结构：轮面竖立（轴向沿 y，正对视口可见转动），黄色辐条让旋转
+  肉眼可辨。圆盘 m=2 kg、r=0.3 m → I = ½mr² = 0.09 kg·m²。
+  静态轮毂(mount)为两段短轴，夹在轮盘两侧作视觉支撑。
+
+  碰撞设计（实测踩坑）：MuJoCo 的父子碰撞过滤对 world 例外——无关节的
+  mount 被焊接(world)到 world 后，mount 与轮体的碰撞是激活的。利用旋转
+  不变轴保安全：绕 y 旋转不改变 y 坐标，轮毂改两段短轴（|y| ∈
+  [0.055, 0.089]），轮盘 |y| ≤ 0.05、辐条 ≤ 0.052 → 永久 3 mm 间隙，
+  轮子任意转速、正反转都不相碰（一体长轴穿轮心会全程产生对称接触力）。
+
+  伺服参数（电机铭牌）：
+    velocity 执行器 kv=0.1 → 时间常数 τ_v = I/kv = 0.9 s
+    （刻意取小 kv，让「爬升→保持」过程在视口看得见）
+    ctrl 单位 = 目标转速（rad/s），限幅 ±10；正反转对称。
+
+  spawn 摆放：mount 原点 = 轮轴心，pos 的 z = 轴心高度（如 0.8 m），
+  轮面朝向视口（+y 为轴向）。
+
+  课程用法：
+    28 课 velocity_control：发目标转速（如 3 rad/s），观察爬升与保持；
+    挑战 predict：反转过程时间对称吗（无重力偏置 → 对称）。
+  -->
+
+  <compiler angle="radian"/>
+  <default>
+    <joint type="hinge" damping="0"/>
+  </default>
+
+  <worldbody>
+    <!-- 静态轮毂：两段灰色短轴（无关节 → spawn 后固定不动），轴向沿 y，
+         夹住轮盘两侧但不穿轮心 -->
+    <body name="mount">
+      <geom name="axle_left" type="cylinder" size="0.015 0.017" pos="0 0.072 0" euler="1.5708 0 0" rgba="0.40 0.40 0.44 1"/>
+      <geom name="axle_right" type="cylinder" size="0.015 0.017" pos="0 -0.072 0" euler="1.5708 0 0" rgba="0.40 0.40 0.44 1"/>
+
+      <!-- 轮体：绕 y 轴自旋；圆盘轴向经欧拉旋到 y（MuJoCo 圆柱默认沿 z） -->
+      <body name="wheel">
+        <joint name="spin" axis="0 1 0"/>
+        <!-- 轮盘：深灰，质量 2 kg -->
+        <geom name="disc" type="cylinder" size="0.3 0.05" euler="1.5708 0 0" mass="2" rgba="0.50 0.50 0.55 1"/>
+        <!-- 辐条：黄色横杆（mass=0），略凸出轮面使旋转可见 -->
+        <geom name="spoke" type="box" size="0.28 0.052 0.02" pos="0 0 0" mass="0" rgba="0.95 0.80 0.10 1"/>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <velocity name="spin_servo" joint="spin" kv="0.1" ctrlrange="-10 10"/>
+  </actuator>
+</mujoco>

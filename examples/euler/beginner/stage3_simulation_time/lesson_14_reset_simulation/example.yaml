@@ -1,0 +1,22 @@
+id: 14
+title: 回到初始状态
+stage: 3
+layer: 3
+scene_mode: flexible
+prerequisites: [lesson_13_step_simulation]
+entry: python -m examples.euler.beginner.stage3_simulation_time.lesson_14_reset_simulation.run
+asset_packages: [OrcaPlaygroundAssets]
+expected_result: 每轮自由落体后 reset，起点高度逐轮完全一致
+challenge: 把配方区改成 ROUNDS=5、SETTLE_TIME=0.5，运行后确认 5 轮起点数值逐位相同；再把 SETTLE_TIME 改成 0.05 观察起点是否依然一致
+challenge_type: combine
+rebuild_scene: false
+tunable_params:
+  - name: ROUNDS
+    default: 3
+    unit: 轮
+  - name: SETTLE_TIME
+    default: 1.5
+    unit: 秒
+  - name: --default-scene
+    default: false
+    unit: 布尔开关

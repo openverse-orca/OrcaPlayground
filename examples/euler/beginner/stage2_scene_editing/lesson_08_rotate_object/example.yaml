@@ -1,0 +1,16 @@
+id: 8
+title: 旋转物体
+stage: 2
+layer: 2
+scene_mode: spawn
+prerequisites: [lesson_07_move_object]
+entry: python -m examples.euler.beginner.stage2_scene_editing.lesson_08_rotate_object.run
+asset_packages: [OrcaPlaygroundAssets]
+expected_result: 蓝色长方体绕 Z 轴转 45°；修改 CUBOID_ROTATION_DEG 后重跑，长边指向变化
+challenge: 把 45 改成 90，运行前先猜长边指向哪条轴，再验证
+challenge_type: predict
+rebuild_scene: true
+tunable_params:
+  - name: CUBOID_ROTATION_DEG
+    default: (0.0, 0.0, 45.0)
+    unit: deg

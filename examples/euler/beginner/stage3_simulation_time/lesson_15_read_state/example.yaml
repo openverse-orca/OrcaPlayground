@@ -1,0 +1,22 @@
+id: 15
+title: 读取位置和速度
+stage: 3
+layer: 3
+scene_mode: flexible
+prerequisites: [lesson_14_reset_simulation]
+entry: python -m examples.euler.beginner.stage3_simulation_time.lesson_15_read_state.run
+asset_packages: [OrcaPlaygroundAssets]
+expected_result: 下落中高度递减、vz 按 -9.81·t 增长并与理论列吻合，落地后归零
+challenge: 把打印内容换成水平分量 x / y / vx / vy，运行后解释它们为什么始终是 0
+challenge_type: swap
+rebuild_scene: false
+tunable_params:
+  - name: PRINT_INTERVAL
+    default: 0.1
+    unit: 秒
+  - name: FALL_TIME
+    default: 1.0
+    unit: 秒
+  - name: --default-scene
+    default: false
+    unit: 布尔开关

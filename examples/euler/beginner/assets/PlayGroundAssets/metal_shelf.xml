@@ -1,0 +1,66 @@
+<mujoco model="metal_shelf">
+  <option integrator="implicitfast" timestep="0.005" gravity="0 0 -9.81"/>
+  <size memory="1000M" nuser_site="6"/>
+  <compiler coordinate="local"/>
+
+  <default>
+    <default class="shelf_post">
+      <geom type="box" contype="1" conaffinity="1" density="7800"
+            rgba="0.82 0.62 0.12 1"
+            solimp="0.9 0.95 0.001" friction="1 0.005 0.0001"
+            solref="0.02 1" priority="0" margin="0" condim="3" group="0"/>
+    </default>
+    <default class="shelf_board">
+      <geom type="box" contype="1" conaffinity="1" density="7800"
+            rgba="0.90 0.75 0.20 1"
+            solimp="0.9 0.95 0.001" friction="1 0.005 0.0001"
+            solref="0.02 1" priority="0" margin="0" condim="3" group="0"/>
+    </default>
+  </default>
+
+  <worldbody>
+    <light cutoff="30" pos="0 1 1" dir="0 -1 -2"/>
+    <light cutoff="30" pos="0 -1 1" dir="0 1 -2"/>
+
+    <!--
+      Metal warehouse shelf
+      Overall: 1.2m (X) x 0.4m (Y) x 1.8m (Z)
+      4 vertical posts + 3 shelf boards + X-cross braces on back
+      Bottom at z=0
+    -->
+    <body name="metal_shelf" pos="0 0 0">
+
+      <!-- ====== 4 Vertical Posts (0.03 x 0.03 x 1.8) ====== -->
+      <!-- Front-Left -->
+      <geom class="shelf_post" pos="-0.585 -0.185 0.9"
+            size="0.015 0.015 0.9" name="post_fl"/>
+      <!-- Front-Right -->
+      <geom class="shelf_post" pos="0.585 -0.185 0.9"
+            size="0.015 0.015 0.9" name="post_fr"/>
+      <!-- Back-Left -->
+      <geom class="shelf_post" pos="-0.585 0.185 0.9"
+            size="0.015 0.015 0.9" name="post_bl"/>
+      <!-- Back-Right -->
+      <geom class="shelf_post" pos="0.585 0.185 0.9"
+            size="0.015 0.015 0.9" name="post_br"/>
+
+      <!-- ====== 3 Shelf Boards (1.2 x 0.4 x 0.02) ====== -->
+      <!-- Bottom shelf at z=0.01 -->
+      <geom class="shelf_board" pos="0 0 0.01"
+            size="0.6 0.2 0.01" name="board_0"/>
+      <!-- Middle shelf at z=0.6 -->
+      <geom class="shelf_board" pos="0 0 0.6"
+            size="0.6 0.2 0.01" name="board_1"/>
+      <!-- Top shelf at z=1.2 -->
+      <geom class="shelf_board" pos="0 0 1.2"
+            size="0.6 0.2 0.01" name="board_2"/>
+
+    </body>
+  </worldbody>
+
+  <tendon/>
+  <actuator/>
+  <contact/>
+  <equality/>
+  <asset/>
+</mujoco>
