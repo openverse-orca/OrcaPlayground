@@ -166,7 +166,7 @@ def studio_project_rel(cfg: dict[str, Any] | None = None) -> str:
     try:
         return root.resolve().relative_to(repo.resolve()).as_posix()
     except ValueError:
-        return root.name
+        return Path(os.path.relpath(root.resolve(), repo.resolve())).as_posix()
 
 
 def level_assets_dir(level: str, cfg: dict[str, Any] | None = None) -> Path:
@@ -462,7 +462,7 @@ def build_level_entry_from_scan(level: str, cfg: dict[str, Any] | None = None) -
             "cloth_mode": "procedural",
             "prefabs": [
                 {
-                    "prefab_rel": prefab_path.relative_to(_repo_root()).as_posix() if prefab_path else "",
+                    "prefab_rel": Path(os.path.relpath(prefab_path, _repo_root())).as_posix() if prefab_path else "",
                     "cloth_entity_name": cloth_entity[0] if cloth_entity else "",
                     "vtk_asset_path": "",
                     "mesh_asset_hint": mesh_hint or "",
@@ -494,7 +494,7 @@ def build_level_entry_from_scan(level: str, cfg: dict[str, Any] | None = None) -
         "masked_cloth_stems": masked_stems,
         "prefabs": [
             {
-                "prefab_rel": prefab_path.relative_to(_repo_root()).as_posix() if prefab_path else "",
+                "prefab_rel": Path(os.path.relpath(prefab_path, _repo_root())).as_posix() if prefab_path else "",
                 "cloth_entity_name": cloth_entity[0] if cloth_entity else "",
                 "vtk_asset_path": vtk_expected,
                 "mesh_asset_hint": mesh_hint,

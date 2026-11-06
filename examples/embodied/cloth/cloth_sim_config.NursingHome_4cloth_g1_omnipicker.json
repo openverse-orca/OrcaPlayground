@@ -1,0 +1,57 @@
+{
+  "description": "NursingHome_4cloth + G1 Omnipicker + RectCloth 程序化布（2026-10-10 v2：根因C已修（clamp），材料参数回归生产默认——stretch 0.05/bend 3000/mass 0.4/thickness=spacing×0.5；网格 41×21/0.03m）",
+  "extends": "cloth_sim_config.g1_omnipicker.json",
+  "orcagym": {
+    "level": "NursingHome_4cloth"
+  },
+  "cloth": {
+    "mesh": "fabric_3d_high_m_mid.vtk",
+    "cloth_nx": 37,
+    "cloth_ny": 21,
+    "cloth_spacing_m": 0.03,
+    "mass_kg": 0.4,
+    "thickness_m": 0.015,
+    "stretch_compliance": 0.02,
+    "shear_compliance": 0.005,
+    "bend_compliance": 100.0,
+    "lock_radius_m": 0.08,
+    "particle_friction": 1.0,
+    "finger_close_ratio": 0.5,
+    "comment_v5": "2026-10-11 v5：①nx 41→37 治自发布曲真凶——布 z 长 1.23m > 桌 z 长 1.15m 且偏 +z（+z 悬空 38mm：21 个边缘顶点沿桌侧垂坠，实测钉死 y=4.7617=桌盒中心面，把整布拖向边缘→面内压缩→172-190mm 褶皱=『未接触自动翻折』；v4 曾误诊为 bend 问题，bend 3000/100 两配置离面曲线逐帧相同证明与弯曲刚度无关——确定性几何成因）。nx=37→1.11m，两端各余 7mm/33mm 完全在桌面内 ②bend 3000→100（v4，保留：褶皱半径增大视觉更顺滑）③手指代理加粗（v4，保留）",
+    "comment_physics": "与 dg_cloth_init / phys_world_add_sheet 默认一致：stretch 0.05 shear 0.005 mass 0.4 thickness=spacing×0.5 lock 0.06；bend 3000 增强弯折（compliance 越大越易弯）；particle_friction 经 xpbd_process→PARTICLE_FRICTION（C 端默认 0.2）",
+    "comment_grip": "G1 Omnipicker：finger_close_ratio 0.75（pinch 阈值约 50.5mm）；lock_radius_m 0.05m（指尖中点球内锁粒）。经 xpbd_process → DG_FINGER_CLOSE_RATIO / lock_radius"
+  },
+  "orcagym_rigid_body_map": [
+    {"mjc_body_name": "g1_omnipicker_usda_robot_holder1", "follow_mode": "kinematic", "orcalink_publish": false},
+    {"mjc_body_name": "g1_omnipicker_usda_gripper_l_inner_link4", "box_half_extents": [0.0456, 0.0315, 0.0213]},
+    {"mjc_body_name": "g1_omnipicker_usda_gripper_l_outer_link4", "box_half_extents": [0.0424, 0.0304, 0.0384]},
+    {"mjc_body_name": "g1_omnipicker_usda_gripper_r_inner_link4", "box_half_extents": [0.0456, 0.0315, 0.0213]},
+    {"mjc_body_name": "g1_omnipicker_usda_gripper_r_outer_link4", "box_half_extents": [0.0424, 0.0304, 0.0384]}
+  ],
+  "comment_rigid_body_map": "2026-10-11 v4 手指代理加粗（NVIDIA 官方建议①等效物）：适配器实际读 orcagym_rigid_body_map（父配置 rigid_body_map_key 指定），v3 写错到 rigid_body_map 被扫描覆盖（教训）。Studio MJCF 自动 AABB：inner 37.6×23.5×13.3mm / outer 34.4×22.4×30.4mm，薄边 13.3mm<布厚 15mm 布顶点可骑入壳内卡死；统一 +8mm。holder 行来自父配置（extends 深合并 list 整体替换，必须带上）",
+  "body_track": {
+    "enabled": true,
+    "control_mode": "velocity_pd_j2c",
+    "K_p_pos": 10.0,
+    "delta_v_clamp_mps": 1.0,
+    "K_d_vel": 0.0,
+    "q_correction_gain": 0.08,
+    "acceptance_pos_err_max_m": 0.05,
+    "acceptance_quat_err_max_deg": 5.0,
+    "comment": "2026-10-10 根因C修复 v2：clamp 3.0→1.0（3.0 时 343 帧布速饱和=3m/s，锁粒被当推土机拖出尖刺；收爪段实际速度约 0.1 m/s，1.0 仍有 10 倍裕量）。原 0.3 使碰撞代理滞后 0.5-0.9m 后宏步末硬吸附=隧穿源"
+  },
+  "cloth_robot": {
+    "gripper_keyframes_json": "cloth_robot_gripper_keyframes.NursingHome_4cloth_g1_normal_pinch.json",
+    "comment": "法向夹布轨迹（offset_from_cloth_center_mjc，自动适配当前布心 4.80m）；原 RectCloth 版为 yup 绝对坐标（原场景 11.7m），跨场景不平移，已弃用"
+  },
+  "particle_render": {
+    "sbt_rotation": "from_quat",
+    "comment_sbt": "v6：VTK 直载 496 点中层网格，与关卡布几何对齐 → bake map 最近邻精确；from_quat 由发现的 site 位姿自动算旋转（z90 是程序化布时代的常数映射，对 VTK 直载不适用）"
+  },
+  "xpbd": {
+    "solver": "vbd",
+    "vbd_iterations": 4,
+    "comment_solver": "2026-10-12 方案C：Vertex Block Descent（SIGGRAPH 2024）顶点级 3x3 牛顿块求解——每顶点把相邻距离约束+接触（粒子对/桌/手指盒）放同一局部系统同时解，接触不再被约束级 Jacobi 平均掉（治穿模；R-PHYS-4 的根因）。优先级高于父配置 force_gs_solver；A/B 回退设 solver=gs 或环境变量 PBDX_SOLVER=gs。仅源码编译版支持（ORCAXPBD_USE_PIP_PACKAGE=0），pip 二进制遇 vbd 自动退化为 GS"
+  },
+  "comment_v6": "2026-10-12 v6：两张布问题修复——XPBD 不再另建程序化布（37×21@3cm=777 顶点≠关卡布 1187 顶点，SBT bake map 乱序 mf=0 max_dist=1.29m≈对角线），改为直载从关卡布 cook 网格提取的单层中层网格 VTK（fabric_3d_high_m_mid.vtk，496=16×31@4cm，与关卡布同尺寸同布点同位形，bake map 退化为几何精确最近邻映射）。注意：cook 网格本身是双层壳（z=±1mm 间距 2mm << 自碰撞厚度 15mm），直接 1187 顶点喂入会被 self-collision-at-rest 炸开（实测 max_disp 4.83m），且 1187 点在 1.2×0.6m 面上无法全部保持 ≥碰撞间距——1:1 MATCH 对该资产物理不可行，中层+bake map 是正确架构（掩码流程同款设计）。VTK 位于 pip 包 orcaxpbd_client/data/ 与 dataCollection_cloth/data/（exe cwd 两种可能都覆盖）；生成脚本 /tmp/pbd_grpc_query/gen_vtk_mid.py（数据源 rest_mesh_0.json+triangles.npy 活体提取）。cloth_nx/ny/spacing 保留仅供回滚（VTK 路径不读）"
+}

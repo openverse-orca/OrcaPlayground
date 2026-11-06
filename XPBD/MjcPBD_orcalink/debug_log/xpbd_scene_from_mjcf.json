@@ -1,0 +1,795 @@
+{
+  "schema_version": 1,
+  "coord_system_sim": "yup",
+  "coord_system_mjcf": "zup",
+  "exported_utc": "2026-11-02T04:37:10Z",
+  "source_config": "/home/hjadmin/Euler_Flow/OrcaPlayground/examples/embodied/cloth/cloth_sim_session_20261102_123710.json",
+  "source_mjcf": "/home/hjadmin/.orcagym/tmp/31E21F81_637B_4FE4_9E1A_6C12D1C86E77.xml",
+  "body_count": 8,
+  "bodies": [
+    {
+      "body_index": 0,
+      "logical_name": "Cube2_Cube2",
+      "mjc_body_name": "Cube2_Cube2",
+      "follow_mode": "kinematic",
+      "mass_kg": 0.0,
+      "mass_mjcf_kg": 79.48800305459983,
+      "box_half_extents_mjc": [
+        0.6400000449999999,
+        1.034999967,
+        0.01499999999999968
+      ],
+      "box_half_extents_yup": [
+        0.6400000449999999,
+        0.01499999999999968,
+        1.034999967
+      ],
+      "center_mjc": [
+        0.362755895,
+        0.518182099,
+        4.786353588
+      ],
+      "center_yup": [
+        0.362755895,
+        4.786353588,
+        -0.518182099
+      ],
+      "quat_wxyz_mjc": [
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "quat_wxyz_yup": [
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "anchors": [
+        {
+          "index": 0,
+          "site_name": "Cube2_Cube2_anchor_0",
+          "local_pos_mjc": [
+            0.7026260241147736,
+            0.7026260241147736,
+            0.7026260241147736
+          ],
+          "local_pos_yup": [
+            0.7026260241147736,
+            0.7026260241147736,
+            -0.7026260241147736
+          ]
+        },
+        {
+          "index": 1,
+          "site_name": "Cube2_Cube2_anchor_1",
+          "local_pos_mjc": [
+            0.7026260241147736,
+            -0.7026260241147736,
+            -0.7026260241147736
+          ],
+          "local_pos_yup": [
+            0.7026260241147736,
+            -0.7026260241147736,
+            0.7026260241147736
+          ]
+        },
+        {
+          "index": 2,
+          "site_name": "Cube2_Cube2_anchor_2",
+          "local_pos_mjc": [
+            -0.7026260241147736,
+            0.7026260241147736,
+            -0.7026260241147736
+          ],
+          "local_pos_yup": [
+            -0.7026260241147736,
+            -0.7026260241147736,
+            -0.7026260241147736
+          ]
+        },
+        {
+          "index": 3,
+          "site_name": "Cube2_Cube2_anchor_3",
+          "local_pos_mjc": [
+            -0.7026260241147736,
+            -0.7026260241147736,
+            0.7026260241147736
+          ],
+          "local_pos_yup": [
+            -0.7026260241147736,
+            0.7026260241147736,
+            0.7026260241147736
+          ]
+        }
+      ]
+    },
+    {
+      "body_index": 1,
+      "logical_name": "Group_g1_omnipicker_usda_arm_l_end_link",
+      "mjc_body_name": "Group_g1_omnipicker_usda_arm_l_end_link",
+      "follow_mode": "kinematic",
+      "mass_kg": 0.0,
+      "mass_mjcf_kg": 0.29745999,
+      "box_half_extents_mjc": [
+        0.03985794275565626,
+        0.03086942104292459,
+        0.06454903650504865
+      ],
+      "box_half_extents_yup": [
+        0.03985794275565626,
+        0.06454903650504865,
+        0.03086942104292459
+      ],
+      "center_mjc": [
+        -0.467733574669201,
+        1.3648120276110345,
+        5.224843992197046
+      ],
+      "center_yup": [
+        -0.467733574669201,
+        5.224843992197046,
+        -1.3648120276110345
+      ],
+      "quat_wxyz_mjc": [
+        -0.7071068493414396,
+        0.7071067130315426,
+        9.41582342231473e-08,
+        -3.7662693172516337e-07
+      ],
+      "quat_wxyz_yup": [
+        0.7071068493414394,
+        -0.7071067130315426,
+        3.766269317251633e-07,
+        9.415823422314726e-08
+      ],
+      "anchors": [
+        {
+          "index": 0,
+          "site_name": "Group_g1_omnipicker_usda_arm_l_end_link_anchor_0",
+          "local_pos_mjc": [
+            0.04728690752547555,
+            0.04728690752547555,
+            0.04728690752547555
+          ],
+          "local_pos_yup": [
+            0.04728690752547555,
+            0.04728690752547555,
+            -0.04728690752547555
+          ]
+        },
+        {
+          "index": 1,
+          "site_name": "Group_g1_omnipicker_usda_arm_l_end_link_anchor_1",
+          "local_pos_mjc": [
+            0.04728690752547555,
+            -0.04728690752547555,
+            -0.04728690752547555
+          ],
+          "local_pos_yup": [
+            0.04728690752547555,
+            -0.04728690752547555,
+            0.04728690752547555
+          ]
+        },
+        {
+          "index": 2,
+          "site_name": "Group_g1_omnipicker_usda_arm_l_end_link_anchor_2",
+          "local_pos_mjc": [
+            -0.04728690752547555,
+            0.04728690752547555,
+            -0.04728690752547555
+          ],
+          "local_pos_yup": [
+            -0.04728690752547555,
+            -0.04728690752547555,
+            -0.04728690752547555
+          ]
+        },
+        {
+          "index": 3,
+          "site_name": "Group_g1_omnipicker_usda_arm_l_end_link_anchor_3",
+          "local_pos_mjc": [
+            -0.04728690752547555,
+            -0.04728690752547555,
+            0.04728690752547555
+          ],
+          "local_pos_yup": [
+            -0.04728690752547555,
+            0.04728690752547555,
+            0.04728690752547555
+          ]
+        }
+      ]
+    },
+    {
+      "body_index": 2,
+      "logical_name": "Group_g1_omnipicker_usda_arm_r_end_link",
+      "mjc_body_name": "Group_g1_omnipicker_usda_arm_r_end_link",
+      "follow_mode": "kinematic",
+      "mass_kg": 0.0,
+      "mass_mjcf_kg": 0.29745999,
+      "box_half_extents_mjc": [
+        0.039857937839867214,
+        0.031069405292957986,
+        0.06454909807084386
+      ],
+      "box_half_extents_yup": [
+        0.039857937839867214,
+        0.06454909807084386,
+        0.031069405292957986
+      ],
+      "center_mjc": [
+        -0.46773288878333374,
+        -0.4250886093885464,
+        5.22484313934496
+      ],
+      "center_yup": [
+        -0.46773288878333374,
+        5.22484313934496,
+        0.4250886093885464
+      ],
+      "quat_wxyz_mjc": [
+        9.564724570169568e-07,
+        -1.0905446037580805e-07,
+        -0.7071065928821963,
+        0.7071069694901931
+      ],
+      "quat_wxyz_yup": [
+        9.56472457016957e-07,
+        -1.0905446037580809e-07,
+        0.7071069694901932,
+        0.7071065928821965
+      ],
+      "anchors": [
+        {
+          "index": 0,
+          "site_name": "Group_g1_omnipicker_usda_arm_r_end_link_anchor_0",
+          "local_pos_mjc": [
+            0.04733057227580015,
+            0.04733057227580015,
+            0.04733057227580015
+          ],
+          "local_pos_yup": [
+            0.04733057227580015,
+            0.04733057227580015,
+            -0.04733057227580015
+          ]
+        },
+        {
+          "index": 1,
+          "site_name": "Group_g1_omnipicker_usda_arm_r_end_link_anchor_1",
+          "local_pos_mjc": [
+            0.04733057227580015,
+            -0.04733057227580015,
+            -0.04733057227580015
+          ],
+          "local_pos_yup": [
+            0.04733057227580015,
+            -0.04733057227580015,
+            0.04733057227580015
+          ]
+        },
+        {
+          "index": 2,
+          "site_name": "Group_g1_omnipicker_usda_arm_r_end_link_anchor_2",
+          "local_pos_mjc": [
+            -0.04733057227580015,
+            0.04733057227580015,
+            -0.04733057227580015
+          ],
+          "local_pos_yup": [
+            -0.04733057227580015,
+            -0.04733057227580015,
+            -0.04733057227580015
+          ]
+        },
+        {
+          "index": 3,
+          "site_name": "Group_g1_omnipicker_usda_arm_r_end_link_anchor_3",
+          "local_pos_mjc": [
+            -0.04733057227580015,
+            -0.04733057227580015,
+            0.04733057227580015
+          ],
+          "local_pos_yup": [
+            -0.04733057227580015,
+            0.04733057227580015,
+            0.04733057227580015
+          ]
+        }
+      ]
+    },
+    {
+      "body_index": 3,
+      "logical_name": "Group_g1_omnipicker_usda_gripper_l_inner_link4",
+      "mjc_body_name": "Group_g1_omnipicker_usda_gripper_l_inner_link4",
+      "follow_mode": "kinematic",
+      "mass_kg": 0.0,
+      "mass_mjcf_kg": 0.018029001,
+      "box_half_extents_mjc": [
+        0.0456,
+        0.0315,
+        0.0213
+      ],
+      "box_half_extents_yup": [
+        0.0456,
+        0.0213,
+        0.0315
+      ],
+      "center_mjc": [
+        -0.4454232718311925,
+        1.47028147791691,
+        5.224881498811374
+      ],
+      "center_yup": [
+        -0.4454232718311925,
+        5.224881498811374,
+        -1.47028147791691
+      ],
+      "quat_wxyz_mjc": [
+        0.004647811842447484,
+        0.7070918355005748,
+        0.7070911693270058,
+        0.0046489002219003645
+      ],
+      "quat_wxyz_yup": [
+        0.004647811842447485,
+        0.7070918355005746,
+        0.0046489002219003645,
+        -0.7070911693270059
+      ],
+      "anchors": [
+        {
+          "index": 0,
+          "site_name": "Group_g1_omnipicker_usda_gripper_l_inner_link4_anchor_0",
+          "local_pos_mjc": [
+            0.03427973162088642,
+            0.03427973162088642,
+            0.03427973162088642
+          ],
+          "local_pos_yup": [
+            0.03427973162088642,
+            0.03427973162088642,
+            -0.03427973162088642
+          ]
+        },
+        {
+          "index": 1,
+          "site_name": "Group_g1_omnipicker_usda_gripper_l_inner_link4_anchor_1",
+          "local_pos_mjc": [
+            0.03427973162088642,
+            -0.03427973162088642,
+            -0.03427973162088642
+          ],
+          "local_pos_yup": [
+            0.03427973162088642,
+            -0.03427973162088642,
+            0.03427973162088642
+          ]
+        },
+        {
+          "index": 2,
+          "site_name": "Group_g1_omnipicker_usda_gripper_l_inner_link4_anchor_2",
+          "local_pos_mjc": [
+            -0.03427973162088642,
+            0.03427973162088642,
+            -0.03427973162088642
+          ],
+          "local_pos_yup": [
+            -0.03427973162088642,
+            -0.03427973162088642,
+            -0.03427973162088642
+          ]
+        },
+        {
+          "index": 3,
+          "site_name": "Group_g1_omnipicker_usda_gripper_l_inner_link4_anchor_3",
+          "local_pos_mjc": [
+            -0.03427973162088642,
+            -0.03427973162088642,
+            0.03427973162088642
+          ],
+          "local_pos_yup": [
+            -0.03427973162088642,
+            0.03427973162088642,
+            0.03427973162088642
+          ]
+        }
+      ]
+    },
+    {
+      "body_index": 4,
+      "logical_name": "Group_g1_omnipicker_usda_gripper_l_outer_link4",
+      "mjc_body_name": "Group_g1_omnipicker_usda_gripper_l_outer_link4",
+      "follow_mode": "kinematic",
+      "mass_kg": 0.0,
+      "mass_mjcf_kg": 0.035835002,
+      "box_half_extents_mjc": [
+        0.0424,
+        0.0304,
+        0.0384
+      ],
+      "box_half_extents_yup": [
+        0.0424,
+        0.0384,
+        0.0304
+      ],
+      "center_mjc": [
+        -0.49004444096136746,
+        1.4702813383040014,
+        5.224807605574096
+      ],
+      "center_yup": [
+        -0.49004444096136746,
+        5.224807605574096,
+        -1.4702813383040014
+      ],
+      "quat_wxyz_mjc": [
+        0.004647811842447484,
+        0.7070918355005748,
+        0.7070911693270058,
+        0.0046489002219003645
+      ],
+      "quat_wxyz_yup": [
+        0.004647811842447485,
+        0.7070918355005746,
+        0.0046489002219003645,
+        -0.7070911693270059
+      ],
+      "anchors": [
+        {
+          "index": 0,
+          "site_name": "Group_g1_omnipicker_usda_gripper_l_outer_link4_anchor_0",
+          "local_pos_mjc": [
+            0.03740089125497769,
+            0.03740089125497769,
+            0.03740089125497769
+          ],
+          "local_pos_yup": [
+            0.03740089125497769,
+            0.03740089125497769,
+            -0.03740089125497769
+          ]
+        },
+        {
+          "index": 1,
+          "site_name": "Group_g1_omnipicker_usda_gripper_l_outer_link4_anchor_1",
+          "local_pos_mjc": [
+            0.03740089125497769,
+            -0.03740089125497769,
+            -0.03740089125497769
+          ],
+          "local_pos_yup": [
+            0.03740089125497769,
+            -0.03740089125497769,
+            0.03740089125497769
+          ]
+        },
+        {
+          "index": 2,
+          "site_name": "Group_g1_omnipicker_usda_gripper_l_outer_link4_anchor_2",
+          "local_pos_mjc": [
+            -0.03740089125497769,
+            0.03740089125497769,
+            -0.03740089125497769
+          ],
+          "local_pos_yup": [
+            -0.03740089125497769,
+            -0.03740089125497769,
+            -0.03740089125497769
+          ]
+        },
+        {
+          "index": 3,
+          "site_name": "Group_g1_omnipicker_usda_gripper_l_outer_link4_anchor_3",
+          "local_pos_mjc": [
+            -0.03740089125497769,
+            -0.03740089125497769,
+            0.03740089125497769
+          ],
+          "local_pos_yup": [
+            -0.03740089125497769,
+            0.03740089125497769,
+            0.03740089125497769
+          ]
+        }
+      ]
+    },
+    {
+      "body_index": 5,
+      "logical_name": "Group_g1_omnipicker_usda_gripper_r_inner_link4",
+      "mjc_body_name": "Group_g1_omnipicker_usda_gripper_r_inner_link4",
+      "follow_mode": "kinematic",
+      "mass_kg": 0.0,
+      "mass_mjcf_kg": 0.018029001,
+      "box_half_extents_mjc": [
+        0.0456,
+        0.0315,
+        0.0213
+      ],
+      "box_half_extents_yup": [
+        0.0456,
+        0.0213,
+        0.0315
+      ],
+      "center_mjc": [
+        -0.4454221434573203,
+        -0.5305585610328707,
+        5.224806216593213
+      ],
+      "center_yup": [
+        -0.4454221434573203,
+        5.224806216593213,
+        0.5305585610328707
+      ],
+      "quat_wxyz_mjc": [
+        -0.7070909644005027,
+        0.004649152836527615,
+        -0.004648689091348468,
+        0.7070920329991008
+      ],
+      "quat_wxyz_yup": [
+        0.7070909644005028,
+        -0.0046491528365276156,
+        -0.707092032999101,
+        -0.004648689091348469
+      ],
+      "anchors": [
+        {
+          "index": 0,
+          "site_name": "Group_g1_omnipicker_usda_gripper_r_inner_link4_anchor_0",
+          "local_pos_mjc": [
+            0.03427973162088642,
+            0.03427973162088642,
+            0.03427973162088642
+          ],
+          "local_pos_yup": [
+            0.03427973162088642,
+            0.03427973162088642,
+            -0.03427973162088642
+          ]
+        },
+        {
+          "index": 1,
+          "site_name": "Group_g1_omnipicker_usda_gripper_r_inner_link4_anchor_1",
+          "local_pos_mjc": [
+            0.03427973162088642,
+            -0.03427973162088642,
+            -0.03427973162088642
+          ],
+          "local_pos_yup": [
+            0.03427973162088642,
+            -0.03427973162088642,
+            0.03427973162088642
+          ]
+        },
+        {
+          "index": 2,
+          "site_name": "Group_g1_omnipicker_usda_gripper_r_inner_link4_anchor_2",
+          "local_pos_mjc": [
+            -0.03427973162088642,
+            0.03427973162088642,
+            -0.03427973162088642
+          ],
+          "local_pos_yup": [
+            -0.03427973162088642,
+            -0.03427973162088642,
+            -0.03427973162088642
+          ]
+        },
+        {
+          "index": 3,
+          "site_name": "Group_g1_omnipicker_usda_gripper_r_inner_link4_anchor_3",
+          "local_pos_mjc": [
+            -0.03427973162088642,
+            -0.03427973162088642,
+            0.03427973162088642
+          ],
+          "local_pos_yup": [
+            -0.03427973162088642,
+            0.03427973162088642,
+            0.03427973162088642
+          ]
+        }
+      ]
+    },
+    {
+      "body_index": 6,
+      "logical_name": "Group_g1_omnipicker_usda_gripper_r_outer_link4",
+      "mjc_body_name": "Group_g1_omnipicker_usda_gripper_r_outer_link4",
+      "follow_mode": "kinematic",
+      "mass_kg": 0.0,
+      "mass_mjcf_kg": 0.035835002,
+      "box_half_extents_mjc": [
+        0.0424,
+        0.0304,
+        0.0384
+      ],
+      "box_half_extents_yup": [
+        0.0424,
+        0.0384,
+        0.0304
+      ],
+      "center_mjc": [
+        -0.49004364144033,
+        -0.530558522744033,
+        5.224880662443351
+      ],
+      "center_yup": [
+        -0.49004364144033,
+        5.224880662443351,
+        0.530558522744033
+      ],
+      "quat_wxyz_mjc": [
+        -0.7070909644005027,
+        0.004649152836527615,
+        -0.004648689091348468,
+        0.7070920329991008
+      ],
+      "quat_wxyz_yup": [
+        0.7070909644005028,
+        -0.0046491528365276156,
+        -0.707092032999101,
+        -0.004648689091348469
+      ],
+      "anchors": [
+        {
+          "index": 0,
+          "site_name": "Group_g1_omnipicker_usda_gripper_r_outer_link4_anchor_0",
+          "local_pos_mjc": [
+            0.03740089125497769,
+            0.03740089125497769,
+            0.03740089125497769
+          ],
+          "local_pos_yup": [
+            0.03740089125497769,
+            0.03740089125497769,
+            -0.03740089125497769
+          ]
+        },
+        {
+          "index": 1,
+          "site_name": "Group_g1_omnipicker_usda_gripper_r_outer_link4_anchor_1",
+          "local_pos_mjc": [
+            0.03740089125497769,
+            -0.03740089125497769,
+            -0.03740089125497769
+          ],
+          "local_pos_yup": [
+            0.03740089125497769,
+            -0.03740089125497769,
+            0.03740089125497769
+          ]
+        },
+        {
+          "index": 2,
+          "site_name": "Group_g1_omnipicker_usda_gripper_r_outer_link4_anchor_2",
+          "local_pos_mjc": [
+            -0.03740089125497769,
+            0.03740089125497769,
+            -0.03740089125497769
+          ],
+          "local_pos_yup": [
+            -0.03740089125497769,
+            -0.03740089125497769,
+            -0.03740089125497769
+          ]
+        },
+        {
+          "index": 3,
+          "site_name": "Group_g1_omnipicker_usda_gripper_r_outer_link4_anchor_3",
+          "local_pos_mjc": [
+            -0.03740089125497769,
+            -0.03740089125497769,
+            0.03740089125497769
+          ],
+          "local_pos_yup": [
+            -0.03740089125497769,
+            0.03740089125497769,
+            0.03740089125497769
+          ]
+        }
+      ]
+    },
+    {
+      "body_index": 7,
+      "logical_name": "Group_g1_omnipicker_usda_robot_holder1",
+      "mjc_body_name": "Group_g1_omnipicker_usda_robot_holder1",
+      "follow_mode": "kinematic",
+      "mass_kg": 0.0,
+      "mass_mjcf_kg": 60.0,
+      "box_half_extents_mjc": [
+        0.20000000299999998,
+        0.20000000299999998,
+        0.0799999979999999
+      ],
+      "box_half_extents_yup": [
+        0.20000000299999998,
+        0.0799999979999999,
+        0.20000000299999998
+      ],
+      "center_mjc": [
+        -0.598732352,
+        0.470911831,
+        4.271341801
+      ],
+      "center_yup": [
+        -0.598732352,
+        4.271341801,
+        -0.470911831
+      ],
+      "quat_wxyz_mjc": [
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "quat_wxyz_yup": [
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "anchors": [
+        {
+          "index": 0,
+          "site_name": "Group_g1_omnipicker_usda_robot_holder1_anchor_0",
+          "local_pos_mjc": [
+            0.16970562952752433,
+            0.16970562952752433,
+            0.16970562952752433
+          ],
+          "local_pos_yup": [
+            0.16970562952752433,
+            0.16970562952752433,
+            -0.16970562952752433
+          ]
+        },
+        {
+          "index": 1,
+          "site_name": "Group_g1_omnipicker_usda_robot_holder1_anchor_1",
+          "local_pos_mjc": [
+            0.16970562952752433,
+            -0.16970562952752433,
+            -0.16970562952752433
+          ],
+          "local_pos_yup": [
+            0.16970562952752433,
+            -0.16970562952752433,
+            0.16970562952752433
+          ]
+        },
+        {
+          "index": 2,
+          "site_name": "Group_g1_omnipicker_usda_robot_holder1_anchor_2",
+          "local_pos_mjc": [
+            -0.16970562952752433,
+            0.16970562952752433,
+            -0.16970562952752433
+          ],
+          "local_pos_yup": [
+            -0.16970562952752433,
+            -0.16970562952752433,
+            -0.16970562952752433
+          ]
+        },
+        {
+          "index": 3,
+          "site_name": "Group_g1_omnipicker_usda_robot_holder1_anchor_3",
+          "local_pos_mjc": [
+            -0.16970562952752433,
+            -0.16970562952752433,
+            0.16970562952752433
+          ],
+          "local_pos_yup": [
+            -0.16970562952752433,
+            0.16970562952752433,
+            0.16970562952752433
+          ]
+        }
+      ]
+    }
+  ]
+}

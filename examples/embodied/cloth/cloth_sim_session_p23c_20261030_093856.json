@@ -1,0 +1,536 @@
+{
+  "description": "NursingHome_4cloth + G1 Omnipicker + RectCloth 程序化布（2026-10-10 v2：根因C已修（clamp），材料参数回归生产默认——stretch 0.05/bend 3000/mass 0.4/thickness=spacing×0.5；网格 41×21/0.03m）",
+  "scene_id": "dual_gripper_cross_full",
+  "simulation": {
+    "realtime_step": 0.02,
+    "max_sim_time": 67.0
+  },
+  "orcalink": {
+    "enabled": true,
+    "host": "localhost",
+    "port": 50361,
+    "auto_start": true,
+    "startup_delay": 3,
+    "client": {
+      "session_id": 102,
+      "client_name": "cloth_mujoco",
+      "update_rate_hz": 50,
+      "session": {
+        "control_mode": "sync",
+        "expected_clients": 2,
+        "ready_timeout_sec": 60.0,
+        "sync_params": {
+          "sync_window_size": 2
+        }
+      },
+      "channels": {
+        "position": {
+          "channel_id": 20,
+          "publish": true,
+          "subscribe": false
+        },
+        "force": {
+          "channel_id": 21,
+          "publish": false,
+          "subscribe": true
+        }
+      }
+    }
+  },
+  "mujoco": {
+    "env_id": "dual_gripper_cross",
+    "model_path": "/home/hjadmin/Orca/OrcaStudio/{DA7376F9-F7EC-411A-8FE0-FFDF628C123D}/tmp/60702555_244B_4576_AB2A_A88B7C3409A9.xml",
+    "timestep": 0.001,
+    "frame_skip": 20,
+    "macro_dt": 0.02
+  },
+  "anchor_follow": {
+    "receive_enabled": true,
+    "status": "body_track_primary",
+    "K_p": 10.0,
+    "delta_v_clamp_mps": 0.3,
+    "ball_joint_compliance": 1e-06,
+    "body_mass_fraction": 1.0,
+    "anchor_mass_fraction_each": 0.0,
+    "inertia_use_full_mjcf_mass": true,
+    "use_body_pose": false,
+    "acceptance_pos_err_max_m": 0.05,
+    "acceptance_quat_err_max_deg": 5.0
+  },
+  "body_track": {
+    "enabled": true,
+    "status": "active",
+    "control_mode": "velocity_pd_j2c",
+    "K_p_pos": 10.0,
+    "delta_v_clamp_mps": 1.0,
+    "K_d_vel": 0.0,
+    "q_correction_gain": 0.08,
+    "use_anchor_sites": false,
+    "acceptance_pos_err_max_m": 0.05,
+    "acceptance_quat_err_max_deg": 5.0,
+    "acceptance_vel_err_max_mps": 0.15,
+    "comment": "2026-10-10 根因C修复 v2：clamp 3.0→1.0（3.0 时 343 帧布速饱和=3m/s，锁粒被当推土机拖出尖刺；收爪段实际速度约 0.1 m/s，1.0 仍有 10 倍裕量）。原 0.3 使碰撞代理滞后 0.5-0.9m 后宏步末硬吸附=隧穿源"
+  },
+  "cloth": {
+    "v4_parity": true,
+    "mesh": "fabric_3d_high_m_mid.vtk",
+    "mass_kg": 0.4,
+    "thickness_m": 0.015,
+    "stretch_compliance": 0.02,
+    "shear_compliance": 0.005,
+    "bend_compliance": 100.0,
+    "grip_side": "both",
+    "lock_radius_m": 0.08,
+    "cloth_nx": 37,
+    "cloth_ny": 21,
+    "cloth_spacing_m": 0.03,
+    "particle_friction": 1.0,
+    "finger_close_ratio": 0.5,
+    "comment_v5": "2026-10-11 v5：①nx 41→37 治自发布曲真凶——布 z 长 1.23m > 桌 z 长 1.15m 且偏 +z（+z 悬空 38mm：21 个边缘顶点沿桌侧垂坠，实测钉死 y=4.7617=桌盒中心面，把整布拖向边缘→面内压缩→172-190mm 褶皱=『未接触自动翻折』；v4 曾误诊为 bend 问题，bend 3000/100 两配置离面曲线逐帧相同证明与弯曲刚度无关——确定性几何成因）。nx=37→1.11m，两端各余 7mm/33mm 完全在桌面内 ②bend 3000→100（v4，保留：褶皱半径增大视觉更顺滑）③手指代理加粗（v4，保留）",
+    "comment_physics": "与 dg_cloth_init / phys_world_add_sheet 默认一致：stretch 0.05 shear 0.005 mass 0.4 thickness=spacing×0.5 lock 0.06；bend 3000 增强弯折（compliance 越大越易弯）；particle_friction 经 xpbd_process→PARTICLE_FRICTION（C 端默认 0.2）",
+    "comment_grip": "G1 Omnipicker：finger_close_ratio 0.75（pinch 阈值约 50.5mm）；lock_radius_m 0.05m（指尖中点球内锁粒）。经 xpbd_process → DG_FINGER_CLOSE_RATIO / lock_radius",
+    "body_name": "Cloth_Sheet_Cloth_Sheet",
+    "discovered": true,
+    "discovered_cloths": [
+      {
+        "body_name": "Cloth_Sheet_Cloth_Sheet",
+        "site_name": "Cloth_Sheet_Cloth_Sheet_XPBD_CLOTHSHEET_BOUNDS",
+        "bounds_half_extents": [
+          0.300000012,
+          0.600000024,
+          0.01
+        ],
+        "bounds_pos_local": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "discovered": true,
+        "center_mjc": [
+          0.224529535,
+          0.504554331,
+          4.802104473
+        ],
+        "quat_wxyz_mjc": [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "center_yup": [
+          0.224529535,
+          4.802104473,
+          -0.504554331
+        ],
+        "quat_wxyz_yup": [
+          0.7071067811865476,
+          -0.7071067811865475,
+          0.0,
+          0.0
+        ],
+        "level": "NursingHome_4cloth",
+        "asset_dir": "/home/hjadmin/OrcaStudio_2409/Assets/NursingHome_4cloth"
+      }
+    ],
+    "center_mjc": [
+      0.224529535,
+      0.504554331,
+      4.802104473
+    ],
+    "quat_wxyz_mjc": [
+      1.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "center_yup": [
+      0.224529535,
+      4.802104473,
+      -0.504554331
+    ],
+    "quat_wxyz_yup": [
+      0.7071067811865476,
+      -0.7071067811865475,
+      0.0,
+      0.0
+    ],
+    "level": "NursingHome_4cloth",
+    "asset_dir": "/home/hjadmin/OrcaStudio_2409/Assets/NursingHome_4cloth"
+  },
+  "particle_render": {
+    "enabled": true,
+    "grpc_address": "localhost:50261",
+    "update_rate_hz": 30,
+    "comment": "XPBD PBD_GRPC=1 + GrpcClient；Studio PBDRender Gem Play cloth_demo",
+    "sbt_rotation": "from_quat",
+    "comment_sbt": "v6：VTK 直载 496 点中层网格，与关卡布几何对齐 → bake map 最近邻精确；from_quat 由发现的 site 位姿自动算旋转（z90 是程序化布时代的常数映射，对 VTK 直载不适用）"
+  },
+  "xpbd_rigid_parity": {
+    "match_v4": false,
+    "finger_mass_kg": 0.05,
+    "palm_restitution": 0.1,
+    "palm_dynamic_friction": 0.8,
+    "palm_static_friction": 1.0,
+    "finger_dynamic_friction": 2.5,
+    "finger_static_friction": 3.0,
+    "base_dynamic_friction": 1.5,
+    "base_static_friction": 2.0,
+    "gripper_collider_layer_group": 1,
+    "cloth_collision_exclude_logical": "",
+    "comment": "ClothRobot：场景刚体为布-刚代理盒；刚-刚碰撞在 MuJoCo，XPBD 用 Layer_1_No1 禁刚-刚"
+  },
+  "xpbd": {
+    "enabled": true,
+    "auto_start": true,
+    "executable": "../../../../XPBD/build/dual_gripper_cross_mjc",
+    "config_path": "cloth_sim_config.dual_gripper_cross_full.json",
+    "substep_dt": 0.000625,
+    "substeps": 32,
+    "macro_dt": 0.02,
+    "orcalink": {
+      "client_name": "xpbd_pbd",
+      "coupling_mode": "force_position",
+      "flow_control_window_size": 10,
+      "speed_ratio_threshold": 2.0
+    },
+    "args": [
+      "--config",
+      "{config_path}"
+    ],
+    "startup_delay": 5,
+    "cloth_discover_only": false,
+    "disable_base_phys": true,
+    "force_gs_solver": true,
+    "auto_build": true,
+    "dg_traj": "cloth_robot",
+    "show_ui": true,
+    "overlay_mjc": true,
+    "comment_force_gs": "R-PHYS-4：联调暂用 GS，避免 Jacobi 粒子–刚体盒接触失效",
+    "solver": "vbd",
+    "vbd_iterations": 4,
+    "comment_solver": "2026-10-12 方案C：Vertex Block Descent（SIGGRAPH 2024）顶点级 3x3 牛顿块求解——每顶点把相邻距离约束+接触（粒子对/桌/手指盒）放同一局部系统同时解，接触不再被约束级 Jacobi 平均掉（治穿模；R-PHYS-4 的根因）。优先级高于父配置 force_gs_solver；A/B 回退设 solver=gs 或环境变量 PBDX_SOLVER=gs。仅源码编译版支持（ORCAXPBD_USE_PIP_PACKAGE=0），pip 二进制遇 vbd 自动退化为 GS"
+  },
+  "frame_count": {
+    "mujoco_substeps_per_macro_frame": 20,
+    "xpbd_substeps_per_macro_frame": 32,
+    "macro_dt_sec": 0.02
+  },
+  "rigid_body_map": [
+    {
+      "logical_name": "Cube2_Cube2",
+      "mjc_body_name": "Cube2_Cube2",
+      "follow_mode": "kinematic",
+      "discovered": true,
+      "box_half_extents": [
+        0.6400000449999999,
+        1.034999967,
+        0.01499999999999968
+      ]
+    },
+    {
+      "logical_name": "g1_omnipicker_usda_arm_l_end_link",
+      "mjc_body_name": "g1_omnipicker_usda_arm_l_end_link",
+      "follow_mode": "kinematic",
+      "discovered": true,
+      "box_half_extents": [
+        0.03985795215497345,
+        0.03086942126510667,
+        0.06454903729562322
+      ]
+    },
+    {
+      "logical_name": "g1_omnipicker_usda_arm_r_end_link",
+      "mjc_body_name": "g1_omnipicker_usda_arm_r_end_link",
+      "follow_mode": "kinematic",
+      "discovered": true,
+      "box_half_extents": [
+        0.03985793264264785,
+        0.031069401472031504,
+        0.06454885829666956
+      ]
+    },
+    {
+      "logical_name": "g1_omnipicker_usda_gripper_l_inner_link4",
+      "mjc_body_name": "g1_omnipicker_usda_gripper_l_inner_link4",
+      "follow_mode": "kinematic",
+      "discovered": true,
+      "box_half_extents": [
+        0.0456,
+        0.0315,
+        0.0213
+      ]
+    },
+    {
+      "logical_name": "g1_omnipicker_usda_gripper_l_outer_link4",
+      "mjc_body_name": "g1_omnipicker_usda_gripper_l_outer_link4",
+      "follow_mode": "kinematic",
+      "discovered": true,
+      "box_half_extents": [
+        0.0424,
+        0.0304,
+        0.0384
+      ]
+    },
+    {
+      "logical_name": "g1_omnipicker_usda_gripper_r_inner_link4",
+      "mjc_body_name": "g1_omnipicker_usda_gripper_r_inner_link4",
+      "follow_mode": "kinematic",
+      "discovered": true,
+      "box_half_extents": [
+        0.0456,
+        0.0315,
+        0.0213
+      ]
+    },
+    {
+      "logical_name": "g1_omnipicker_usda_gripper_r_outer_link4",
+      "mjc_body_name": "g1_omnipicker_usda_gripper_r_outer_link4",
+      "follow_mode": "kinematic",
+      "discovered": true,
+      "box_half_extents": [
+        0.0424,
+        0.0304,
+        0.0384
+      ]
+    },
+    {
+      "mjc_body_name": "g1_omnipicker_usda_robot_holder1",
+      "follow_mode": "kinematic",
+      "orcalink_publish": false,
+      "box_half_extents": [
+        0.20000000299999998,
+        0.20000000299999998,
+        0.0799999979999999
+      ],
+      "logical_name": "g1_omnipicker_usda_robot_holder1"
+    }
+  ],
+  "mujoco_trajectory": {
+    "type": "dual_gripper_cross_v4_module",
+    "module": "modules.dual_gripper_cross_trajectory_v4",
+    "function": "compute_ctrl",
+    "apply_frame_function": "apply_frame",
+    "duration_sec": 67.0,
+    "actuator_names": [
+      "gripper_l_finger1_ctrl",
+      "gripper_l_finger2_ctrl",
+      "gripper_r_finger1_ctrl",
+      "gripper_r_finger2_ctrl"
+    ]
+  },
+  "anchor_discovery": {
+    "auto_from_model": false,
+    "site_substring": "_anchor_"
+  },
+  "debug": {
+    "debug_mode": true,
+    "publish_only": false,
+    "export_csv": false,
+    "export_recv_yup_csv": false,
+    "export_anchor_substep_csv": false,
+    "export_body_track_monitor_csv": false,
+    "export_sync_seq_monitor": true,
+    "export_macro_timing_pair": true,
+    "export_macro_packet_pair_verify": false,
+    "export_vertex_pos_compare": false,
+    "debug_log_dir": "../../../XPBD/MjcPBD_orcalink/debug_log",
+    "comment": "全链路 67s；联调 --profile capture"
+  },
+  "orcagym": {
+    "rigid_body_map_key": "orcagym_rigid_body_map",
+    "comment": "Studio 关卡须含 gripper_l_palm 等刚体名；无 anchor SITE 时走 body-only 发包",
+    "mjc_agent_prefix": "g1_omnipicker_usda",
+    "sync_mocap_from_gripper": {
+      "enabled": false,
+      "pairs": [
+        {
+          "mocap_body": "openloong_gripper_2f85_fix_base_usda_leftHandMocap",
+          "palm_body": "openloong_gripper_2f85_fix_base_usda_zbll_base_link"
+        },
+        {
+          "mocap_body": "openloong_gripper_2f85_fix_base_usda_rightHandMocap",
+          "palm_body": "openloong_gripper_2f85_fix_base_usda_zbr_base_link"
+        }
+      ],
+      "comment": "G1 MJCF 无 leftHandMocap；手臂 OSC 走 ee site，不启 palm→mocap 同步"
+    },
+    "level": "NursingHome_4cloth",
+    "pose_remap": {
+      "enabled": false
+    },
+    "tele_agent_name": "g1_omnipicker",
+    "tele_layout": {
+      "base_body": "robot_holder1",
+      "left_palm_body": "arm_l_end_link",
+      "right_palm_body": "arm_r_end_link",
+      "left_ee_site": "ee_center_site_l",
+      "right_ee_site": "ee_center_site_r"
+    },
+    "_mjcf_path_for_qpos": "/home/hjadmin/Orca/OrcaStudio/{DA7376F9-F7EC-411A-8FE0-FFDF628C123D}/tmp/60702555_244B_4576_AB2A_A88B7C3409A9.xml"
+  },
+  "xpbd_auto_discover": {
+    "bodies": true,
+    "cloth": true,
+    "default_follow_mode": "kinematic",
+    "body_track_scan_only": false,
+    "comment_body_track": "仅 _XPBD_TRACK_GEOM；G1/openloong 通用，勿写死子串白名单",
+    "body_include_geom_suffixes": [],
+    "body_include_substrings": [
+      "arm_l_end_link",
+      "arm_r_end_link",
+      "gripper_l_inner_link4",
+      "gripper_l_outer_link4",
+      "gripper_r_inner_link4",
+      "gripper_r_outer_link4",
+      "Cube"
+    ],
+    "comment": "body_track_scan_only=false：优先 _XPBD_TRACK_GEOM 扫描，Studio 未打标时用子串兜底（临时）；勿用 openloong zbll/zbr/_geom_*"
+  },
+  "orcagym_rigid_body_map": [
+    {
+      "mjc_body_name": "g1_omnipicker_usda_robot_holder1",
+      "follow_mode": "kinematic",
+      "orcalink_publish": false
+    },
+    {
+      "mjc_body_name": "g1_omnipicker_usda_gripper_l_inner_link4",
+      "box_half_extents": [
+        0.0456,
+        0.0315,
+        0.0213
+      ]
+    },
+    {
+      "mjc_body_name": "g1_omnipicker_usda_gripper_l_outer_link4",
+      "box_half_extents": [
+        0.0424,
+        0.0304,
+        0.0384
+      ]
+    },
+    {
+      "mjc_body_name": "g1_omnipicker_usda_gripper_r_inner_link4",
+      "box_half_extents": [
+        0.0456,
+        0.0315,
+        0.0213
+      ]
+    },
+    {
+      "mjc_body_name": "g1_omnipicker_usda_gripper_r_outer_link4",
+      "box_half_extents": [
+        0.0424,
+        0.0304,
+        0.0384
+      ]
+    }
+  ],
+  "cloth_robot": {
+    "gripper_keyframes_json": "cloth_robot_gripper_keyframes.NursingHome_4cloth_g1_normal_pinch.json",
+    "comment": "法向夹布轨迹（offset_from_cloth_center_mjc，自动适配当前布心 4.80m）；原 RectCloth 版为 yup 绝对坐标（原场景 11.7m），跨场景不平移，已弃用"
+  },
+  "grip_bind": {
+    "left": {
+      "palm_legacy": "gripper_l_palm",
+      "palm_suffix": "arm_l_end_link",
+      "finger1_legacy": "gripper_l_finger1",
+      "finger1_suffix": "gripper_l_inner_link4",
+      "finger2_legacy": "gripper_l_finger2",
+      "finger2_suffix": "gripper_l_outer_link4"
+    },
+    "right": {
+      "palm_legacy": "gripper_r_palm",
+      "palm_suffix": "arm_r_end_link",
+      "finger1_legacy": "gripper_r_finger1",
+      "finger1_suffix": "gripper_r_inner_link4",
+      "finger2_legacy": "gripper_r_finger2",
+      "finger2_suffix": "gripper_r_outer_link4"
+    }
+  },
+  "comment_rigid_body_map": "2026-10-11 v4 手指代理加粗（NVIDIA 官方建议①等效物）：适配器实际读 orcagym_rigid_body_map（父配置 rigid_body_map_key 指定），v3 写错到 rigid_body_map 被扫描覆盖（教训）。Studio MJCF 自动 AABB：inner 37.6×23.5×13.3mm / outer 34.4×22.4×30.4mm，薄边 13.3mm<布厚 15mm 布顶点可骑入壳内卡死；统一 +8mm。holder 行来自父配置（extends 深合并 list 整体替换，必须带上）",
+  "comment_v6": "2026-10-12 v6：两张布问题修复——XPBD 不再另建程序化布（37×21@3cm=777 顶点≠关卡布 1187 顶点，SBT bake map 乱序 mf=0 max_dist=1.29m≈对角线），改为直载从关卡布 cook 网格提取的单层中层网格 VTK（fabric_3d_high_m_mid.vtk，496=16×31@4cm，与关卡布同尺寸同布点同位形，bake map 退化为几何精确最近邻映射）。注意：cook 网格本身是双层壳（z=±1mm 间距 2mm << 自碰撞厚度 15mm），直接 1187 顶点喂入会被 self-collision-at-rest 炸开（实测 max_disp 4.83m），且 1187 点在 1.2×0.6m 面上无法全部保持 ≥碰撞间距——1:1 MATCH 对该资产物理不可行，中层+bake map 是正确架构（掩码流程同款设计）。VTK 位于 pip 包 orcaxpbd_client/data/ 与 dataCollection_cloth/data/（exe cwd 两种可能都覆盖）；生成脚本 /tmp/pbd_grpc_query/gen_vtk_mid.py（数据源 rest_mesh_0.json+triangles.npy 活体提取）。cloth_nx/ny/spacing 保留仅供回滚（VTK 路径不读）",
+  "orcalink_rigid_body_map": [
+    {
+      "logical_name": "Cube2_Cube2",
+      "mjc_body_name": "Cube2_Cube2",
+      "follow_mode": "kinematic",
+      "discovered": true,
+      "box_half_extents": [
+        0.6400000449999999,
+        1.034999967,
+        0.01499999999999968
+      ]
+    },
+    {
+      "logical_name": "g1_omnipicker_usda_arm_l_end_link",
+      "mjc_body_name": "g1_omnipicker_usda_arm_l_end_link",
+      "follow_mode": "kinematic",
+      "discovered": true,
+      "box_half_extents": [
+        0.03985795215497345,
+        0.03086942126510667,
+        0.06454903729562322
+      ]
+    },
+    {
+      "logical_name": "g1_omnipicker_usda_arm_r_end_link",
+      "mjc_body_name": "g1_omnipicker_usda_arm_r_end_link",
+      "follow_mode": "kinematic",
+      "discovered": true,
+      "box_half_extents": [
+        0.03985793264264785,
+        0.031069401472031504,
+        0.06454885829666956
+      ]
+    },
+    {
+      "logical_name": "g1_omnipicker_usda_gripper_l_inner_link4",
+      "mjc_body_name": "g1_omnipicker_usda_gripper_l_inner_link4",
+      "follow_mode": "kinematic",
+      "discovered": true,
+      "box_half_extents": [
+        0.0456,
+        0.0315,
+        0.0213
+      ]
+    },
+    {
+      "logical_name": "g1_omnipicker_usda_gripper_l_outer_link4",
+      "mjc_body_name": "g1_omnipicker_usda_gripper_l_outer_link4",
+      "follow_mode": "kinematic",
+      "discovered": true,
+      "box_half_extents": [
+        0.0424,
+        0.0304,
+        0.0384
+      ]
+    },
+    {
+      "logical_name": "g1_omnipicker_usda_gripper_r_inner_link4",
+      "mjc_body_name": "g1_omnipicker_usda_gripper_r_inner_link4",
+      "follow_mode": "kinematic",
+      "discovered": true,
+      "box_half_extents": [
+        0.0456,
+        0.0315,
+        0.0213
+      ]
+    },
+    {
+      "logical_name": "g1_omnipicker_usda_gripper_r_outer_link4",
+      "mjc_body_name": "g1_omnipicker_usda_gripper_r_outer_link4",
+      "follow_mode": "kinematic",
+      "discovered": true,
+      "box_half_extents": [
+        0.0424,
+        0.0304,
+        0.0384
+      ]
+    }
+  ],
+  "_cloth_robot_session_meta": {
+    "session_timestamp": "p23c_20261030_093856",
+    "source_config": "/home/hjadmin/Euler_Flow/OrcaPlayground/examples/embodied/cloth/cloth_sim_config.NursingHome_4cloth_g1_omnipicker.json",
+    "source_mjcf": "/home/hjadmin/Orca/OrcaStudio/{DA7376F9-F7EC-411A-8FE0-FFDF628C123D}/tmp/60702555_244B_4576_AB2A_A88B7C3409A9.xml"
+  }
+}

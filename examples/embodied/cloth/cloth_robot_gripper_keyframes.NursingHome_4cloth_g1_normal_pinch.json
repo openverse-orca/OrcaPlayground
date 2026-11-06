@@ -1,0 +1,35 @@
+{
+  "description": "NursingHome_4cloth + G1 Omnipicker 法向夹布（offset_from_cloth_center_mjc，运行时自动适配当前布心）——穿模复现专用轨迹",
+  "coordinate_system": "offset_from_cloth_center_mjc",
+  "target_body": "palm",
+  "metadata": {
+    "level": "NursingHome_4cloth",
+    "agent": "g1_omnipicker",
+    "cloth_center_mjc_ref": [0.224529535, 0.504554331, 4.802104473],
+    "cloth_orientation": "水平布面（2026-10-10 实测修正）：法向=mjc Z(竖直向上)，长边=mjc Y(±0.60m)，短边=mjc X(±0.30m)；指尖≈掌目标 z-0.17m——掌 z 偏移 0.20 时指尖贴布面(+0.03)，approach 必须 ≥0.45 才能净空",
+    "palm_neutral_mjc": {
+      "left": [-0.179, 1.231, 5.225],
+      "right": [-0.179, -0.291, 5.225]
+    },
+    "grasp_mode": "normal_pinch_upper_left",
+    "note": "offset 相对运行时布心（palm_targets_mjc_for_keyframe 自动平移）；掌从布面法向两侧压合，t=10 沿长边横拖 0.5m 作为穿模高压段"
+  },
+  "verification": {
+    "approach_t_sec": 3.0,
+    "max_palm_err_m": 0.15
+  },
+  "gripper_fsm": {
+    "close_t0_sec": 5.0,
+    "close_t1_sec": 9.0,
+    "open_t0_sec": 99.0,
+    "open_t1_sec": 99.0
+  },
+  "keyframes": [
+    {"t_sec": 0.0, "grip_cmd": "open", "neutral": true, "comment": "tele neutral"},
+    {"t_sec": 3.0, "grip_cmd": "open", "left_offset_mjc": [-0.30, 0.35, 0.50], "right_offset_mjc": [-0.30, -0.35, 0.50], "comment": "slow approach：高位悬停，指尖≈布面+0.33m（净空）"},
+    {"t_sec": 7.0, "grip_cmd": "closing", "left_offset_mjc": [-0.30, 0.12, 0.20], "right_offset_mjc": [-0.30, -0.12, 0.20], "comment": "slow descend：30cm/4s=7.5cm/s 降至夹取高度，掌距 0.24m"},
+    {"t_sec": 10.0, "grip_cmd": "closed", "left_offset_mjc": [-0.30, 0.05, 0.20], "right_offset_mjc": [-0.30, -0.05, 0.20], "comment": "pinch：夹紧至掌距 0.10m，指尖贴布（设计接触）"},
+    {"t_sec": 13.0, "grip_cmd": "closed", "left_offset_mjc": [-0.30, 0.05, 0.55], "right_offset_mjc": [-0.30, -0.05, 0.55], "comment": "slow lift：35cm/3s≈12cm/s 抬升（验证夹持，布料跟随）"},
+    {"t_sec": 15.0, "grip_cmd": "closed", "left_offset_mjc": [-0.30, 0.05, 0.55], "right_offset_mjc": [-0.30, -0.05, 0.55], "comment": "hold：保持高位到结束（v3 精简：仅下降→夹取→抬升全过程，删横拖/张爪/外撤）"}
+  ]
+}
