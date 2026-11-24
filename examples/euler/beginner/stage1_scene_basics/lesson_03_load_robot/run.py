@@ -24,6 +24,7 @@ from examples.euler.beginner._common.assets import FLOOR, GO2, H1  # 按各课�
 from examples.euler.beginner._common.scene_recipe import (
     FLOOR_Z_OFFSET,
     ActorSpec,
+    report_rundata,
     setup_console_logging,
     spawn_recipe,
 )
@@ -57,6 +58,7 @@ def main() -> int:
     args = parser.parse_args()
 
     setup_console_logging()
+    report_rundata(args.addr, "beginscene")  # 运行数据上报（旁路遥测，失败不阻断课程）
 
     _logger.info("=" * 60)
     _logger.info("第 03 课：导入一个机器人 — 机器人也是资产")

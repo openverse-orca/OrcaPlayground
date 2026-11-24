@@ -127,6 +127,6 @@ sim_link.kick_body(env, striker, np.array([STRIKER_SPEED, 0.0, 0.0]))
 
 ## 参见
 
-- 上一课：`lesson_23_friction_slide`（d=v²/(2μg)：摩擦管刹车）
-- 阶段收束：本课是阶段 4（物理交互）最后一课，下一阶段进入关节控制
+- 上一课：[第 23 课：摩擦刹车](../lesson_23_friction_slide/README.md)（d=v²/(2μg)：摩擦管刹车）
+- 下一课：[第 25 课：认识关节](../../stage5_joint_control/lesson_25_inspect_joint/README.md) — 阶段 4（物理交互）到此收束，进入阶段 5「从一个关节开始控制」
 - `_common/sim_link.py`（连接/步进/kick_body）、`_common/assets.py`（资产路径）

@@ -92,7 +92,7 @@ env.do_simulation(ctrl, sim_link.FRAME_SKIP)
 
 ## 参见
 
-- 上一课：`lesson_29_torque_control`（α=τ/I：力矩是承诺，加速度是结果）
+- 上一课：[第 29 课：力矩控制](../lesson_29_torque_control/README.md)（α=τ/I：力矩是承诺，加速度是结果）
 - 阶段收束：本课是阶段 5（单关节控制）最后一课，下一阶段进入机器人
   控制（差速小车 / 机械臂+夹爪）
 - `_common/sim_link.py`（连接/步进/关节解析）、`_common/assets.py`（教具路径）

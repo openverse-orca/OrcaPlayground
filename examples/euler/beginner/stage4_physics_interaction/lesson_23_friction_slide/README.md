@@ -102,6 +102,6 @@ env.set_joint_qvel(qvel)
 
 ## 参见
 
-- 上一课：`lesson_22_compare_mass`（a=F/m：质量管加速）
-- 下一课：`lesson_24_stack_blocks`（多体接触：搭积木与推倒）
+- 上一课：[第 22 课：轻与重](../lesson_22_compare_mass/README.md)（a=F/m：质量管加速）
+- 下一课：[第 24 课：搭积木与推倒](../lesson_24_stack_blocks/README.md)（多体接触：搭积木与推倒）
 - `_common/sim_link.py`（连接/步进/自由关节 dof 地址）、`_common/assets.py`（资产路径）

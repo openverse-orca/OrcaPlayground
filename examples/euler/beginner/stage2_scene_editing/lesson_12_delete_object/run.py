@@ -28,6 +28,7 @@ from examples.euler.beginner._common.scene_recipe import (
     FLOOR_Z_OFFSET,
     ActorSpec,
     clear_scene,
+    report_rundata,
     setup_console_logging,
     spawn_recipe,
 )
@@ -90,6 +91,7 @@ def main() -> int:
     args = parser.parse_args()
 
     setup_console_logging()
+    report_rundata(args.addr, "beginscene")  # 运行数据上报（旁路遥测，失败不阻断课程）
 
     # 先构建并校验配方（DELETE_NAMES 填错在这里友好报错，不会摆出半成品）
     specs = build_recipe()
