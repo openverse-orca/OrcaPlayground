@@ -10,6 +10,8 @@
 
 from __future__ import annotations
 
+import pathlib
+import sys
 import time
 from dataclasses import dataclass
 
@@ -84,6 +86,35 @@ def clear_scene(addr: str) -> None:
     finally:
         temp.close()
     time.sleep(_CLEAR_BUFFER_S)
+
+
+def report_rundata(addr: str, step: str) -> None:
+    """向 OrcaLab 上报课程运行数据（scene.get_rundata，旁路遥测）。
+
+    与官方脚本（run_sim_loop / 冻结分支 run_ackerman 的 sceneinfo）同款
+    通道与模式：临时开一条 scene 连接上报后即关，不占用课程自身的连接；
+    脚本名见 _argv_script_name。与官方版唯一的刻意差异：失败只记
+    WARNING 不抛——课程主流程不能因收集通道异常而中断。
+    """
+    try:
+        scene = OrcaGymScene(addr)
+        try:
+            scene.get_rundata(_argv_script_name(), step)
+        finally:
+            scene.close(auto_restore=False)  # 遥测连接未改场景，明确跳过退出复原
+    except Exception as exc:  # noqa: BLE001 — 遥测失败只告警，不阻断课程主流程
+        _logger.warning(f"运行数据上报失败（已忽略）：{exc}")
+
+
+def _argv_script_name() -> str:
+    """课程脚本辨识名（"lesson_01_hello_world/run.py"）。
+
+    官方脚本用 basename(sys.argv[0])，但 30 课的 basename 全是
+    "run.py" 无辨识度——补上父目录名（课程目录名全局唯一）即可区分。
+    """
+    argv0 = sys.argv[0] if sys.argv else __file__
+    path = pathlib.Path(argv0).resolve()
+    return f"{path.parent.name}/{path.name}"
 
 
 def spawn_recipe(addr: str, specs: list[ActorSpec]) -> OrcaGymScene:

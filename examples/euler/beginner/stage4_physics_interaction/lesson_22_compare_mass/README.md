@@ -105,6 +105,6 @@ for ball in (light, heavy):
 
 ## 参见
 
-- 上一课：`lesson_21_arm_push`（F=ma 的力侧：v≈F/m×t）
-- 下一课：`lesson_23_friction_slide`（本课关掉的摩擦，下一课当主角）
+- 上一课：[第 21 课：臂式推放](../lesson_21_arm_push/README.md)（F=ma 的力侧：v≈F/m×t）
+- 下一课：[第 23 课：摩擦刹车](../lesson_23_friction_slide/README.md)（本课关掉的摩擦，下一课当主角）
 - `_common/sim_link.py`（连接/步进/配速）、`_common/assets.py`（资产路径）

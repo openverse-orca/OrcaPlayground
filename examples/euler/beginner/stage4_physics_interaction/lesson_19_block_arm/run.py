@@ -45,6 +45,7 @@ from examples.euler.beginner._common.scene_recipe import (
     FLOOR_Z_OFFSET,
     ActorSpec,
     clear_scene,
+    report_rundata,
     setup_console_logging,
     spawn_recipe,
 )
@@ -301,6 +302,7 @@ def main() -> int:
     args = parser.parse_args()
 
     setup_console_logging()
+    report_rundata(args.addr, "beginscene")  # 运行数据上报（旁路遥测，失败不阻断课程）
 
     _logger.info("=" * 60)
     _logger.info("第 19 课：积木臂登场 — 从「摆位姿」到「驱动关节」")
