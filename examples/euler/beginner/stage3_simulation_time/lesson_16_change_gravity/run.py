@@ -93,7 +93,7 @@ def main() -> int:
         _logger.error("未找到方块。拖入一个方块，或加 --default-scene 运行默认配方。")
         env.close()
         if scene is not None:
-            scene.close()
+            scene.close(auto_restore=False)  # 只关连接不清场，资产留在视口供课后观察
         return 1
 
     ctrl = sim_link.zero_ctrl(env)
@@ -130,7 +130,7 @@ def main() -> int:
     finally:
         env.close()
         if scene is not None:
-            scene.close()
+            scene.close(auto_restore=False)  # 只关连接不清场，资产留在视口供课后观察
     return 0
 
 

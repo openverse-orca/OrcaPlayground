@@ -24,6 +24,7 @@ from examples.euler.beginner._common.assets import FLOOR, GO2, H1  # 按各课�
 from examples.euler.beginner._common.scene_recipe import (
     FLOOR_Z_OFFSET,
     ActorSpec,
+    clear_scene,
     report_rundata,
     setup_console_logging,
     spawn_recipe,
@@ -66,6 +67,8 @@ def main() -> int:
     _logger.info(f"  asset_path: {ROBOT_CHOICES[args.robot]}")
     _logger.info("=" * 60)
 
+    # 复位语义：上次运行的资产保留到此刻，清空后摆本课配方
+    clear_scene(args.addr)
     scene = spawn_recipe(args.addr, build_recipe(args.robot))
     _logger.info("[完成] 机器人已出现在场景中（仅观察，控制从第 27 课开始）")
 
@@ -76,7 +79,7 @@ def main() -> int:
     except KeyboardInterrupt:
         _logger.info("用户中断，正在退出")
     finally:
-        scene.close()
+        scene.close(auto_restore=False)  # 只关连接不清场，资产留在视口供课后观察
     return 0
 
 

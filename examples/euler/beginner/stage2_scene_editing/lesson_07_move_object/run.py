@@ -81,7 +81,7 @@ def main() -> int:
     except KeyboardInterrupt:
         _logger.info("用户中断，正在退出")
     finally:
-        scene.close()
+        scene.close(auto_restore=False)  # 只关连接不清场，资产留在视口供课后观察
     return 0
 
 

@@ -147,7 +147,7 @@ def main() -> int:
         )
     finally:
         if scene is not None:
-            scene.close()
+            scene.close(auto_restore=False)  # 只关连接不清场，资产留在视口供课后观察
     return 0
 
 

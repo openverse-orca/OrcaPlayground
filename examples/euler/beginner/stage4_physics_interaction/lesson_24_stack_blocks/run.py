@@ -242,7 +242,7 @@ def main() -> int:
         )
         env.close()
         if scene is not None:
-            scene.close()
+            scene.close(auto_restore=False)  # 只关连接不清场，资产留在视口供课后观察
         return 1
 
     try:
@@ -256,7 +256,7 @@ def main() -> int:
         env.clear_all_forces()
         env.close()
         if scene is not None:
-            scene.close()
+            scene.close(auto_restore=False)  # 只关连接不清场，资产留在视口供课后观察
     return 0
 
 
