@@ -24,6 +24,7 @@ from examples.euler.beginner._common.assets import BALL, CUBE, FLOOR, TABLE  # �
 from examples.euler.beginner._common.scene_recipe import (
     FLOOR_Z_OFFSET,
     ActorSpec,
+    clear_scene,
     report_rundata,
     setup_console_logging,
     spawn_recipe,
@@ -65,6 +66,8 @@ def main() -> int:
         _logger.info(f"    {spec.name:10s} ← {spec.asset_path} @ {spec.position}")
     _logger.info("=" * 60)
 
+    # 复位语义：上次运行的资产保留到此刻，清空后摆本课配方
+    clear_scene(args.addr)
     scene = spawn_recipe(args.addr, recipe)
     _logger.info("[完成] 预置场景已一键还原，请到视口查看")
 
@@ -75,7 +78,7 @@ def main() -> int:
     except KeyboardInterrupt:
         _logger.info("用户中断，正在退出")
     finally:
-        scene.close()
+        scene.close(auto_restore=False)  # 只关连接不清场，资产留在视口供课后观察
     return 0
 
 

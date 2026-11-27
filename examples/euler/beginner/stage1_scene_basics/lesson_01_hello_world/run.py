@@ -26,6 +26,7 @@ from examples.euler.beginner._common.assets import CUBE, FLOOR  # 按各课实�
 from examples.euler.beginner._common.scene_recipe import (
     FLOOR_Z_OFFSET,
     ActorSpec,
+    clear_scene,
     report_rundata,
     setup_console_logging,
     spawn_recipe,
@@ -54,6 +55,8 @@ def main() -> int:
     _logger.info("第 01 课：Hello OrcaGym — 看见你的第一个场景")
     _logger.info("=" * 60)
 
+    # 复位语义：上次运行的资产保留到此刻，清空后摆本课配方
+    clear_scene(args.addr)
     # 三步范式封装在 spawn_recipe：配方 → add_actor → publish
     scene = spawn_recipe(args.addr, build_default_recipe())
     _logger.info("[完成] 场景已就绪，请在 OrcaLab 视口查看地面与方块")
@@ -65,7 +68,7 @@ def main() -> int:
     except KeyboardInterrupt:
         _logger.info("用户中断，正在退出")
     finally:
-        scene.close()
+        scene.close(auto_restore=False)  # 只关连接不清场，资产留在视口供课后观察
         _logger.info("[退出] 连接已关闭，第 01 课验证通过")
     return 0
 

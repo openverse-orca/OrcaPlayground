@@ -271,7 +271,7 @@ def main() -> int:
         )
         env.close()
         if scene is not None:
-            scene.close()
+            scene.close(auto_restore=False)  # 只关连接不清场，资产留在视口供课后观察
         return 1
     balls = [n for n in env.model.get_body_names() if _BALL_KEYWORD in n.lower()]
     if not balls:
@@ -282,7 +282,7 @@ def main() -> int:
     finally:
         env.close()
         if scene is not None:
-            scene.close()
+            scene.close(auto_restore=False)  # 只关连接不清场，资产留在视口供课后观察
     return 0
 
 

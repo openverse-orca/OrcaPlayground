@@ -25,6 +25,7 @@ from examples.euler.beginner._common.discovery import probe_body_names
 from examples.euler.beginner._common.scene_recipe import (
     FLOOR_Z_OFFSET,
     ActorSpec,
+    clear_scene,
     report_rundata,
     setup_console_logging,
     spawn_recipe,
@@ -64,6 +65,8 @@ def main() -> int:
     _logger.info("第 06 课：找到指定物体 — 从场景里认出你的目标")
     _logger.info("=" * 60)
 
+    # 复位语义：上次运行的资产保留到此刻，清空后摆本课配方
+    clear_scene(args.addr)
     # 1. 先把场景摆出来（同第 05 课配方 + 一个球）
     scene = spawn_recipe(args.addr, build_recipe())
     try:
@@ -85,7 +88,7 @@ def main() -> int:
             return 1
         _logger.info("[完成] 你已经知道目标物体的名字了——这是控制它的第一步")
     finally:
-        scene.close()
+        scene.close(auto_restore=False)  # 只关连接不清场，资产留在视口供课后观察
     return 0
 
 

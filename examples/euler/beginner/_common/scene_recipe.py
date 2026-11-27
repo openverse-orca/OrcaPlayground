@@ -75,16 +75,22 @@ def _to_actor(spec: ActorSpec) -> Actor:
 
 
 def clear_scene(addr: str) -> None:
-    """清空 Studio 场景（空 publish），用于「改配方→重建」的复位语义。
+    """清空 Studio 场景（删除实体树全部 actor 后重新发布），用于「改配方→重建」的复位语义。
 
+    orca-gym 26.11 起 publish_scene 仅按引擎实体树重建 MJCF、不再清空
+    实体树（实体树为单一权威），空发布不再是清场——清空必须逐个删除再发布。
     前置：OrcaLab 已运行。
-    后置：场景内既有实体被销毁（PublishScene 语义），等待缓冲后返回。
+    后置：场景内既有实体被销毁，等待缓冲后返回。
     """
     temp = OrcaGymScene(addr)
     try:
+        # 只删根的直接子节点：子树随父一并删除，避免删父后再删子报"不存在"
+        for child in temp.get_actor_tree().children:
+            temp.delete_actor(child.path)
         temp.publish_scene()
     finally:
-        temp.close()
+        # delete 触发快照基线，默认退出复原会把刚删的实体救回来——必须跳过
+        temp.close(auto_restore=False)
     time.sleep(_CLEAR_BUFFER_S)
 
 
